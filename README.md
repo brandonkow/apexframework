@@ -39,11 +39,30 @@ ESTATELAB_RAG_PATH=./rag/corpus.json
 
 `ESTATELAB_DATA_DIR` is useful in production. If the folder is empty on first start, the app seeds the runtime database from the bundled `data/db.json`.
 
-## Deploy
+## Deploy On Vercel
 
-Any Node host that supports a long-running web server can run this app.
+Vercel is the recommended first deployment target for the current app.
 
-For Render:
+1. Import `brandonkow/jarvis` into Vercel.
+2. Keep the framework preset as `Other`.
+3. Use the default install command.
+4. Leave the build command empty.
+5. Set `ESTATELAB_OWNER_TOKEN` as an environment variable.
+6. Deploy.
+
+The app includes `api/[...path].js`, which adapts the Node backend to Vercel serverless functions.
+
+Important Vercel data note:
+
+- The bundled EstateLab knowledge base is deployed with the app.
+- Public Jarvis sessions can run on Vercel, but file-based session writes are temporary in a serverless environment.
+- Before opening this to many normal users, replace file-based session storage with a real database such as Vercel Postgres, Neon, Supabase, or another managed database.
+
+## Deploy On A Node Server
+
+Any Node host that supports a long-running web server can also run this app.
+
+For Render or similar Node hosting:
 
 1. Create a new Web Service from this repository.
 2. Use `npm install` as the build command.

@@ -3,13 +3,17 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { fileURLToPath } from "node:url";
+import { tmpdir } from "node:os";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DEFAULT_DATA_DIR = path.join(__dirname, "data");
+const BUNDLED_DATA_DIR = path.join(__dirname, "data");
+const DEFAULT_DATA_DIR = globalThis.process?.env?.VERCEL
+  ? path.join(tmpdir(), "estatelab-data")
+  : BUNDLED_DATA_DIR;
 const DATA_DIR = path.resolve(globalThis.process?.env?.ESTATELAB_DATA_DIR || DEFAULT_DATA_DIR);
 const DB_PATH = path.join(DATA_DIR, "db.json");
-const BUNDLED_DB_PATH = path.join(DEFAULT_DATA_DIR, "db.json");
+const BUNDLED_DB_PATH = path.join(BUNDLED_DATA_DIR, "db.json");
 const RAG_PATH = path.resolve(globalThis.process?.env?.ESTATELAB_RAG_PATH || path.join(__dirname, "rag", "corpus.json"));
 const PUBLIC_DIR = path.join(__dirname, "public");
 const PORT = Number(globalThis.process?.env?.PORT || 3000);
@@ -866,17 +870,40 @@ async function router(req, res) {
   send(res, 404, { error: "Route not found" });
 }
 
-await ensureDb();
-const server = http.createServer((req, res) => {
-  router(req, res).catch((error) => {
+let readyPromise;
+
+function ready() {
+  readyPromise ||= ensureDb();
+  return readyPromise;
+}
+
+function handleError(res, error) {
     console.error(error);
     const status = Number(error.statusCode || 500);
     send(res, status, { error: status === 500 ? "Unexpected server error" : error.message });
+}
+
+async function handler(req, res) {
+  await ready();
+  return router(req, res);
+}
+
+function isMainModule() {
+  const entry = globalThis.process?.argv?.[1];
+  return Boolean(entry && import.meta.url === pathToFileURL(entry).href);
+}
+
+let server;
+
+if (isMainModule()) {
+  await ready();
+  server = http.createServer((req, res) => {
+    handler(req, res).catch((error) => handleError(res, error));
   });
-});
 
-server.listen(PORT, () => {
-  console.log(`Real estate investment tool running at http://localhost:${PORT}`);
-});
+  server.listen(PORT, () => {
+    console.log(`Real estate investment tool running at http://localhost:${PORT}`);
+  });
+}
 
-export { server };
+export { handler, server };
