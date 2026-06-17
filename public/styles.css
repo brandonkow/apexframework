@@ -553,51 +553,46 @@ button {
 .conversation {
   position: fixed;
   right: 0;
-  bottom: 44px;
+  bottom: 38px;
   left: 0;
   z-index: 5;
   display: grid;
-  width: min(980px, calc(100% - 32px));
-  max-height: min(62vh, 650px);
+  width: min(1120px, calc(100% - 28px));
+  max-height: min(72vh, 760px);
   margin: auto;
-  gap: 12px;
+  gap: 10px;
 }
 
 .contextDeck {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
 }
 
 .contextPanel {
-  overflow: hidden;
+  min-width: 0;
+  overflow: visible;
   border: 1px solid rgba(103, 229, 255, 0.16);
-  border-radius: 14px;
+  border-radius: 12px;
   background:
     linear-gradient(135deg, rgba(90, 231, 255, 0.07), transparent 26%),
-    rgba(2, 13, 21, 0.62);
+    rgba(2, 13, 21, 0.54);
   box-shadow: inset 0 0 24px rgba(28, 190, 221, 0.035);
-  backdrop-filter: blur(16px);
+  backdrop-filter: blur(14px);
 }
 
-.contextPanel summary {
+.contextHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 10px 13px;
-  cursor: pointer;
+  padding: 8px 11px 6px;
   color: var(--cyan);
   font-size: 0.58rem;
   letter-spacing: 0.18em;
-  list-style: none;
 }
 
-.contextPanel summary::-webkit-details-marker {
-  display: none;
-}
-
-.contextPanel summary span {
+.contextHeader span {
   color: #557d88;
   font-size: 0.5rem;
 }
@@ -605,47 +600,38 @@ button {
 .contextGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  max-height: min(35vh, 310px);
-  overflow: auto;
-  padding: 0 13px 13px;
+  gap: 6px;
+  padding: 0 11px 10px;
 }
 
 .contextGrid label {
   display: grid;
-  gap: 4px;
+  gap: 3px;
   color: #6e9fab;
-  font-size: 0.55rem;
-  letter-spacing: 0.11em;
+  font-size: 0.5rem;
+  letter-spacing: 0.09em;
 }
 
 .contextGrid input,
-.contextGrid select,
-.contextGrid textarea {
+.contextGrid select {
   width: 100%;
   border: 1px solid rgba(103, 229, 255, 0.13);
-  border-radius: 10px;
+  border-radius: 9px;
   outline: 0;
-  padding: 8px 9px;
+  min-height: 32px;
+  padding: 6px 8px;
   color: var(--text);
   background: rgba(0, 10, 17, 0.52);
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   letter-spacing: 0.02em;
 }
 
-.contextGrid textarea {
-  min-height: 58px;
-  resize: vertical;
-}
-
-.contextGrid input::placeholder,
-.contextGrid textarea::placeholder {
+.contextGrid input::placeholder {
   color: #486d77;
 }
 
 .contextGrid input:focus,
-.contextGrid select:focus,
-.contextGrid textarea:focus {
+.contextGrid select:focus {
   border-color: rgba(103, 229, 255, 0.48);
   box-shadow: 0 0 18px rgba(28, 190, 221, 0.08);
 }
@@ -656,7 +642,7 @@ button {
 
 .transcript {
   display: grid;
-  max-height: min(48vh, 510px);
+  max-height: min(44vh, 460px);
   gap: 8px;
   overflow-y: auto;
   padding: 18px 6px 12px;
@@ -945,13 +931,12 @@ button {
     width: min(920px, calc(100% - 24px));
   }
 
-  .contextDeck,
-  .contextGrid {
+  .contextDeck {
     grid-template-columns: 1fr;
   }
 
-  .contextPanel summary {
-    padding: 9px 11px;
+  .contextGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .transcript {
