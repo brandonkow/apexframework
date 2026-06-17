@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: estatelab-jarvis
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: ESTATELAB_DATA_DIR
+        value: /var/data
+      - key: ESTATELAB_RAG_PATH
+        value: ./rag/corpus.json
+      - key: ESTATELAB_OWNER_TOKEN
+        sync: false
+    disk:
+      name: estatelab-data
+      mountPath: /var/data
+      sizeGB: 1

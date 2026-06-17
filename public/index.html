@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#020b12" />
+    <title>Jarvis | EstateLab</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="hud" aria-hidden="true">
+      <div class="starfield"></div>
+      <div class="nebula"></div>
+      <div class="gridPlane"></div>
+      <div class="gridPlane gridPlaneFar"></div>
+      <div class="reticle reticleLeft"></div>
+      <div class="reticle reticleRight"></div>
+      <div class="telemetryRail railLeft">
+        <span></span><span></span><span></span><span></span>
+      </div>
+      <div class="telemetryRail railRight">
+        <span></span><span></span><span></span><span></span>
+      </div>
+      <div class="glow glowOne"></div>
+      <div class="glow glowTwo"></div>
+      <div class="scanLine"></div>
+      <div class="corner cornerTopLeft"></div>
+      <div class="corner cornerTopRight"></div>
+      <div class="corner cornerBottomLeft"></div>
+      <div class="corner cornerBottomRight"></div>
+    </div>
+
+    <header class="systemBar">
+      <span class="systemBrand">ESTATELAB / JARVIS</span>
+      <span id="systemStatus" class="systemStatus"><i></i> SYSTEM READY</span>
+      <span id="sessionStatus" class="sessionStatus">SESSION SYNCING</span>
+    </header>
+
+    <main class="interface">
+      <section class="assistantStage" aria-label="Jarvis real estate assistant">
+        <button id="jarvisOrb" class="jarvisOrb" type="button" aria-label="Talk to Jarvis">
+          <span class="orbHalo"></span>
+          <span class="orbPlate"></span>
+          <span class="orbit orbitOuter"></span>
+          <span class="orbit orbitOuterAlt"></span>
+          <span class="orbit orbitMiddle"></span>
+          <span class="orbit orbitInner"></span>
+          <span class="orbTicks"></span>
+          <span class="orbCore"><b>J</b></span>
+          <span class="voiceBars" aria-hidden="true">
+            <i></i><i></i><i></i><i></i><i></i>
+          </span>
+        </button>
+
+        <div class="identity">
+          <p class="kicker">PERSONAL REAL ESTATE INTELLIGENCE</p>
+          <h1>JARVIS</h1>
+          <p id="assistantPrompt">Ready when you are.</p>
+        </div>
+      </section>
+
+      <section id="conversation" class="conversation" aria-live="polite">
+        <div id="transcript" class="transcript"></div>
+
+        <form id="chatForm" class="commandBar" autocomplete="off">
+          <label class="srOnly" for="chatInput">Message Jarvis</label>
+          <input id="chatInput" placeholder="Ask about a property, market, or investment decision..." />
+          <button id="micBtn" class="commandButton micButton" type="button" aria-label="Use voice input">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 0 0 3.5-3.5V5a3.5 3.5 0 1 0-7 0v7a3.5 3.5 0 0 0 3.5 3.5Zm-1-10.5a1 1 0 1 1 2 0v7a1 1 0 1 1-2 0V5Zm7 7a1 1 0 1 1 2 0 8 8 0 0 1-7 7.94V22h3a1 1 0 1 1 0 2H8a1 1 0 1 1 0-2h3v-2.06A8 8 0 0 1 4 12a1 1 0 1 1 2 0 6 6 0 0 0 12 0Z"/></svg>
+          </button>
+          <button class="commandButton sendButton" type="submit" aria-label="Send message">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3.4 20.4 18-8a1 1 0 0 0 0-1.82l-18-8A1 1 0 0 0 2.03 3.7L4.4 10.8l9.1.2a1 1 0 0 1 0 2l-9.1.2-2.37 7.1a1 1 0 0 0 1.37 1.1Z"/></svg>
+          </button>
+        </form>
+
+        <div class="voiceControls">
+          <button id="newSessionBtn" type="button">NEW SESSION</button>
+          <button id="soundToggle" type="button" aria-pressed="true">VOICE RESPONSE ON</button>
+          <span id="voiceSupport">Checking voice interface...</span>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footerData" aria-hidden="true">
+      <span>MY / REAL ESTATE INTELLIGENCE</span>
+      <span id="localTime"></span>
+      <span>PRIVATE LOCAL SYSTEM</span>
+    </footer>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>
