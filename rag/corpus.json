@@ -1,0 +1,362 @@
+[
+  {
+    "id": "underwriting-baseline",
+    "title": "Rental underwriting baseline",
+    "tags": ["underwriting", "cash flow", "rental"],
+    "body": "Start with conservative rent, vacancy, repairs, management, taxes, insurance, and debt service. A property that only works with optimistic assumptions should be treated as fragile until local comps and invoices prove otherwise."
+  },
+  {
+    "id": "dscr",
+    "title": "DSCR interpretation",
+    "tags": ["dscr", "lending", "risk"],
+    "body": "Debt service coverage ratio compares monthly net operating income to monthly debt service. A DSCR above 1.25 is commonly healthier for long-term rentals; below 1.0 means the property does not cover debt from operations."
+  },
+  {
+    "id": "cash-on-cash",
+    "title": "Cash-on-cash return",
+    "tags": ["cash on cash", "returns"],
+    "body": "Cash-on-cash return compares annual pre-tax cash flow to cash invested. Include down payment, closing costs, and initial rehab in cash invested to avoid overstating returns."
+  },
+  {
+    "id": "cap-rate",
+    "title": "Cap rate use",
+    "tags": ["cap rate", "noi", "valuation"],
+    "body": "Cap rate is annual net operating income divided by purchase price. It is best for comparing unlevered property yield and should not include mortgage payments."
+  },
+  {
+    "id": "vacancy-maintenance",
+    "title": "Vacancy and maintenance reserves",
+    "tags": ["vacancy", "maintenance", "reserves"],
+    "body": "Vacancy and maintenance reserves protect the model from normal operating friction. For small residential rentals, many investors start around 5-8 percent vacancy and 5-10 percent maintenance, then tune by property age and local tenant turnover."
+  },
+  {
+    "id": "brsp",
+    "title": "BRRRR and refinance caution",
+    "tags": ["brrrr", "refinance", "rehab"],
+    "body": "For rehab-heavy strategies, separate the stabilized rent and value from the as-is deal. Stress test refinance proceeds, appraisal risk, repair overruns, holding costs, and the possibility that capital stays trapped longer than planned."
+  },
+  {
+    "id": "decision-quality",
+    "title": "Decision quality versus outcome quality",
+    "tags": ["decision", "judgment", "post-mortem", "learning"],
+    "body": "Judge whether a decision used the best available evidence, considered alternatives, and respected risk limits separately from whether the eventual outcome was favorable. A lucky result should not validate weak reasoning, and an unlucky result should not automatically invalidate sound reasoning."
+  },
+  {
+    "id": "belief-falsifier",
+    "title": "Testable investment beliefs",
+    "tags": ["belief", "falsifier", "confidence", "bias"],
+    "body": "An important investment belief should state its scope, confidence, evidence for and against, and an observable falsifier. If no realistic evidence could change the belief, it is a preference or identity claim rather than a testable investment thesis."
+  },
+  {
+    "id": "portable-local",
+    "title": "Portable principles and local context",
+    "tags": ["geography", "market", "malaysia", "principle"],
+    "body": "Keep the reasoning method portable while treating local rules and market mechanisms as context modules. Test the same causal questions in every geography, then investigate location-specific ownership, financing, tax, planning, supply, demand, and operating conditions."
+  },
+  {
+    "id": "malaysia-due-diligence",
+    "title": "Malaysia context due diligence",
+    "tags": ["malaysia", "title", "strata", "financing", "due diligence"],
+    "body": "For Malaysian opportunities, verify current title and tenure conditions, restrictions and consent requirements, applicable transaction costs and taxes, financing terms, strata management and sinking fund health, state-specific rules, demand drivers, competing supply, and physical or environmental risks. Current rules and amounts should be confirmed from authoritative sources for each decision."
+  },
+  {
+    "id": "asset-led-financing-led",
+    "title": "Asset-led versus financing-led property decisions",
+    "tags": ["financing", "capital allocation", "equity extraction", "marked-up loan", "risk"],
+    "body": "An asset-led investment expects the property itself to generate returns through income, appreciation, or improvement. A financing-led decision uses property to obtain capital for another purpose and must be underwritten as both a property-and-debt survival case and an alternative-use-of-funds case. Legitimate financing against defensible value or equity must be distinguished from artificial pricing, misleading documents, or undisclosed cash-back arrangements."
+  },
+  {
+    "id": "lender-knowledge-test",
+    "title": "Lender-knowledge test for property financing",
+    "tags": ["financing", "fraud", "marked-up loan", "cash-back", "seller", "buyer", "malaysia"],
+    "body": "Ask whether the lender would approve the same facility if it knew the genuine agreed price, ordinary market value, side agreements, and intended flow of funds. If not, the proposal depends on misleading the lender and must be classified as a prohibited-risk pattern rather than an investment strategy. Buyer and seller agreement does not eliminate the lender's deception or the resulting legal, banking, negative-equity, and solvency risks."
+  },
+  {
+    "id": "quality-buyer-depth-selection",
+    "title": "Quality, buyer depth, and price-segment selection",
+    "tags": ["selection", "own stay", "buyer pool", "price segment", "quality", "liquidity"],
+    "body": "Buy the best relative-quality property in a high-demand area within the price segment that preserves the broadest financeable future buyer pool. Require genuine own-stay appeal while keeping the property sensible to investors. Owner-occupier emotion is optional upside, not a base-case requirement. Quality does not justify overpaying, and high traffic must be shown to translate into useful residential demand."
+  },
+  {
+    "id": "temporarily-cheap-vs-structurally-cheaper",
+    "title": "Temporarily cheap versus structurally cheaper",
+    "tags": ["downturn", "intrinsic value", "quality", "market cycle", "selection"],
+    "body": "In weak markets, many properties appear cheap through price, yield, valuation, or monthly cash-flow metrics. EstateLab must distinguish temporarily mispriced properties from structurally declining properties by testing intrinsic demand, local market culture, building and management quality, buyer depth, competitive position, and whether the property remains desirable when sentiment is poor."
+  },
+  {
+    "id": "configurable-user-mandate",
+    "title": "Configurable user mandate",
+    "tags": ["mandate", "user preference", "consultant", "selection"],
+    "body": "EstateLab should not force every user to prioritize capital appreciation, rental resilience, resale liquidity, refinancing potential, or cash flow in the same order. It should first identify the user's mandate, then test whether the property is internally consistent with that mandate while preserving hard evidence and risk controls."
+  },
+  {
+    "id": "hard-demand-engine-area-selection",
+    "title": "Hard demand engines in area selection",
+    "tags": ["area", "demand", "rental", "human traffic", "malaysia"],
+    "body": "A high-demand area should be supported by hard demand engines such as offices, business parks, universities, factories, institutions, transport, and daily-life infrastructure. Human traffic matters most when it can convert into tenant demand, owner-occupier demand, or buyer depth. Marketing hype or broad city reputation is insufficient without observable occupancy, achieved rents, or transaction activity."
+  },
+  {
+    "id": "growth-corridor-sponsor-test",
+    "title": "Growth corridor sponsor test",
+    "tags": ["growth corridor", "township", "developer", "landed", "catalyst"],
+    "body": "For growth corridors, test whether the sponsor can actually deliver infrastructure, township components, amenities, commercial activation, and buyer confidence. Large-scale corridor creation usually requires a capable market leader or proven township developer. Smaller pocket-land developers may still work only when the surrounding infrastructure and demand already exist."
+  },
+  {
+    "id": "price-segment-affordability-band",
+    "title": "Price segment and affordability band",
+    "tags": ["price segment", "affordability", "buyer pool", "median income", "malaysia"],
+    "body": "The right price segment depends on local buyer income, financing capacity, resident profile, product quality, and liquidity. RM400,000 to RM500,000 is a founder-current mandate, not a universal rule. Above RM550,000 may narrow the mass buyer pool in some areas, while RM250,000 and below may signal weaker build quality. Each threshold must be validated by submarket evidence."
+  },
+  {
+    "id": "discount-premium-entry-discipline",
+    "title": "Discount, premium, and entry discipline",
+    "tags": ["discount", "premium", "market value", "renovation", "entry price"],
+    "body": "A 20 percent discount to real market value is an attractive entry signal only if the market value is defensible and the discount is not caused by hidden defects. A 10 percent premium for superior quality can be acceptable only when scarcity, layout, demand, and future buyer behavior support it. Renovation should normally stay around 5 percent of purchase price unless the value-add case is separately proven."
+  },
+  {
+    "id": "multiple-exit-buyer-pool",
+    "title": "Multiple exit buyer pool",
+    "tags": ["buyer pool", "exit", "own stay", "investor", "rental return"],
+    "body": "The ideal exit buyer is often an owner-occupier because emotion, renovation, comfort, image, and personal fit can support above-market pricing. The property should still remain attractive to investors through healthy rental return at the future selling price. EstateLab should avoid properties that rely on one buyer segment only."
+  },
+  {
+    "id": "investor-only-product-risk",
+    "title": "Investor-only product risk",
+    "tags": ["airbnb", "short stay", "investor", "exit risk", "buyer pool"],
+    "body": "Developments designed mainly as investment units, especially Airbnb or short-stay products, can have concentrated exit risk. If the next buyer is likely to be another investor, price negotiation will usually be driven by yield and lowest entry price rather than own-stay emotion."
+  },
+  {
+    "id": "tenure-market-culture",
+    "title": "Tenure and local market culture",
+    "tags": ["freehold", "leasehold", "penang", "kuala lumpur", "landed", "strata"],
+    "body": "Freehold residential strata high-rise and freehold individual-title landed properties usually have broad buyer appeal, but tenure preference must be judged by local market culture. Kuala Lumpur buyers may accept leasehold when product quality and location are strong, while Penang buyers often place heavier importance on freehold status."
+  },
+  {
+    "id": "site-visit-vibe-test",
+    "title": "Site visit and vibe test",
+    "tags": ["site visit", "own stay", "vibe", "project image", "neighbourhood"],
+    "body": "Market research and data analysis should come first, but the final decision needs a site-visit vibe test. If the owner would not personally stay in the property, EstateLab should treat that as a serious warning because future owner-occupiers may also reject the lived experience."
+  },
+  {
+    "id": "own-stay-low-class-signals",
+    "title": "Own-stay appeal and low-class signals",
+    "tags": ["own stay", "layout", "view", "renovation", "security", "resident profile"],
+    "body": "Own-stay appeal depends heavily on layout, view, surrounding environment, project image, neighbourhood feel, and arrival experience. Poor common-area materials, weak facilities, bad resident demographics, weak security, leakage, structural defects, and low-quality fixtures can make a property feel cheap or low class, and many of these issues cannot be solved by unit renovation."
+  },
+  {
+    "id": "management-resident-quality",
+    "title": "Management and resident quality",
+    "tags": ["management", "resident", "high rise", "maintenance", "project quality"],
+    "body": "For high-rise projects in the same area, management quality and resident demographics or behavior can explain why one project performs better than another even on the same road. Facade design matters less if maintenance, sinking fund discipline, security, cleanliness, lifts, parking, common areas, and resident behavior deteriorate."
+  },
+  {
+    "id": "unit-layout-view-renovation",
+    "title": "Unit layout, view, and renovation test",
+    "tags": ["layout", "view", "renovation", "tenant preference", "unit quality"],
+    "body": "At unit level, layout and view are the founder's highest-priority factors. Renovated units are preferred, but renovation value-add is real only when it matches tenant or buyer preference. Compare the unit against substitutes by renovation quality, view, layout efficiency, and floor-plan position, including distance from refuse room, lift, and noise sources."
+  },
+  {
+    "id": "transaction-evidence-hierarchy",
+    "title": "Transaction evidence hierarchy",
+    "tags": ["transaction", "auction", "brickz", "listing price", "valuation"],
+    "body": "Subsale transacted prices and successful auction bid prices should carry more weight than listing prices because they show actual buyer behavior. Listing prices from portals, agents, and advertisements are weak evidence because they reflect seller intention rather than true demand. Brickz, auction social media pages, rental agents, and property forums can support the evidence base."
+  },
+  {
+    "id": "bank-valuation-caution",
+    "title": "Bank valuation caution",
+    "tags": ["bank valuation", "valuation", "risk", "evidence", "market value"],
+    "body": "A high bank valuation is not automatic proof of value. If it conflicts with transaction evidence, rental support, buyer demand, project quality, or management condition, EstateLab should investigate why before treating it as reliable. High valuation cannot repair weak fundamentals."
+  },
+  {
+    "id": "cheap-versus-valuable",
+    "title": "Cheap versus valuable property",
+    "tags": ["cheap", "value", "rejection", "beginner", "selection"],
+    "body": "EstateLab's Stage 1 protection is to prevent buying merely cheap property. A deal should be rejected even if cheap when poor management, poor resident behavior, bad layout, excessive density, weak project image, or structural decline explain the low price. Cheapness is useful only when the asset remains valuable."
+  },
+  {
+    "id": "tenant-urgency-real-rental-demand",
+    "title": "Tenant urgency as real rental demand",
+    "tags": ["rental demand", "tenant urgency", "student", "job change", "occupancy"],
+    "body": "Rental demand is real when tenants have urgency, not merely when landlords advertise high rents. Urgency can come from university admission months, job-change or relocation seasons, workplace proximity, limited suitable supply, security, facilities, or immediate move-in needs."
+  },
+  {
+    "id": "rental-installment-coverage-rule",
+    "title": "Rental installment coverage rule",
+    "tags": ["cash flow", "installment", "negative cash flow", "rental yield", "holding power"],
+    "body": "For the founder default, rental property should normally be rejected if rent cannot cover the monthly loan installment. Ideally rent should also cover maintenance charges and sinking fund. Negative cash flow is not a normal high-rise rental strategy, though landed capital-appreciation assets may tolerate a controlled shortfall up to RM450 per month if the user's mandate and holding power support it."
+  },
+  {
+    "id": "tenant-fit-and-furnishing",
+    "title": "Tenant fit and furnishing strategy",
+    "tags": ["tenant", "furnishing", "fully furnished", "students", "white collar", "factory workers"],
+    "body": "The ideal tenant depends on property type. The founder prefers university students and white-collar tenants, avoids factory workers due to unit-condition risk, and treats low-income tenants as higher risk. Fully furnished units are preferred because furnishing and move-in readiness can make a unit easier to rent than substitutes. Furnishing or renovation for rentability should normally be capped around RM20,000 unless separately justified."
+  },
+  {
+    "id": "rental-supply-risk",
+    "title": "New supply as rental risk",
+    "tags": ["new supply", "rental risk", "competition", "vacancy", "maintenance fee"],
+    "body": "Increasing newer nearby supply is a major risk to rental demand because it can pressure rent, vacancy, tenant quality, furnishing expectations, and resale competitiveness. EstateLab should also treat maintenance charges and sinking fund as important because high recurring charges reduce monthly cash-flow margin and may limit capital-appreciation upside."
+  },
+  {
+    "id": "high-density-lift-test",
+    "title": "High density and lift test",
+    "tags": ["density", "plot ratio", "lift", "waiting time", "high rise"],
+    "body": "Around 1,500 units and above is a founder-default high-rise density warning. EstateLab should translate density into lived experience: plot ratio, lift count, lift waiting time, facility crowding, parking, security queues, access, and management load. Poor lift sufficiency or unacceptable waiting time can be an immediate rejection trigger."
+  },
+  {
+    "id": "future-supply-substitute-risk",
+    "title": "Future supply and substitute risk",
+    "tags": ["future supply", "substitute", "competition", "new condo", "layout"],
+    "body": "The most worrying future supply is newer high-rise within about 2.5km, adjusted for actual substitute geography, that offers similar layout and similar or lower pricing. Buyers and tenants often choose newer products when the surrounding package is comparable, so older projects must defend themselves through location, rent tier, size, freehold status, view, management, or scarcity."
+  },
+  {
+    "id": "masterplan-complementary-supply",
+    "title": "Complementary masterplan supply",
+    "tags": ["masterplan", "township", "developer", "supply", "catalyst"],
+    "body": "New supply can improve an area when a capable master developer coordinates the township, amenities, infrastructure, commercial activity, and product segmentation. It becomes dangerous when similar units with similar layout and pricing target the same buyer or tenant pool without enough new demand."
+  },
+  {
+    "id": "unsold-stock-auction-signal",
+    "title": "Unsold stock and auction signals",
+    "tags": ["unsold stock", "auction", "developer stock", "bulk purchase", "red flag"],
+    "body": "Unsold developer stock below 1 percent of total units is generally not an issue and may be attractive if discounted. Many unsold developer units may signal ambitious pricing or weak demand. Individual auctions may reflect personal financial problems, but many auctions in one building can indicate earlier bulk purchases, investor concentration, weak holding power, or project-level distress."
+  },
+  {
+    "id": "scarcity-prime-land",
+    "title": "Scarcity in prime land",
+    "tags": ["scarcity", "prime land", "freehold", "view", "low density"],
+    "body": "Scarcity is very important in the founder framework, especially land scarcity in prime areas. Other scarcity types such as freehold, layout, view, low density, transport, or school-zone scarcity matter only when buyers value them and future supply cannot easily replicate them."
+  },
+  {
+    "id": "title-preference-by-property-type",
+    "title": "Title preference by property type",
+    "tags": ["freehold", "leasehold", "high rise", "landed", "title"],
+    "body": "For high-rise property, freehold versus leasehold is not the founder's main deciding factor if product quality, location, bankability, price segment, and exit demand are strong. For landed property, freehold is a founder-default must-have. Leasehold property should preferably have at least 90 years remaining, and EstateLab should also estimate remaining tenure at the likely exit date."
+  },
+  {
+    "id": "hda-commercial-serviced-residence",
+    "title": "HDA commercial-title serviced residence",
+    "tags": ["serviced apartment", "commercial title", "HDA", "bankability", "utilities"],
+    "body": "Commercial-title serviced residences can be acceptable when protected under HDA, but EstateLab must verify HDA coverage, residential-use clarity, utilities and assessment impact, maintenance charges, financing, and future buyer understanding. Fully office commercial title is uncomfortable for the founder framework."
+  },
+  {
+    "id": "caveat-consent-transaction-risk",
+    "title": "Caveat and consent transaction risk",
+    "tags": ["caveat", "state consent", "title", "transaction", "legal"],
+    "body": "A caveat or unresolved consent delay is a major transactionability risk. EstateLab should pause or reject the deal until it knows who lodged the caveat, why it exists, whether it can be removed before completion, and whether the seller can deliver clean title. State consent may be acceptable but must be priced for timing and exit friction."
+  },
+  {
+    "id": "master-title-and-perfection-risk",
+    "title": "Master title and perfection risk",
+    "tags": ["master title", "strata title", "MOT", "perfection", "developer"],
+    "body": "Master-title property is not automatically rejected if the developer is solvent, but it is not harmless. EstateLab should verify title issuance, perfection of transfer, perfection of charge, developer solvency, bank comfort, and whether future buyers may face delay, legal cost, or financing friction."
+  },
+  {
+    "id": "bankability-exit-liquidity",
+    "title": "Bankability and exit liquidity",
+    "tags": ["bankability", "loan margin", "exit", "financing", "buyer pool"],
+    "body": "Bankability is a core exit-liquidity factor. EstateLab should ask whether a normal future buyer can finance the property without unusual loan-margin, quota, title, consent, or commercial-use issues. Cheap property that is hard to finance is acceptable only under a narrow long-term cash-flow mandate with clear illiquidity tolerance."
+  },
+  {
+    "id": "final-scoring-action-labels",
+    "title": "Final scoring and action labels",
+    "tags": ["score", "decision", "reject", "monitor", "negotiate", "shortlist", "strong buy"],
+    "body": "EstateLab should classify Stage 1 outcomes as reject, monitor, negotiate, shortlist, or strong buy candidate. A score below 60 is reject, 60 to 69 is monitor, 70 to 79 is negotiate, 80 to 87 is shortlist, and 88 or above is a strong buy candidate, provided there are no unresolved hard stops and evidence confidence is high enough."
+  },
+  {
+    "id": "hard-stop-over-score",
+    "title": "Hard stops override score",
+    "tags": ["hard stop", "score", "risk", "decision", "framework"],
+    "body": "A high weighted score cannot override unresolved hard stops. Weak area demand, narrow buyer pool, poor management, bad layout, weak rental holding power, direct future supply threat, title or caveat issues, weak bankability, or unsupported entry price can reject a deal even when other scores look strong."
+  },
+  {
+    "id": "undervalued-versus-cheap-reason",
+    "title": "Undervalued versus cheap for a reason",
+    "tags": ["undervalued", "cheap", "discount", "market value", "evidence"],
+    "body": "EstateLab can call a property undervalued only when conservative fair value is supported by completed comparable evidence, all-in cost preserves margin, rental or resale demand is proven, the weakness is temporary or non-core, and no hard stop explains the discount. If poor management, bad layout, density, title issues, declining rent, auctions, unsold stock, or weak financing explain the price, it is cheap for a reason."
+  },
+  {
+    "id": "final-decision-record",
+    "title": "Final decision record",
+    "tags": ["decision journal", "thesis", "counter thesis", "kill criteria", "learning"],
+    "body": "Before purchase, EstateLab should record the user mandate, action label, weighted score, sub-scores, confidence, hard stops checked, thesis, strongest counter-thesis, evidence, missing evidence, entry price, all-in cost, target rent, exit buyer, walk-away condition, kill criteria, and review trigger. This prevents analysis sunk cost from turning effort into commitment."
+  },
+  {
+    "id": "retail-investor-protection",
+    "title": "Retail investor protection",
+    "tags": ["retail investor", "mandate", "profile", "malaysia", "loan approval"],
+    "body": "Most Malaysian property investors encountered by the founder are retail investors. EstateLab should protect retail users from confusing bank loan approval with true investment readiness, and from buying based on agent narratives, social pressure, or personal affordability without testing holding power, demand, title, and exit liquidity."
+  },
+  {
+    "id": "danger-high-income-low-knowledge",
+    "title": "Danger profile: high income, low understanding",
+    "tags": ["investor profile", "high income", "knowledge", "risk", "affordability"],
+    "body": "A dangerous investor profile is high income but poor understanding of what they are buying. Borrowing capacity can hide weak judgment. EstateLab should separate bank lending capacity from affordability, holding power, and investment competence."
+  },
+  {
+    "id": "cash-reserve-strategy-fit",
+    "title": "Cash reserve and strategy fit",
+    "tags": ["cash reserve", "high rise", "landed", "negative cash flow", "strategy fit"],
+    "body": "Strategy fit depends heavily on cash reserve. Lower-reserve retail investors should usually prefer high-rise rental property with installment-covering rent. Landed appreciation and negative cash flow require high cash reserve, longer holding power, and a credible capital-appreciation thesis."
+  },
+  {
+    "id": "six-month-emergency-fund",
+    "title": "Six-month emergency fund gate",
+    "tags": ["emergency fund", "cash buffer", "risk", "readiness"],
+    "body": "EstateLab should require at least six months of salary as emergency fund before encouraging a retail investor to proceed. This buffer should be separate from down payment, legal fees, stamp duty, renovation, furnishing, maintenance arrears, and other purchase costs."
+  },
+  {
+    "id": "investor-profile-labels",
+    "title": "Investor profile labels",
+    "tags": ["conservative", "balanced", "growth", "cash flow", "opportunistic", "unsafe"],
+    "body": "EstateLab can classify users as conservative, balanced, growth-focused, cash-flow-focused, opportunistic, or speculative/unsafe. Conservative users need safety and rent coverage. Balanced users can take measured risk. Growth-focused users need high reserve and longer holding power. Cash-flow-focused users prioritize installment coverage. Opportunistic users need skill and cash reserve. Speculative or unsafe users should be blocked or slowed down."
+  },
+  {
+    "id": "budget-haircut-and-emotional-chasing",
+    "title": "Budget haircut and emotional chasing",
+    "tags": ["budget", "affordability", "comparison", "emotional", "cooling off"],
+    "body": "EstateLab should assume a user's practical budget is at least 10 percent lower than stated until verified. A user who wants to buy without comparing substitutes is likely emotionally chasing the deal; EstateLab should slow the decision, require comparison, and check whether the user is being influenced by others."
+  },
+  {
+    "id": "marked-up-cash-out-vulnerability",
+    "title": "Marked-up or cash-out vulnerability",
+    "tags": ["cash out", "marked up", "vulnerability", "low reserve", "financing"],
+    "body": "The vulnerable profile for marked-up or cash-out narratives is a user with low cash reserve, urgent liquidity need, weak financial literacy, and strong desire to start without enough capital. EstateLab should be extra cautious when financing becomes more important than property quality and debt survival."
+  },
+  {
+    "id": "financing-interest-rate-myopia",
+    "title": "Interest-rate myopia in financing",
+    "tags": ["financing", "interest rate", "loan", "retail investor", "malaysia"],
+    "body": "Retail investors often over-focus on interest rate. EstateLab should also test loan margin, monthly installment, DSR, tenure, lock-in, legal and loan-documentation fees, valuation reliability, post-cost cash buffer, vacancy survival, repair reserve, and exit buyer bankability. A low rate cannot rescue an overvalued or overleveraged deal."
+  },
+  {
+    "id": "loan-margin-discipline",
+    "title": "Loan margin discipline",
+    "tags": ["loan margin", "90 percent", "leverage", "cash flow", "risk"],
+    "body": "A 90 percent loan margin may be standard for Malaysian residential buyers, but standard does not automatically mean healthy. A beginner should not maximize loan margin merely to avoid upfront cash outlay when rental support is weak or the property is underperforming. Higher leverage is acceptable only when the property passes selection gates, entry price is defensible, rent exceeds monthly cost by a healthy margin, DSR remains comfortable, cash reserve survives after all costs, and stress tests still pass."
+  },
+  {
+    "id": "bank-valuation-mismatch",
+    "title": "Bank valuation mismatch",
+    "tags": ["bank valuation", "valuation", "purchase price", "mismatch", "financing"],
+    "body": "Bank valuation is a financing input, not investment truth. If purchase price is far above valuation, EstateLab should usually reprice or walk away unless strong evidence proves the valuation is wrong. If valuation is far above purchase price, EstateLab should investigate whether the gap is genuine mispricing, stale valuation, wrong comparables, data error, or hidden legal, title, management, or physical defect."
+  },
+  {
+    "id": "post-cost-cash-buffer",
+    "title": "Post-cost cash buffer",
+    "tags": ["cash buffer", "emergency fund", "legal fees", "renovation", "furnishing"],
+    "body": "A retail investor should still retain at least six months of salary as emergency fund after down payment, legal fees, stamp duty, disbursements, valuation fee, renovation, furnishing, maintenance arrears, utilities, vacancy reserve, and initial repairs. Transaction costs are not a detail; they decide whether the investor can survive after completion."
+  },
+  {
+    "id": "dsr-and-stress-test",
+    "title": "DSR and financing stress test",
+    "tags": ["DSR", "debt service", "stress test", "interest rate", "vacancy"],
+    "body": "EstateLab should treat 80 percent DSR as a danger zone for normal retail investors. Before encouraging purchase, test current installment, installment after 1 percent and 2 percent rate increases, rent 10 percent and 20 percent below expectation, one month vacancy as base case, two to three months vacancy as stress case, repair or furnishing overrun, and maintenance fee increases."
+  },
+  {
+    "id": "financing-led-acceptability",
+    "title": "Financing-led deal acceptability",
+    "tags": ["financing-led", "cash out", "capital allocation", "lender", "risk"],
+    "body": "A financing-led property deal is acceptable only when the structure is transparent and lender-aware, the property and debt can survive independently, the investor keeps sufficient reserve, and the alternative use of funds produces a risk-adjusted return above the full financing cost. It is unacceptable when it depends on artificial pricing, misleading documents, weak property survival, borrower distress, or speculative use of funds."
+  }
+]
