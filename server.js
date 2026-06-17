@@ -3,14 +3,11 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { tmpdir } from "node:os";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const BUNDLED_DATA_DIR = path.join(__dirname, "data");
-const DEFAULT_DATA_DIR = globalThis.process?.env?.VERCEL
-  ? path.join(tmpdir(), "estatelab-data")
-  : BUNDLED_DATA_DIR;
+const DEFAULT_DATA_DIR = BUNDLED_DATA_DIR;
 const DATA_DIR = path.resolve(globalThis.process?.env?.ESTATELAB_DATA_DIR || DEFAULT_DATA_DIR);
 const DB_PATH = path.join(DATA_DIR, "db.json");
 const BUNDLED_DB_PATH = path.join(BUNDLED_DATA_DIR, "db.json");

@@ -1,8 +1,9 @@
 services:
   - type: web
     name: estatelab-jarvis
-    env: node
-    plan: free
+    runtime: node
+    plan: starter
+    region: singapore
     buildCommand: npm install
     startCommand: npm start
     healthCheckPath: /api/health
