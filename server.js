@@ -537,6 +537,7 @@ function detectCompanionIntent(query) {
   if (words.length <= 10 && (clean.includes("are you there") || clean.includes("you there") || clean.includes("can you hear me"))) return "presence";
   if (words.length <= 8 && (words[0] === "test" || clean.includes("testing") || clean.includes("mic test"))) return "test";
   if (words.length <= 12 && (clean.includes("what can you do") || clean.includes("who are you") || clean.includes("help me") || clean === "help")) return "capability";
+  if (words.length <= 12 && (clean.includes("what do you think") || clean.includes("analyse this") || clean.includes("analyze this") || clean.includes("advise me"))) return "need_context";
   if (words.length <= 8 && (words.some((word) => thanksTerms.has(word)) || clean.includes("thank you"))) return "thanks";
   if (words.length <= 8 && words.some((word) => byeTerms.has(word))) return "bye";
   if (words.length <= 5 && (ackTerms.has(clean) || words.every((word) => ackTerms.has(word)))) return "ack";
@@ -559,6 +560,9 @@ function companionAnswer(kind) {
   if (kind === "capability") {
     return "I can help you screen properties, challenge your assumptions, test rental and resale risk, and turn EstateLab's framework into a clearer decision. Start with any area, project, price, rent, or concern.";
   }
+  if (kind === "need_context") {
+    return "I can, but give me something concrete first: area, property type, price, expected rent, and your main concern. Then I can pressure-test it properly.";
+  }
   if (kind === "thanks") {
     return "Anytime. Bring me the next property or market question when you are ready.";
   }
@@ -569,6 +573,98 @@ function companionAnswer(kind) {
     return "Noted. What do you want to examine next?";
   }
   return "I am here. What property or market question should we look at?";
+}
+
+const dealContextLabels = {
+  area: "Area",
+  propertyType: "Property type",
+  askingPrice: "Asking price",
+  expectedRent: "Expected rent",
+  maintenance: "Maintenance",
+  tenure: "Tenure",
+  size: "Size",
+  nearbySupply: "Nearby supply",
+  mainConcern: "Main concern"
+};
+
+const profileContextLabels = {
+  monthlyIncome: "Monthly income",
+  cashReserveMonths: "Cash reserve months",
+  cashAvailable: "Cash available",
+  currentDebt: "Current debt",
+  riskStyle: "Risk style",
+  investmentGoal: "Investment goal",
+  holdingPeriod: "Holding period",
+  loanPreference: "Loan preference",
+  financialConcern: "Financial concern"
+};
+
+function cleanContextRecord(record, labels) {
+  return Object.keys(labels).reduce((context, key) => {
+    const value = String(record?.[key] || "").replace(/\s+/g, " ").trim();
+    if (value) context[key] = value;
+    return context;
+  }, {});
+}
+
+function hasContextData(context) {
+  return Boolean(Object.keys(context.dealCard || {}).length || Object.keys(context.financialProfile || {}).length);
+}
+
+function contextText(record, labels, title) {
+  const lines = Object.entries(record || {})
+    .map(([key, value]) => `${labels[key] || key}: ${value}`);
+  return lines.length ? `${title}: ${lines.join("; ")}` : "";
+}
+
+function parseAmount(value) {
+  const clean = String(value || "").toLowerCase().replace(/,/g, "").replace(/rm/g, "").trim();
+  const match = clean.match(/(\d+(\.\d+)?)\s*(k|m)?/);
+  if (!match) return 0;
+  const base = Number(match[1]);
+  if (!Number.isFinite(base)) return 0;
+  if (match[3] === "m") return base * 1_000_000;
+  if (match[3] === "k") return base * 1_000;
+  return base;
+}
+
+function dealContextNotes(dealCard) {
+  const notes = [];
+  const price = parseAmount(dealCard.askingPrice);
+  const rent = parseAmount(dealCard.expectedRent);
+  const maintenance = parseAmount(dealCard.maintenance);
+  if (price && rent) {
+    const yieldPercent = money((rent * 12 / price) * 100);
+    notes.push(`Deal card implies about ${yieldPercent}% gross yield before vacancy and costs.`);
+    if (yieldPercent < 6) notes.push("That is below the founder's 6% rental-yield baseline, so holding power needs extra caution.");
+  }
+  if (maintenance && rent) {
+    const rentAfterMaintenance = money(rent - maintenance);
+    notes.push(`After maintenance, rent before loan is roughly RM${rentAfterMaintenance} per month.`);
+  }
+  if (dealCard.nearbySupply) notes.push("Nearby supply has been flagged by the user, so substitute competition must be checked carefully.");
+  if (dealCard.mainConcern) notes.push(`User concern to address: ${dealCard.mainConcern}`);
+  return notes;
+}
+
+function profileContextNotes(financialProfile) {
+  const notes = [];
+  const reserveMonths = Number(String(financialProfile.cashReserveMonths || "").match(/\d+(\.\d+)?/)?.[0] || 0);
+  const income = parseAmount(financialProfile.monthlyIncome);
+  const debt = parseAmount(financialProfile.currentDebt);
+  if (reserveMonths) {
+    notes.push(reserveMonths >= 6
+      ? "Cash reserve meets the 6-month baseline."
+      : "Cash reserve is below the 6-month baseline; I would slow down before taking property risk.");
+  }
+  if (income && debt) {
+    const debtRatio = money((debt / income) * 100);
+    notes.push(`Current declared debt is about ${debtRatio}% of monthly income before this new property.`);
+  }
+  if (financialProfile.riskStyle) notes.push(`User self-classifies as ${financialProfile.riskStyle.toLowerCase()} risk style.`);
+  if (financialProfile.investmentGoal) notes.push(`Stated goal: ${financialProfile.investmentGoal}.`);
+  if (financialProfile.financialConcern) notes.push(`Financial concern to address: ${financialProfile.financialConcern}`);
+  return notes;
 }
 
 async function retrieveGuidance(query, property, brain) {
@@ -613,9 +709,16 @@ async function retrieveGuidance(query, property, brain) {
   };
 }
 
-async function retrieveJarvisAnswer(query, brain, session) {
+async function retrieveJarvisAnswer(query, brain, session, context = {}) {
+  const dealCard = cleanContextRecord(context.dealCard, dealContextLabels);
+  const financialProfile = cleanContextRecord(context.financialProfile, profileContextLabels);
+  const hasStructuredContext = hasContextData({ dealCard, financialProfile });
+  const contextForSearch = [
+    contextText(dealCard, dealContextLabels, "Deal card"),
+    contextText(financialProfile, profileContextLabels, "Financial profile")
+  ].filter(Boolean).join(" ");
   const companionIntent = detectCompanionIntent(query);
-  if (companionIntent) {
+  if (companionIntent && (companionIntent !== "need_context" || !hasStructuredContext)) {
     return {
       answer: companionAnswer(companionIntent),
       sources: []
@@ -626,7 +729,7 @@ async function retrieveJarvisAnswer(query, brain, session) {
   const recentSessionContext = Array.isArray(session?.messages)
     ? session.messages.slice(-6).map((message) => message.content).join(" ")
     : "";
-  const queryTerms = tokenize(`${recentSessionContext} ${query}`);
+  const queryTerms = tokenize(`${recentSessionContext} ${query} ${contextForSearch}`);
   const topReferences = corpus
     .map((doc) => ({ ...doc, score: termScore(queryTerms, `${doc.title} ${doc.tags?.join(" ")} ${doc.body}`) }))
     .filter((doc) => doc.score > 0)
@@ -654,7 +757,9 @@ async function retrieveJarvisAnswer(query, brain, session) {
   const isSupplyQuestion = hasAnyTerm(queryTerms, ["supply", "competition", "competitor", "newer", "2.5km", "density"]);
   const isBuyQuestion = hasAnyTerm(queryTerms, ["buy", "purchase", "deal", "invest", "proceed"]);
   const isPenangQuestion = hasAnyTerm(queryTerms, ["penang"]);
-  const hasYieldMention = /\b\d+(\.\d+)?\s*%/.test(query);
+  const hasYieldMention = /\b\d+(\.\d+)?\s*%/.test(`${query} ${contextForSearch}`);
+  const dealRead = dealContextNotes(dealCard);
+  const profileFit = profileContextNotes(financialProfile);
 
   let verdict = "My take: I would investigate further before deciding.";
   if (isBuyQuestion && isRentalQuestion && isSupplyQuestion) {
@@ -663,6 +768,8 @@ async function retrieveJarvisAnswer(query, brain, session) {
     verdict = "My take: possible shortlist, but only if rent can cover the installment and recurring charges under a conservative case.";
   } else if (isBuyQuestion) {
     verdict = "My take: judge the property quality first, not whether it looks cheap.";
+  } else if (hasStructuredContext) {
+    verdict = "My take: I can work with this context. The next step is to test whether the deal and your profile fit each other.";
   }
 
   const reasoning = [];
@@ -692,8 +799,10 @@ async function retrieveJarvisAnswer(query, brain, session) {
 
   const sections = [
     verdict,
+    bulletSection("Deal read", dealRead, 3),
     bulletSection("Why", reasoning, 3),
     bulletSection("Watch-outs", risks, 2),
+    bulletSection("Profile fit", profileFit, 3),
     bulletSection("Check next", evidenceChecks, 3),
     bulletSection("My challenge back", challenge, 1)
   ].filter(Boolean);
@@ -1025,7 +1134,10 @@ async function router(req, res) {
     };
     session.messages.push(userMessage);
 
-    const result = await retrieveJarvisAnswer(query, db.brain, session);
+    const result = await retrieveJarvisAnswer(query, db.brain, session, {
+      dealCard: body.dealCard,
+      financialProfile: body.financialProfile
+    });
     const jarvisMessage = {
       id: randomUUID(),
       role: "jarvis",

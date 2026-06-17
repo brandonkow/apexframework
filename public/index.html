@@ -60,6 +60,53 @@
       </section>
 
       <section id="conversation" class="conversation" aria-live="polite">
+        <section class="contextDeck" aria-label="Deal and investor context">
+          <details class="contextPanel">
+            <summary>Deal Card <span>optional</span></summary>
+            <div class="contextGrid">
+              <label>Area<input data-deal-field="area" placeholder="Penang, KL, Selangor..." /></label>
+              <label>Property Type<input data-deal-field="propertyType" placeholder="Condo, serviced apartment..." /></label>
+              <label>Asking Price<input data-deal-field="askingPrice" placeholder="RM500k" inputmode="decimal" /></label>
+              <label>Expected Rent<input data-deal-field="expectedRent" placeholder="RM2,500/month" inputmode="decimal" /></label>
+              <label>Maintenance<input data-deal-field="maintenance" placeholder="RM350/month" inputmode="decimal" /></label>
+              <label>Tenure<input data-deal-field="tenure" placeholder="Freehold / leasehold" /></label>
+              <label>Size<input data-deal-field="size" placeholder="850 sqft" inputmode="decimal" /></label>
+              <label>Nearby Supply<input data-deal-field="nearbySupply" placeholder="Newer similar projects within 2.5km?" /></label>
+              <label class="contextWide">Main Concern<textarea data-deal-field="mainConcern" placeholder="What worries you most about this deal?"></textarea></label>
+            </div>
+          </details>
+
+          <details class="contextPanel">
+            <summary>Financial Profile <span>optional</span></summary>
+            <div class="contextGrid">
+              <label>Monthly Income<input data-profile-field="monthlyIncome" placeholder="RM8,000" inputmode="decimal" /></label>
+              <label>Cash Reserve<input data-profile-field="cashReserveMonths" placeholder="Months of expenses/salary" inputmode="decimal" /></label>
+              <label>Cash Available<input data-profile-field="cashAvailable" placeholder="RM80k" inputmode="decimal" /></label>
+              <label>Current Debt<input data-profile-field="currentDebt" placeholder="RM1,500/month" inputmode="decimal" /></label>
+              <label>Risk Style
+                <select data-profile-field="riskStyle">
+                  <option value="">Select</option>
+                  <option>Conservative</option>
+                  <option>Balanced</option>
+                  <option>Aggressive</option>
+                </select>
+              </label>
+              <label>Investment Goal
+                <select data-profile-field="investmentGoal">
+                  <option value="">Select</option>
+                  <option>Cash flow</option>
+                  <option>Capital appreciation</option>
+                  <option>Balanced rental and resale</option>
+                  <option>Refinancing or cash-out</option>
+                </select>
+              </label>
+              <label>Holding Period<input data-profile-field="holdingPeriod" placeholder="3-5 years" /></label>
+              <label>Loan Preference<input data-profile-field="loanPreference" placeholder="90%, lower leverage..." /></label>
+              <label class="contextWide">Financial Concern<textarea data-profile-field="financialConcern" placeholder="What financial risk worries you most?"></textarea></label>
+            </div>
+          </details>
+        </section>
+
         <div id="transcript" class="transcript"></div>
 
         <form id="chatForm" class="commandBar" autocomplete="off">

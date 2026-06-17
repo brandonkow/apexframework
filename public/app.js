@@ -12,11 +12,15 @@ const newSessionBtn = document.querySelector("#newSessionBtn");
 const resetChatBtn = document.querySelector("#resetChatBtn");
 const voiceSupport = document.querySelector("#voiceSupport");
 const localTime = document.querySelector("#localTime");
+const dealFields = Array.from(document.querySelectorAll("[data-deal-field]"));
+const profileFields = Array.from(document.querySelectorAll("[data-profile-field]"));
 
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 const recognition = SpeechRecognition ? new SpeechRecognition() : null;
 const sessionKey = "estatelab.jarvis.sessionId";
 const clientKey = "estatelab.jarvis.clientId";
+const dealContextKey = "estatelab.jarvis.dealCard";
+const profileContextKey = "estatelab.jarvis.financialProfile";
 let voiceResponsesEnabled = true;
 let listening = false;
 let speaking = false;
@@ -56,12 +60,44 @@ function sourceLabel(type) {
   return "REFERENCE";
 }
 
+function sourceName(source) {
+  const title = String(source?.title || "").toLowerCase();
+  if (title.includes("rental") || title.includes("installment") || title.includes("tenant")) return "rental rule";
+  if (title.includes("future supply") || title.includes("substitute") || title.includes("competition")) return "supply rule";
+  if (title.includes("buyer") || title.includes("own-stay") || title.includes("exit")) return "buyer-pool rule";
+  if (title.includes("transaction") || title.includes("auction") || title.includes("evidence")) return "evidence rule";
+  if (title.includes("density") || title.includes("lift")) return "density rule";
+  if (title.includes("financing") || title.includes("loan")) return "financing rule";
+  return sourceLabel(source?.type).toLowerCase();
+}
+
+function sourceConfidence(sources = []) {
+  const hasBelief = sources.some((source) => source.type === "belief");
+  if (sources.length >= 4 && hasBelief) return "Medium - framework-backed, still needs live market proof";
+  if (sources.length >= 2) return "Low-medium - useful framework match, evidence still thin";
+  return "Low - ask with more deal details";
+}
+
+function missingEvidence(sources = []) {
+  const text = sources.map((source) => `${source.title} ${source.preview || ""}`.toLowerCase()).join(" ");
+  const missing = [];
+  if (text.includes("rental") || text.includes("tenant") || text.includes("installment")) missing.push("actual signed rent");
+  if (text.includes("supply") || text.includes("competition") || text.includes("substitute")) missing.push("nearby supply comparison");
+  if (text.includes("transaction") || text.includes("auction") || text.includes("evidence")) missing.push("recent transaction proof");
+  if (!missing.length) missing.push("property-specific evidence");
+  return missing.slice(0, 3).join(", ");
+}
+
 function sourcesMarkup(sources = []) {
   if (!sources.length) return "";
-  const chips = sources.slice(0, 4).map((source) => (
-    `<span title="${escapeHtml(source.preview || source.title)}">${sourceLabel(source.type)} / ${escapeHtml(source.title)}</span>`
-  )).join("");
-  return `<div class="sourceChips">${chips}</div>`;
+  const basedOn = [...new Set(sources.map(sourceName))].slice(0, 4).join(", ");
+  return `
+    <div class="sourceSummary">
+      <p><b>Based on</b><span>${escapeHtml(basedOn)}</span></p>
+      <p><b>Confidence</b><span>${escapeHtml(sourceConfidence(sources))}</span></p>
+      <p><b>Missing</b><span>${escapeHtml(missingEvidence(sources))}</span></p>
+    </div>
+  `;
 }
 
 function addMessage(role, text, sources = []) {
@@ -90,6 +126,41 @@ function setSpeakingState(active) {
   jarvisOrb.classList.toggle("speaking", active);
   jarvisOrb.setAttribute("aria-label", active ? "Stop Jarvis voice" : "Talk to Jarvis");
   stopVoiceBtn.hidden = !active;
+}
+
+function collectContext(fields, attributeName) {
+  return fields.reduce((context, field) => {
+    const key = field.getAttribute(attributeName);
+    const value = String(field.value || "").trim();
+    if (value) context[key] = value;
+    return context;
+  }, {});
+}
+
+function collectDealCard() {
+  return collectContext(dealFields, "data-deal-field");
+}
+
+function collectFinancialProfile() {
+  return collectContext(profileFields, "data-profile-field");
+}
+
+function saveContext(fields, attributeName, storageKey) {
+  const context = collectContext(fields, attributeName);
+  window.localStorage.setItem(storageKey, JSON.stringify(context));
+}
+
+function restoreContext(fields, attributeName, storageKey) {
+  let saved = {};
+  try {
+    saved = JSON.parse(window.localStorage.getItem(storageKey) || "{}");
+  } catch {
+    window.localStorage.removeItem(storageKey);
+  }
+  for (const field of fields) {
+    const key = field.getAttribute(attributeName);
+    if (saved[key]) field.value = saved[key];
+  }
 }
 
 function stopSpeaking(prompt = "Voice stopped.") {
@@ -197,7 +268,9 @@ async function askJarvis(question) {
     body: JSON.stringify({
       query: question,
       sessionId,
-      clientId: clientId()
+      clientId: clientId(),
+      dealCard: collectDealCard(),
+      financialProfile: collectFinancialProfile()
     })
   });
   sessionId = result.session.id;
@@ -307,6 +380,14 @@ soundToggle.addEventListener("click", () => {
   if (!voiceResponsesEnabled) stopSpeaking("Voice response off.");
 });
 
+for (const field of dealFields) {
+  field.addEventListener("input", () => saveContext(dealFields, "data-deal-field", dealContextKey));
+}
+
+for (const field of profileFields) {
+  field.addEventListener("input", () => saveContext(profileFields, "data-profile-field", profileContextKey));
+}
+
 function updateClock() {
   localTime.textContent = new Intl.DateTimeFormat("en-MY", {
     hour: "2-digit",
@@ -319,6 +400,8 @@ function updateClock() {
 async function bootJarvis() {
   updateClock();
   setInterval(updateClock, 1000);
+  restoreContext(dealFields, "data-deal-field", dealContextKey);
+  restoreContext(profileFields, "data-profile-field", profileContextKey);
   try {
     const status = await requestJson("/api/jarvis/status");
     setSessionState(`ONLINE / ${status.knowledge.references} REF / ${status.knowledge.activeBeliefs} BELIEFS`);

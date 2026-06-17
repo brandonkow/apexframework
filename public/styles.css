@@ -46,7 +46,9 @@ body::before {
 }
 
 button,
-input {
+input,
+select,
+textarea {
   font: inherit;
 }
 
@@ -561,6 +563,97 @@ button {
   gap: 12px;
 }
 
+.contextDeck {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.contextPanel {
+  overflow: hidden;
+  border: 1px solid rgba(103, 229, 255, 0.16);
+  border-radius: 14px;
+  background:
+    linear-gradient(135deg, rgba(90, 231, 255, 0.07), transparent 26%),
+    rgba(2, 13, 21, 0.62);
+  box-shadow: inset 0 0 24px rgba(28, 190, 221, 0.035);
+  backdrop-filter: blur(16px);
+}
+
+.contextPanel summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 13px;
+  cursor: pointer;
+  color: var(--cyan);
+  font-size: 0.58rem;
+  letter-spacing: 0.18em;
+  list-style: none;
+}
+
+.contextPanel summary::-webkit-details-marker {
+  display: none;
+}
+
+.contextPanel summary span {
+  color: #557d88;
+  font-size: 0.5rem;
+}
+
+.contextGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  max-height: min(35vh, 310px);
+  overflow: auto;
+  padding: 0 13px 13px;
+}
+
+.contextGrid label {
+  display: grid;
+  gap: 4px;
+  color: #6e9fab;
+  font-size: 0.55rem;
+  letter-spacing: 0.11em;
+}
+
+.contextGrid input,
+.contextGrid select,
+.contextGrid textarea {
+  width: 100%;
+  border: 1px solid rgba(103, 229, 255, 0.13);
+  border-radius: 10px;
+  outline: 0;
+  padding: 8px 9px;
+  color: var(--text);
+  background: rgba(0, 10, 17, 0.52);
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+}
+
+.contextGrid textarea {
+  min-height: 58px;
+  resize: vertical;
+}
+
+.contextGrid input::placeholder,
+.contextGrid textarea::placeholder {
+  color: #486d77;
+}
+
+.contextGrid input:focus,
+.contextGrid select:focus,
+.contextGrid textarea:focus {
+  border-color: rgba(103, 229, 255, 0.48);
+  box-shadow: 0 0 18px rgba(28, 190, 221, 0.08);
+}
+
+.contextWide {
+  grid-column: 1 / -1;
+}
+
 .transcript {
   display: grid;
   max-height: min(48vh, 510px);
@@ -612,25 +705,31 @@ button {
   white-space: normal;
 }
 
-.sourceChips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  margin-top: 9px;
+.sourceSummary {
+  display: grid;
+  gap: 4px;
+  margin-top: 10px;
+  border-top: 1px solid rgba(103, 229, 255, 0.12);
+  padding-top: 8px;
 }
 
-.sourceChips span {
-  max-width: 100%;
-  overflow: hidden;
-  border: 1px solid rgba(103, 229, 255, 0.18);
-  border-radius: 999px;
-  padding: 3px 7px;
-  color: #6fa9b6;
-  background: rgba(41, 158, 181, 0.08);
-  font-size: 0.52rem;
-  letter-spacing: 0.12em;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.sourceSummary p {
+  display: grid;
+  grid-template-columns: 86px minmax(0, 1fr);
+  gap: 8px;
+  margin: 0;
+  color: #75a7b2;
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+}
+
+.sourceSummary b {
+  color: var(--cyan);
+  font-weight: 500;
+}
+
+.sourceSummary span {
+  min-width: 0;
 }
 
 .commandBar {
@@ -844,6 +943,15 @@ button {
   .conversation {
     bottom: 44px;
     width: min(920px, calc(100% - 24px));
+  }
+
+  .contextDeck,
+  .contextGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .contextPanel summary {
+    padding: 9px 11px;
   }
 
   .transcript {
