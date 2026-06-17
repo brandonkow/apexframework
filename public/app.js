@@ -14,6 +14,7 @@ const voiceSupport = document.querySelector("#voiceSupport");
 const localTime = document.querySelector("#localTime");
 const dealFields = Array.from(document.querySelectorAll("[data-deal-field]"));
 const profileFields = Array.from(document.querySelectorAll("[data-profile-field]"));
+const contextToggles = Array.from(document.querySelectorAll("[data-context-toggle]"));
 
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 const recognition = SpeechRecognition ? new SpeechRecognition() : null;
@@ -21,6 +22,7 @@ const sessionKey = "estatelab.jarvis.sessionId";
 const clientKey = "estatelab.jarvis.clientId";
 const dealContextKey = "estatelab.jarvis.dealCard";
 const profileContextKey = "estatelab.jarvis.financialProfile";
+const contextPanelKey = "estatelab.jarvis.contextPanels";
 let voiceResponsesEnabled = true;
 let listening = false;
 let speaking = false;
@@ -160,6 +162,45 @@ function restoreContext(fields, attributeName, storageKey) {
   for (const field of fields) {
     const key = field.getAttribute(attributeName);
     if (saved[key]) field.value = saved[key];
+  }
+}
+
+function savedContextPanelState() {
+  try {
+    return JSON.parse(window.localStorage.getItem(contextPanelKey) || "{}");
+  } catch {
+    window.localStorage.removeItem(contextPanelKey);
+    return {};
+  }
+}
+
+function setContextPanelState(toggle, expanded, persist = true) {
+  const panelName = toggle.getAttribute("data-context-toggle");
+  const body = document.querySelector(`[data-context-body="${panelName}"]`);
+  const action = toggle.querySelector(".contextAction");
+  if (!body) return;
+
+  toggle.setAttribute("aria-expanded", String(expanded));
+  body.hidden = !expanded;
+  toggle.closest(".contextPanel")?.classList.toggle("expanded", expanded);
+  if (action) action.textContent = expanded ? "CLOSE" : "OPEN";
+
+  if (persist) {
+    const state = savedContextPanelState();
+    state[panelName] = expanded;
+    window.localStorage.setItem(contextPanelKey, JSON.stringify(state));
+  }
+}
+
+function bootContextPanels() {
+  const state = savedContextPanelState();
+  for (const toggle of contextToggles) {
+    const panelName = toggle.getAttribute("data-context-toggle");
+    setContextPanelState(toggle, Boolean(state[panelName]), false);
+    toggle.addEventListener("click", () => {
+      const expanded = toggle.getAttribute("aria-expanded") === "true";
+      setContextPanelState(toggle, !expanded);
+    });
   }
 }
 
@@ -402,6 +443,7 @@ async function bootJarvis() {
   setInterval(updateClock, 1000);
   restoreContext(dealFields, "data-deal-field", dealContextKey);
   restoreContext(profileFields, "data-profile-field", profileContextKey);
+  bootContextPanels();
   try {
     const status = await requestJson("/api/jarvis/status");
     setSessionState(`ONLINE / ${status.knowledge.references} REF / ${status.knowledge.activeBeliefs} BELIEFS`);

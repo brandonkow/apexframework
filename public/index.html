@@ -62,8 +62,11 @@
       <section id="conversation" class="conversation" aria-live="polite">
         <section class="contextDeck" aria-label="Deal and investor context">
           <section class="contextPanel">
-            <div class="contextHeader">Deal Card <span>optional</span></div>
-            <div class="contextGrid">
+            <button class="contextHeader" type="button" data-context-toggle="deal" aria-expanded="false" aria-controls="dealContextFields">
+              <span>Deal Card <small>optional</small></span>
+              <b class="contextAction">OPEN</b>
+            </button>
+            <div id="dealContextFields" class="contextGrid" data-context-body="deal" hidden>
               <label>Area<input data-deal-field="area" placeholder="Penang, KL, Selangor..." /></label>
               <label>Property Type<input data-deal-field="propertyType" placeholder="Condo, serviced apartment..." /></label>
               <label>Asking Price<input data-deal-field="askingPrice" placeholder="RM500k" inputmode="decimal" /></label>
@@ -76,8 +79,11 @@
           </section>
 
           <section class="contextPanel">
-            <div class="contextHeader">Financial Profile <span>optional</span></div>
-            <div class="contextGrid">
+            <button class="contextHeader" type="button" data-context-toggle="profile" aria-expanded="false" aria-controls="profileContextFields">
+              <span>Financial Profile <small>optional</small></span>
+              <b class="contextAction">OPEN</b>
+            </button>
+            <div id="profileContextFields" class="contextGrid" data-context-body="profile" hidden>
               <label>Monthly Income<input data-profile-field="monthlyIncome" placeholder="RM8,000" inputmode="decimal" /></label>
               <label>Cash Reserve<input data-profile-field="cashReserveMonths" placeholder="Months of expenses/salary" inputmode="decimal" /></label>
               <label>Cash Available<input data-profile-field="cashAvailable" placeholder="RM80k" inputmode="decimal" /></label>
