@@ -490,6 +490,45 @@ function uniqueSources(items, limit = 6) {
     .slice(0, limit);
 }
 
+function compactQuery(text) {
+  return String(text || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function detectSmallTalk(query) {
+  const clean = compactQuery(query);
+  if (!clean) return "empty";
+  const words = clean.split(" ");
+  const greetingTerms = new Set(["hi", "hello", "hey", "yo", "morning", "afternoon", "evening"]);
+  const thanksTerms = new Set(["thanks", "thank", "thx"]);
+  const byeTerms = new Set(["bye", "goodbye", "later"]);
+
+  if (words.length <= 4 && words.some((word) => greetingTerms.has(word))) return "greeting";
+  if (words.length <= 5 && (words.some((word) => thanksTerms.has(word)) || clean.includes("thank you"))) return "thanks";
+  if (words.length <= 5 && words.some((word) => byeTerms.has(word))) return "bye";
+  if (words.length <= 4 && ["ok", "okay", "noted", "done"].includes(clean)) return "ack";
+  return null;
+}
+
+function smallTalkAnswer(kind) {
+  if (kind === "greeting") {
+    return "Hey, I’m here. Send me a property, area, rental figure, or concern, and I’ll help you test the deal properly.";
+  }
+  if (kind === "thanks") {
+    return "Anytime. Bring me the next property or market question when you’re ready.";
+  }
+  if (kind === "bye") {
+    return "Alright, talk soon. I’ll keep the framework ready for the next deal.";
+  }
+  if (kind === "ack") {
+    return "Noted. What do you want to examine next?";
+  }
+  return "I’m here. What property or market question should we look at?";
+}
+
 async function retrieveGuidance(query, property, brain) {
   const corpus = await readJson(RAG_PATH, []);
   const queryTerms = tokenize(`${query} ${property ? JSON.stringify(property) : ""}`);
@@ -533,6 +572,14 @@ async function retrieveGuidance(query, property, brain) {
 }
 
 async function retrieveJarvisAnswer(query, brain, session) {
+  const smallTalk = detectSmallTalk(query);
+  if (smallTalk) {
+    return {
+      answer: smallTalkAnswer(smallTalk),
+      sources: []
+    };
+  }
+
   const corpus = await readJson(RAG_PATH, []);
   const recentSessionContext = Array.isArray(session?.messages)
     ? session.messages.slice(-6).map((message) => message.content).join(" ")
