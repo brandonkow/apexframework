@@ -10,6 +10,7 @@ const soundToggle = document.querySelector("#soundToggle");
 const stopVoiceBtn = document.querySelector("#stopVoiceBtn");
 const newSessionBtn = document.querySelector("#newSessionBtn");
 const resetChatBtn = document.querySelector("#resetChatBtn");
+const analyzeDealBtn = document.querySelector("#analyzeDealBtn");
 const voiceSupport = document.querySelector("#voiceSupport");
 const localTime = document.querySelector("#localTime");
 const dealFields = Array.from(document.querySelectorAll("[data-deal-field]"));
@@ -75,7 +76,7 @@ function sourceName(source) {
 
 function sourceConfidence(sources = []) {
   const hasBelief = sources.some((source) => source.type === "belief");
-  if (sources.length >= 4 && hasBelief) return "Medium - framework-backed, still needs live market proof";
+  if (sources.length >= 4 || hasBelief) return "Medium - framework-backed, still needs live market proof";
   if (sources.length >= 2) return "Low-medium - useful framework match, evidence still thin";
   return "Low - ask with more deal details";
 }
@@ -113,6 +114,67 @@ function addMessage(role, text, sources = []) {
   `;
   transcript.append(message);
   transcript.scrollTop = transcript.scrollHeight;
+}
+
+function analysisSection(title, items = [], className = "") {
+  if (!items.length) return "";
+  return `
+    <section class="analysisSection ${escapeHtml(className)}">
+      <h3>${escapeHtml(title)}</h3>
+      <ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+    </section>
+  `;
+}
+
+function addDealAnalysis(analysis, sources = []) {
+  document.body.classList.add("conversationActive");
+  const message = document.createElement("article");
+  const verdictClass = String(analysis.verdict || "investigate").toLowerCase();
+  const stageMarkup = (analysis.stages || []).map((stage) => `
+    <li class="analysisStage">
+      <span class="stageNumber">0${escapeHtml(stage.number)}</span>
+      <span class="stageBody">
+        <b>${escapeHtml(stage.name)}</b>
+        <small>${escapeHtml(stage.summary)}</small>
+      </span>
+      <span class="stageReading">
+        <i class="stageStatus ${escapeHtml(stage.status)}">${escapeHtml(stage.status)}</i>
+        <em>${escapeHtml(stage.score)}/100</em>
+      </span>
+    </li>
+  `).join("");
+  const metricMarkup = (analysis.metrics || []).map((metric) => `
+    <span class="analysisMetric"><small>${escapeHtml(metric.label)}</small><b>${escapeHtml(metric.value)}</b></span>
+  `).join("");
+
+  message.className = "message jarvis analysisMessage";
+  message.innerHTML = `
+    <div class="analysisHeader">
+      <span><small>SEVEN-STAGE VERDICT</small><b>${escapeHtml(analysis.verdict)}</b></span>
+      <i class="analysisVerdict ${escapeHtml(verdictClass)}">${escapeHtml(analysis.confidence)}% CONFIDENCE</i>
+    </div>
+    <p class="analysisSummary">${escapeHtml(analysis.summary)}</p>
+    <div class="analysisMeta">
+      <span>FRAMEWORK SCORE <b>${escapeHtml(analysis.averageScore)}/100</b></span>
+      <span>INPUT COMPLETE <b>${escapeHtml(analysis.completeness)}%</b></span>
+    </div>
+    ${metricMarkup ? `<div class="analysisMetrics">${metricMarkup}</div>` : ""}
+    <ol class="analysisStages">${stageMarkup}</ol>
+    <div class="analysisDetails">
+      ${analysisSection("Hard stops", analysis.hardStops, "danger")}
+      ${analysisSection("Watch-outs", analysis.watchouts, "warning")}
+      ${analysisSection("Missing evidence", analysis.missingEvidence)}
+      ${analysisSection("Check next", analysis.nextActions, "actions")}
+    </div>
+    <section class="analysisCounter">
+      <h3>STRONGEST COUNTER-THESIS</h3>
+      <p>${escapeHtml(analysis.counterThesis)}</p>
+    </section>
+    ${sourcesMarkup(sources)}
+  `;
+  transcript.append(message);
+  const messageTop = message.getBoundingClientRect().top - transcript.getBoundingClientRect().top + transcript.scrollTop;
+  transcript.scrollTop = Math.max(0, messageTop - 6);
 }
 
 function renderSession(session) {
@@ -213,6 +275,15 @@ function bootContextPanels() {
       setContextPanelState(toggle, !expanded);
     });
   }
+}
+
+function collapseContextPanels() {
+  const state = {};
+  for (const toggle of contextToggles) {
+    setContextPanelState(toggle, false, false);
+    state[toggle.getAttribute("data-context-toggle")] = false;
+  }
+  window.localStorage.setItem(contextPanelKey, JSON.stringify(state));
 }
 
 function stopSpeaking(prompt = "Voice stopped.") {
@@ -354,6 +425,57 @@ async function submitQuestion(question) {
   }
 }
 
+async function runDealAnalysis() {
+  const dealCard = collectDealCard();
+  const financialProfile = collectFinancialProfile();
+  if (!dealCard.askingPrice || (!dealCard.area && !dealCard.projectName)) {
+    addMessage("jarvis", "Add an asking price and an area or project first. I can work with missing evidence after that, but I need a real deal to analyse.");
+    const dealToggle = contextToggles.find((toggle) => toggle.getAttribute("data-context-toggle") === "deal");
+    if (dealToggle) setContextPanelState(dealToggle, true);
+    const firstMissing = dealFields.find((field) => {
+      const key = field.getAttribute("data-deal-field");
+      return (key === "askingPrice" && !dealCard.askingPrice)
+        || (key === "area" && !dealCard.area && !dealCard.projectName);
+    });
+    firstMissing?.focus();
+    return;
+  }
+
+  collapseContextPanels();
+  await ensureSession();
+  stopSpeaking("Running the full framework.");
+  addMessage("user", "Run the seven-stage EstateLab analysis for this deal.");
+  analyzeDealBtn.disabled = true;
+  analyzeDealBtn.textContent = "ANALYSING...";
+  setSystemState("Analyzing", "Running all seven EstateLab stages.");
+  jarvisOrb.classList.add("speaking");
+  try {
+    const result = await requestJson("/api/jarvis/analyze-deal", {
+      method: "POST",
+      body: JSON.stringify({
+        sessionId,
+        clientId: clientId(),
+        dealCard,
+        financialProfile
+      })
+    });
+    sessionId = result.session.id;
+    window.localStorage.setItem(sessionKey, sessionId);
+    setSessionState(`SESSION ${result.session.messages.length} MSG`);
+    addDealAnalysis(result.analysis, result.sources);
+    speak(result.analysis.voiceSummary);
+    if (!voiceResponsesEnabled) setSystemState("System ready", "Analysis complete.");
+  } catch (error) {
+    const message = error.message || "The deal analysis is unavailable.";
+    addMessage("jarvis", message);
+    setSystemState("Connection issue", "Deal analysis could not be completed.");
+  } finally {
+    analyzeDealBtn.disabled = false;
+    analyzeDealBtn.textContent = "ANALYSE DEAL";
+    if (!window.speechSynthesis?.speaking) jarvisOrb.classList.remove("speaking");
+  }
+}
+
 function startListening() {
   if (speaking || window.speechSynthesis?.speaking) {
     stopSpeaking("Voice stopped.");
@@ -412,6 +534,7 @@ jarvisOrb.addEventListener("click", startListening);
 micBtn.addEventListener("click", startListening);
 stopVoiceBtn.addEventListener("click", () => stopSpeaking("Voice stopped."));
 resetChatBtn.addEventListener("click", resetChat);
+analyzeDealBtn.addEventListener("click", runDealAnalysis);
 
 newSessionBtn.addEventListener("click", async () => {
   stopSpeaking("Starting a clean conversation.");

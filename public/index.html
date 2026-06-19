@@ -70,13 +70,61 @@
             </button>
             <div id="dealContextFields" class="contextGrid" data-context-body="deal" hidden>
               <label>Area<input data-deal-field="area" placeholder="Penang, KL, Selangor..." /></label>
+              <label>Project<input data-deal-field="projectName" placeholder="Development name" /></label>
               <label>Property Type<input data-deal-field="propertyType" placeholder="Condo, serviced apartment..." /></label>
+              <label>Property Age<input data-deal-field="propertyAge" placeholder="Years" inputmode="decimal" /></label>
               <label>Asking Price<input data-deal-field="askingPrice" placeholder="RM500k" inputmode="decimal" /></label>
+              <label>Conservative Value<input data-deal-field="conservativeFairValue" placeholder="RM520k from transactions" inputmode="decimal" /></label>
               <label>Expected Rent<input data-deal-field="expectedRent" placeholder="RM2,500/month" inputmode="decimal" /></label>
               <label>Maintenance<input data-deal-field="maintenance" placeholder="RM350/month" inputmode="decimal" /></label>
+              <label>Loan Instalment<input data-deal-field="estimatedInstallment" placeholder="RM2,100/month" inputmode="decimal" /></label>
+              <label>Cash Outlay<input data-deal-field="cashOutlay" placeholder="RM80k all-in cash" inputmode="decimal" /></label>
               <label>Tenure<input data-deal-field="tenure" placeholder="Freehold / leasehold" /></label>
+              <label>Unit Position
+                <select data-deal-field="unitPosition">
+                  <option value="">Select</option>
+                  <option>Good</option>
+                  <option>Neutral</option>
+                  <option>Unfavourable</option>
+                </select>
+              </label>
+              <label>Own-Stay Appeal
+                <select data-deal-field="ownStayAppeal">
+                  <option value="">Select</option>
+                  <option>Strong</option>
+                  <option>Mixed</option>
+                  <option>Weak</option>
+                </select>
+              </label>
+              <label>Management / Build
+                <select data-deal-field="managementQuality">
+                  <option value="">Select</option>
+                  <option>Strong</option>
+                  <option>Mixed</option>
+                  <option>Weak</option>
+                </select>
+              </label>
+              <label>Exit Buyer Pool
+                <select data-deal-field="exitBuyerPool">
+                  <option value="">Select</option>
+                  <option>Own-stay and investor</option>
+                  <option>Own-stay mainly</option>
+                  <option>Investor mainly</option>
+                  <option>Unclear</option>
+                </select>
+              </label>
+              <label>Evidence Confidence
+                <select data-deal-field="evidenceConfidence">
+                  <option value="">Select</option>
+                  <option>High</option>
+                  <option>Medium</option>
+                  <option>Low</option>
+                </select>
+              </label>
               <label class="contextWide">Nearby Supply<input data-deal-field="nearbySupply" placeholder="Newer similar projects within 2.5km?" /></label>
+              <label class="contextWide">Investment Thesis<input data-deal-field="investmentThesis" placeholder="Why should this property work?" /></label>
               <label class="contextWide">Main Concern<input data-deal-field="mainConcern" placeholder="What worries you most about this deal?" /></label>
+              <label class="contextWide">Kill Criterion<input data-deal-field="killCriterion" placeholder="What discovery would make you walk away?" /></label>
             </div>
           </section>
 
@@ -107,6 +155,9 @@
                   <option>Refinancing or cash-out</option>
                 </select>
               </label>
+              <label>Holding Period<input data-profile-field="holdingPeriod" placeholder="Years" inputmode="decimal" /></label>
+              <label>Existing Properties<input data-profile-field="existingProperties" placeholder="Number owned" inputmode="numeric" /></label>
+              <label class="contextWide">Near-Term Commitment<input data-profile-field="nearTermCommitment" placeholder="Any major capital need in the next 2 years?" /></label>
               <label class="contextWide">Financial Concern<input data-profile-field="financialConcern" placeholder="What financial risk worries you most?" /></label>
             </div>
           </section>
@@ -124,6 +175,7 @@
         </form>
 
         <div class="voiceControls">
+          <button id="analyzeDealBtn" class="analyzeDealBtn" type="button">ANALYSE DEAL</button>
           <button id="newSessionBtn" type="button">NEW SESSION</button>
           <button id="resetChatBtn" type="button">RESET CHAT</button>
           <button id="stopVoiceBtn" class="stopVoiceBtn" type="button" hidden>STOP VOICE</button>

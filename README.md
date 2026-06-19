@@ -7,6 +7,7 @@ The public user experience is intentionally simple: users interact with one Jarv
 ## What Is Included
 
 - Jarvis-style browser UI with voice input and voice response support.
+- Seven-stage Deal Analysis using the Deal Card and Financial Profile, with structured verdicts, hard stops, stress metrics, counter-thesis, and missing evidence.
 - Node.js backend with no external npm dependencies.
 - Public Jarvis endpoints for chat, session creation, and knowledge status.
 - Owner-protected APIs for property analysis, RAG querying, beliefs, decisions, and comparable data.
@@ -65,6 +66,7 @@ Public:
 - `GET /api/jarvis/sessions/:id`
 - `DELETE /api/jarvis/sessions/:id`
 - `POST /api/jarvis/query`
+- `POST /api/jarvis/analyze-deal`
 
 Owner-only:
 
