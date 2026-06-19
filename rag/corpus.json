@@ -394,5 +394,47 @@
     "title": "Holding period before buying",
     "tags": ["holding period", "exit", "disposal year", "retail investor", "mistake"],
     "body": "A common holding-period mistake is buying without accepting the time needed for the thesis to work, then complaining that the property cannot be sold quickly or must be sold at a loss. Before purchase, EstateLab should require an assumed holding period, target disposal year, review triggers, minimum acceptable rent, refinance condition, and sell condition."
+  },
+  {
+    "id": "portfolio-count-and-overexposure",
+    "title": "Property count does not define overexposure",
+    "tags": ["portfolio", "property count", "overexposure", "90 percent loan", "own stay", "investment"],
+    "body": "The founder's preferred early sequence is one own-stay property and one investment property, partly informed by the financing treatment commonly associated with a borrower's first two housing loans. EstateLab must verify current lender and regulatory rules at decision time and must not turn a financing quota into a target count. Overexposure is defined by debt stress, weak cash flow, low reserve, illiquidity, and correlated assets, not property count alone."
+  },
+  {
+    "id": "portfolio-one-strong-before-many-cheap",
+    "title": "One resilient property before multiple cheap properties",
+    "tags": ["strong property", "cheap property", "beginner", "scaling", "cash reserve", "quality"],
+    "body": "A financially ready beginner should prefer one strong property first. Strong means demand-supported, rentable, liquid, well-managed, and bought at a defensible price, not merely expensive. A financially weaker beginner should not automatically buy multiple cheap properties because lower prices can multiply transaction cost, vacancy, repairs, weak project quality, management workload, and narrow buyer-pool risk. Prefer one affordable resilient asset or wait unless every cheap asset independently passes all gates and the combined portfolio survives stress."
+  },
+  {
+    "id": "portfolio-cash-flow-lock-and-pause",
+    "title": "Scaling cash-flow lock and pause triggers",
+    "tags": ["cash flow stuck", "liquidity", "pause buying", "life planning", "commitments", "reserve"],
+    "body": "Scaling too fast can lock cash in down payments, renovation, weak assets, negative carry, and debt service. Pause new purchases when life plans need ready capital, existing rent is unstable, reserve would be consumed, debt fails stress tests, unresolved property problems remain, or the next deal depends on refinancing. A portfolio that can continue only through another loan, cash-out, or optimistic sale is already fragile."
+  },
+  {
+    "id": "portfolio-local-edge-and-concentration",
+    "title": "Local expertise versus portfolio concentration",
+    "tags": ["geographic concentration", "local knowledge", "high rise", "landed", "five properties", "tenant pool"],
+    "body": "Focusing on a familiar area can create an information edge and may be safer than superficial diversification into unfamiliar markets. EstateLab should still test shared exposure to the same tenant engine, township, future supply, price segment, exit buyers, infrastructure, and market cycle. More than five similar high-rise or five similar landed properties is a founder review threshold, but two or three may already be concentrated when their risks are highly correlated."
+  },
+  {
+    "id": "portfolio-rental-before-appreciation",
+    "title": "Rental base before appreciation property",
+    "tags": ["acquisition sequence", "rental cash flow", "landed", "capital appreciation", "negative cash flow", "down payment"],
+    "body": "The founder prefers building rental cash flow before adding a landed or other appreciation-led property. This can improve holding power, but EstateLab must separate rental income, equity-release capital, and loan qualification. Cash-out may contribute to a down payment but is still debt and does not automatically improve income, DSR, reserve, or affordability."
+  },
+  {
+    "id": "portfolio-refinance-and-cash-out-gate",
+    "title": "Refinance and cash-out portfolio gate",
+    "tags": ["refinance", "cash out", "capital recycling", "three years", "bank valuation", "overleverage"],
+    "body": "Three years is a refinance review point, not automatic permission. Capital recycling is healthy only when genuine equity is supported by current transactions, the property remains strong, rent covers the higher installment and recurring costs after stress, reserve remains intact, the use of funds is clear, and the lender sees the true transaction. Reject strategies that rely on inflated consideration, unsupported bank valuation, misleading documents, or repeated refinancing to hide weak cash flow."
+  },
+  {
+    "id": "portfolio-next-property-gate",
+    "title": "Next-property permission gate",
+    "tags": ["next property", "second property", "portfolio scaling", "tenancy cycle", "emergency fund", "stress test"],
+    "body": "Before encouraging another property, EstateLab must re-test the next asset, user profile, combined financing, existing operating performance, and post-purchase reserve. Existing investment property should have verified achieved rent and preferably one full tenancy cycle. Keep at least the founder default six months of salary while also calculating essential-living and portfolio-obligation reserves. The portfolio must survive lower rent, vacancy, repairs, and a 2 percent rate increase, and the new deal must not depend on future appreciation, refinancing, or cash-out."
   }
 ]

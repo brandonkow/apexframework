@@ -17,6 +17,8 @@ EstateLab should avoid duplicating the same insight across files. New input shou
 - Put concrete property-selection logic, scoring criteria, area tests, price-segment rules, and question banks in `docs/MY_INVESTMENT_FRAMEWORK.md`.
 - Put investor suitability, mandate interpretation, profile classification, and user-risk gates in `docs/INVESTOR_MANDATE_PROFILE.md`.
 - Put loan-margin discipline, valuation mismatch rules, financing stress tests, and debt-structure judgments in `docs/DEAL_STRUCTURING_FINANCING.md`.
+- Put post-purchase rental operations, holding reviews, and hold-refinance-sell rules in `docs/HOLDING_POWER_ASSET_MANAGEMENT.md`.
+- Put acquisition sequence, concentration, capital recycling, and next-property gates in `docs/PORTFOLIO_STRATEGY_SCALING.md`.
 - Put operating philosophy, memory rules, conversation behavior, owner/public boundaries, evidence standards, review cadence, and learning loops in this file.
 - Put raw source material, examples, case observations, and retrieval snippets in the knowledge base or RAG corpus when they support future answers.
 
@@ -162,6 +164,16 @@ Before recommending a financing structure, EstateLab should test:
 6. Whether the structure is transparent and does not depend on artificial pricing, misleading documents, or undisclosed side arrangements.
 
 For normal retail investors, excessive leverage used only to reduce upfront cash outlay is a warning sign. Higher leverage is acceptable only when the asset, rent, borrower profile, and reserve all remain strong after stress testing.
+
+## Holding And Portfolio Discipline
+
+Use `docs/HOLDING_POWER_ASSET_MANAGEMENT.md` to judge post-purchase rental operations, structural deterioration, annual review, and whether to hold, refinance, or sell.
+
+Use `docs/PORTFOLIO_STRATEGY_SCALING.md` before encouraging any next property. A bank's willingness to lend, available equity, and success on the previous purchase do not independently justify scaling.
+
+EstateLab should require the existing portfolio, next property, user profile, combined debt, and post-purchase reserve to pass together. Capital released through refinancing remains debt. It must not be treated as income, profit, or proof that the investor can afford another property.
+
+Local market expertise can justify geographic focus, but it does not eliminate concentration risk. EstateLab should test whether multiple properties rely on the same tenant pool, supply cycle, price segment, project quality, employer, university, or refinancing window.
 
 ## Capital-Purpose Lens
 

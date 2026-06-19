@@ -744,11 +744,131 @@
         "evidenceAgainst": "Some exits should happen earlier when hard evidence invalidates the thesis, even if the planned holding period has not ended.",
         "falsifier": "Revise if investors without pre-set holding assumptions make equally disciplined hold or sell decisions under stress.",
         "nextReview": ""
+      },
+      {
+        "id": "stage-5-property-count-overexposure",
+        "createdAt": "2026-06-19T00:00:00.000Z",
+        "status": "active",
+        "claim": "One own-stay property plus one investment property is a useful founder sequence, but EstateLab must define overexposure through portfolio stress rather than a universal property count or available financing quota.",
+        "scope": "Stage 5 property count, financing sequence, and portfolio exposure",
+        "confidence": 88,
+        "evidenceFor": "The founder links the early two-property sequence to practical own-stay and investment needs, while cash flow, reserve, debt, and correlated exposure determine whether those properties are actually sustainable.",
+        "evidenceAgainst": "Current loan-margin policy and borrower eligibility vary and must be verified; even one investment property can be excessive for a weak financial profile, while more properties may be manageable for a resilient investor.",
+        "falsifier": "Revise if property count or financing quota alone consistently predicts portfolio distress better than debt, reserve, cash flow, liquidity, and risk correlation.",
+        "nextReview": ""
+      },
+      {
+        "id": "stage-5-one-strong-before-many-cheap",
+        "createdAt": "2026-06-19T00:00:00.000Z",
+        "status": "active",
+        "claim": "A beginner with limited cash should normally buy one affordable resilient property or wait, rather than use multiple cheap properties as a substitute for financial readiness.",
+        "scope": "Stage 5 acquisition sequence for beginners",
+        "confidence": 89,
+        "evidenceFor": "Multiple cheap assets multiply transaction costs, vacancy, repairs, management workload, low-quality project risk, and reliance on refinancing; lower price does not guarantee lower total risk.",
+        "evidenceAgainst": "A disciplined investor may safely own multiple lower-price assets when each has verified demand, rent coverage, management quality, buyer depth, and the combined portfolio retains strong reserve.",
+        "falsifier": "Revise if financially constrained beginners repeatedly achieve stronger risk-adjusted results through multiple cheap properties than through one resilient asset without higher distress or refinancing dependence.",
+        "nextReview": ""
+      },
+      {
+        "id": "stage-5-local-edge-concentration",
+        "createdAt": "2026-06-19T00:00:00.000Z",
+        "status": "active",
+        "claim": "Local expertise can justify geographic focus, but EstateLab must still measure correlated exposure to the same tenant engine, supply pipeline, price segment, exit pool, and market cycle.",
+        "scope": "Stage 5 geographic and property-type concentration",
+        "confidence": 87,
+        "evidenceFor": "Familiarity can improve sourcing and judgment, while several properties in the same area can still fail together when demand, supply, access, or financing changes.",
+        "evidenceAgainst": "Deep local knowledge and genuinely different tenant or buyer segments within one geography may reduce practical risk more than unfamiliar geographic diversification.",
+        "falsifier": "Revise if concentrated portfolios with local expertise consistently avoid correlated distress despite shared demand and supply shocks.",
+        "nextReview": ""
+      },
+      {
+        "id": "stage-5-capital-recycling-discipline",
+        "createdAt": "2026-06-19T00:00:00.000Z",
+        "status": "active",
+        "claim": "Cash-out and refinancing are acceptable scaling tools only when based on defensible equity, full lender transparency, stressed rent coverage, adequate reserve, and a clear productive use of funds.",
+        "scope": "Stage 5 refinancing, cash-out, and capital recycling",
+        "confidence": 93,
+        "evidenceFor": "Equity release can improve capital efficiency for seasoned investors, but it increases debt and can create overleverage when valuation, rent, or the next investment underperforms.",
+        "evidenceAgainst": "Some low-leverage investors with strong income and liquid assets may safely refinance even when rent does not fully cover the higher installment, but this is not the normal retail default.",
+        "falsifier": "Revise if unsupported valuation, maximum equity extraction, or refinance-dependent portfolios consistently survive downturns and outperform without higher distress.",
+        "nextReview": ""
+      },
+      {
+        "id": "stage-5-next-property-gate",
+        "createdAt": "2026-06-19T00:00:00.000Z",
+        "status": "active",
+        "claim": "EstateLab should block the next purchase until existing operating performance is verified, reserves remain intact, combined debt survives stress, and the next deal works without future appreciation or cash-out.",
+        "scope": "Stage 5 permission to proceed from first property to next property",
+        "confidence": 92,
+        "evidenceFor": "A first successful purchase can create overconfidence; re-testing the property, user, debt, reserve, and portfolio role prevents loan eligibility and FOMO from replacing independent analysis.",
+        "evidenceAgainst": "A rare time-sensitive opportunity may arise before one full tenancy cycle, but proceeding earlier requires unusually strong verified evidence and greater reserve.",
+        "falsifier": "Revise if investors who scale before operating proof and combined stress testing repeatedly achieve equal or better outcomes without greater liquidity or debt problems.",
+        "nextReview": ""
       }
     ],
     "decisions": []
   },
   "jarvis": {
-    "sessions": []
+    "sessions": [
+      {
+        "id": "5abf3da6-f6f5-462d-843e-aa065b7dcd72",
+        "createdAt": "2026-06-17T04:12:04.171Z",
+        "updatedAt": "2026-06-17T04:12:04.217Z",
+        "title": "What should I watch before buying a high-de...",
+        "clientId": "vercel-smoke",
+        "messages": [
+          {
+            "id": "e91d649c-f749-4800-8823-32506f417671",
+            "role": "user",
+            "content": "What should I watch before buying a high-density high-rise?",
+            "createdAt": "2026-06-17T04:12:04.187Z",
+            "sources": []
+          },
+          {
+            "id": "c6af0658-6850-4458-8c9f-8a0f99a2b2cb",
+            "role": "jarvis",
+            "content": "My current view: High-rise projects around 1,500 units and above are a founder-default density warning, and lift capacity or waiting time can become an immediate rejection trigger. Confidence is 82 percent. Key challenge: High density can be acceptable in prime locations when pricing is attractive and the developer, facilities, lifts, and management quality support the resident load. Useful test: Revise if high-density projects above the threshold repeatedly show strong rental, resale, lift performance, resident satisfaction, and maintenance outcomes comparable to lower-density substitutes.",
+            "createdAt": "2026-06-17T04:12:04.217Z",
+            "sources": [
+              {
+                "id": "high-density-lift-test",
+                "title": "High density and lift test",
+                "type": "reference",
+                "preview": "Around 1,500 units and above is a founder-default high-rise density warning.",
+                "score": 22
+              },
+              {
+                "id": "danger-high-income-low-knowledge",
+                "title": "Danger profile: high income, low understanding",
+                "type": "reference",
+                "preview": "A dangerous investor profile is high income but poor understanding of what they are buying. Borrowing capacity can hide weak judgment.",
+                "score": 18
+              },
+              {
+                "id": "title-preference-by-property-type",
+                "title": "Title preference by property type",
+                "type": "reference",
+                "preview": "For high-rise property, freehold versus leasehold is not the founder's main deciding factor if product quality, location, bankability, price segment, and exi...",
+                "score": 16
+              },
+              {
+                "id": "stage-1j-density-lift-threshold",
+                "title": "High-rise projects around 1,500 units and above are a founder-default density warning, and lift capacity or waiting time can become an immediate rejection trigger.",
+                "type": "belief",
+                "preview": "High unit count and high plot ratio can create facility crowding, lift queues, security friction, parking issues, and weaker liveability unless the project i...",
+                "score": 24
+              },
+              {
+                "id": "mandate-cash-reserve-strategy-fit",
+                "title": "Investor strategy fit depends heavily on cash reserve: lower-reserve retail investors should prefer rental holding power, while landed appreciation and negative cash flow require high reserve.",
+                "type": "belief",
+                "preview": "High-rise rental strategies can be safer for retail investors when rent covers installment, while landed appreciation often requires stronger cash reserve to...",
+                "score": 14
+              }
+            ]
+          }
+        ]
+      }
+    ]
   }
 }
