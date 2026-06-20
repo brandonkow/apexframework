@@ -4,7 +4,7 @@
 
 The app includes a local retrieval layer that answers investment questions from a curated knowledge base. It does not require an external vector database. When OpenAI mode is enabled, the server sends the current question, submitted deal/profile context, and selected retrieval context to OpenAI for response generation; the API key remains server-side.
 
-Retrieval is only one part of the EstateLab second brain. Retrieved material is evidence or prior guidance, not the final judgment. The thinking-partner records in `data/db.json` capture the investor's answers, testable beliefs, and decisions so later discussions can challenge and improve them.
+Retrieval is only one part of the EstateLab second brain. Retrieved material is evidence or prior guidance, not the final judgment. The thinking-partner records in the selected runtime store capture the investor's answers, testable beliefs, and decisions so later discussions can challenge and improve them.
 
 The public Jarvis frontend is read-only. User prompts query the curated backend knowledge but are not stored as source knowledge, beliefs, decisions, properties, or comparable data. Chat history remains separate conversation memory, protected by a guest browser identity or member authentication. Backend knowledge curation is owner-only.
 

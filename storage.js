@@ -1,0 +1,339 @@
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import path from "node:path";
+
+const SCHEMA_SQL = `
+  CREATE TABLE IF NOT EXISTS estatelab_meta (
+    singleton BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (singleton),
+    revision BIGINT NOT NULL DEFAULT 0,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
+  CREATE TABLE IF NOT EXISTS estatelab_core (
+    singleton BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (singleton),
+    properties JSONB NOT NULL DEFAULT '[]'::jsonb,
+    comps JSONB NOT NULL DEFAULT '[]'::jsonb,
+    brain JSONB NOT NULL DEFAULT '{}'::jsonb,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
+  CREATE TABLE IF NOT EXISTS estatelab_users (
+    id TEXT PRIMARY KEY,
+    email TEXT NOT NULL,
+    display_name TEXT NOT NULL,
+    password_hash TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL
+  );
+
+  CREATE UNIQUE INDEX IF NOT EXISTS estatelab_users_email_lower_idx
+    ON estatelab_users (LOWER(email));
+
+  CREATE TABLE IF NOT EXISTS estatelab_auth_sessions (
+    token_hash TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES estatelab_users(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS estatelab_auth_sessions_user_idx
+    ON estatelab_auth_sessions (user_id);
+
+  CREATE INDEX IF NOT EXISTS estatelab_auth_sessions_expiry_idx
+    ON estatelab_auth_sessions (expires_at);
+
+  CREATE TABLE IF NOT EXISTS estatelab_jarvis_sessions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT REFERENCES estatelab_users(id) ON DELETE SET NULL,
+    client_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS estatelab_jarvis_sessions_user_updated_idx
+    ON estatelab_jarvis_sessions (user_id, updated_at DESC);
+
+  CREATE INDEX IF NOT EXISTS estatelab_jarvis_sessions_client_updated_idx
+    ON estatelab_jarvis_sessions (client_id, updated_at DESC);
+
+  CREATE TABLE IF NOT EXISTS estatelab_jarvis_messages (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL REFERENCES estatelab_jarvis_sessions(id) ON DELETE CASCADE,
+    position INTEGER NOT NULL,
+    role TEXT NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL,
+    sources JSONB NOT NULL DEFAULT '[]'::jsonb
+  );
+
+  CREATE UNIQUE INDEX IF NOT EXISTS estatelab_jarvis_messages_position_idx
+    ON estatelab_jarvis_messages (session_id, position);
+
+  INSERT INTO estatelab_meta (singleton, revision)
+  VALUES (TRUE, 0)
+  ON CONFLICT (singleton) DO NOTHING;
+`;
+
+function iso(value) {
+  if (value instanceof Date) return value.toISOString();
+  return String(value || new Date().toISOString());
+}
+
+function serializableState(state) {
+  return {
+    properties: Array.isArray(state?.properties) ? state.properties : [],
+    comps: Array.isArray(state?.comps) ? state.comps : [],
+    brain: state?.brain && typeof state.brain === "object" ? state.brain : {},
+    jarvis: state?.jarvis && typeof state.jarvis === "object" ? state.jarvis : { sessions: [] },
+    auth: state?.auth && typeof state.auth === "object" ? state.auth : { version: 1, users: [], sessions: [] }
+  };
+}
+
+export class StorageConflictError extends Error {
+  constructor() {
+    super("EstateLab data changed during this request. Please retry.");
+    this.name = "StorageConflictError";
+    this.statusCode = 409;
+  }
+}
+
+export class JsonStateStore {
+  constructor(filePath) {
+    this.filePath = filePath;
+    this.kind = "json";
+    this.writeQueue = Promise.resolve();
+  }
+
+  async init(seedState) {
+    await mkdir(path.dirname(this.filePath), { recursive: true });
+    if (!existsSync(this.filePath)) await this.write(seedState);
+  }
+
+  async read() {
+    return JSON.parse(await readFile(this.filePath, "utf8"));
+  }
+
+  async write(state) {
+    const payload = `${JSON.stringify(serializableState(state), null, 2)}\n`;
+    this.writeQueue = this.writeQueue.catch(() => {}).then(() => writeFile(this.filePath, payload));
+    return this.writeQueue;
+  }
+
+  async close() {}
+}
+
+export class PostgresStateStore {
+  constructor(pool) {
+    this.pool = pool;
+    this.kind = "postgres";
+  }
+
+  async init(seedState) {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(SCHEMA_SQL);
+      const existing = await client.query("SELECT singleton FROM estatelab_core WHERE singleton = TRUE");
+      if (!existing.rows.length) {
+        await this.syncState(client, serializableState(seedState));
+        await client.query("UPDATE estatelab_meta SET revision = 1, updated_at = NOW() WHERE singleton = TRUE");
+      }
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async read() {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
+      const revisionResult = await client.query("SELECT revision FROM estatelab_meta WHERE singleton = TRUE");
+      const coreResult = await client.query("SELECT properties, comps, brain FROM estatelab_core WHERE singleton = TRUE");
+      const usersResult = await client.query("SELECT id, email, display_name, password_hash, created_at FROM estatelab_users ORDER BY created_at");
+      const authResult = await client.query("SELECT token_hash, user_id, created_at, expires_at FROM estatelab_auth_sessions WHERE expires_at > NOW() ORDER BY created_at DESC");
+      const sessionsResult = await client.query("SELECT id, user_id, client_id, title, created_at, updated_at FROM estatelab_jarvis_sessions ORDER BY updated_at DESC");
+      const messagesResult = await client.query("SELECT id, session_id, position, role, content, created_at, sources FROM estatelab_jarvis_messages ORDER BY session_id, position");
+      await client.query("COMMIT");
+
+      const messagesBySession = new Map();
+      for (const row of messagesResult.rows) {
+        const messages = messagesBySession.get(row.session_id) || [];
+        messages.push({
+          id: row.id,
+          role: row.role,
+          content: row.content,
+          createdAt: iso(row.created_at),
+          sources: Array.isArray(row.sources) ? row.sources : []
+        });
+        messagesBySession.set(row.session_id, messages);
+      }
+
+      const core = coreResult.rows[0] || {};
+      return {
+        properties: Array.isArray(core.properties) ? core.properties : [],
+        comps: Array.isArray(core.comps) ? core.comps : [],
+        brain: core.brain && typeof core.brain === "object" ? core.brain : {},
+        jarvis: {
+          sessions: sessionsResult.rows.map((row) => ({
+            id: row.id,
+            userId: row.user_id || "",
+            clientId: row.client_id,
+            title: row.title,
+            createdAt: iso(row.created_at),
+            updatedAt: iso(row.updated_at),
+            messages: messagesBySession.get(row.id) || []
+          }))
+        },
+        auth: {
+          version: 1,
+          users: usersResult.rows.map((row) => ({
+            id: row.id,
+            email: row.email,
+            displayName: row.display_name,
+            passwordHash: row.password_hash,
+            createdAt: iso(row.created_at)
+          })),
+          sessions: authResult.rows.map((row) => ({
+            tokenHash: row.token_hash,
+            userId: row.user_id,
+            createdAt: iso(row.created_at),
+            expiresAt: iso(row.expires_at)
+          }))
+        },
+        _storageRevision: Number(revisionResult.rows[0]?.revision || 0)
+      };
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async write(state) {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const currentResult = await client.query("SELECT revision FROM estatelab_meta WHERE singleton = TRUE FOR UPDATE");
+      const currentRevision = Number(currentResult.rows[0]?.revision || 0);
+      const expectedRevision = Number(state?._storageRevision ?? currentRevision);
+      if (currentRevision !== expectedRevision) throw new StorageConflictError();
+      await this.syncState(client, serializableState(state));
+      await client.query("UPDATE estatelab_meta SET revision = revision + 1, updated_at = NOW() WHERE singleton = TRUE");
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async syncState(client, state) {
+    const users = Array.isArray(state.auth?.users) ? state.auth.users : [];
+    const userIds = new Set(users.map((user) => String(user.id)));
+    const authSessions = (Array.isArray(state.auth?.sessions) ? state.auth.sessions : [])
+      .filter((session) => userIds.has(String(session.userId)));
+    const jarvisSessions = Array.isArray(state.jarvis?.sessions) ? state.jarvis.sessions : [];
+    const messages = jarvisSessions.flatMap((session) => (session.messages || []).map((message, position) => ({
+      ...message,
+      sessionId: session.id,
+      position
+    })));
+
+    await client.query(`
+      INSERT INTO estatelab_core (singleton, properties, comps, brain, updated_at)
+      VALUES (TRUE, $1::jsonb, $2::jsonb, $3::jsonb, NOW())
+      ON CONFLICT (singleton) DO UPDATE SET
+        properties = EXCLUDED.properties,
+        comps = EXCLUDED.comps,
+        brain = EXCLUDED.brain,
+        updated_at = NOW()
+    `, [JSON.stringify(state.properties), JSON.stringify(state.comps), JSON.stringify(state.brain)]);
+
+    for (const user of users) {
+      await client.query(`
+        INSERT INTO estatelab_users (id, email, display_name, password_hash, created_at)
+        VALUES ($1, $2, $3, $4, $5)
+        ON CONFLICT (id) DO UPDATE SET
+          email = EXCLUDED.email,
+          display_name = EXCLUDED.display_name,
+          password_hash = EXCLUDED.password_hash
+      `, [user.id, user.email, user.displayName, user.passwordHash, user.createdAt]);
+    }
+
+    for (const session of jarvisSessions) {
+      const userId = userIds.has(String(session.userId || "")) ? session.userId : null;
+      await client.query(`
+        INSERT INTO estatelab_jarvis_sessions (id, user_id, client_id, title, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        ON CONFLICT (id) DO UPDATE SET
+          user_id = EXCLUDED.user_id,
+          client_id = EXCLUDED.client_id,
+          title = EXCLUDED.title,
+          updated_at = EXCLUDED.updated_at
+      `, [session.id, userId, session.clientId, session.title, session.createdAt, session.updatedAt]);
+    }
+
+    for (const authSession of authSessions) {
+      await client.query(`
+        INSERT INTO estatelab_auth_sessions (token_hash, user_id, created_at, expires_at)
+        VALUES ($1, $2, $3, $4)
+        ON CONFLICT (token_hash) DO UPDATE SET
+          user_id = EXCLUDED.user_id,
+          expires_at = EXCLUDED.expires_at
+      `, [authSession.tokenHash, authSession.userId, authSession.createdAt, authSession.expiresAt]);
+    }
+
+    await client.query("DELETE FROM estatelab_jarvis_messages");
+    for (const message of messages) {
+      await client.query(`
+        INSERT INTO estatelab_jarvis_messages (id, session_id, position, role, content, created_at, sources)
+        VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
+      `, [message.id, message.sessionId, message.position, message.role, message.content, message.createdAt, JSON.stringify(message.sources || [])]);
+    }
+
+    await client.query("DELETE FROM estatelab_auth_sessions WHERE NOT (token_hash = ANY($1::text[])) OR expires_at <= NOW()", [authSessions.map((session) => String(session.tokenHash))]);
+    await client.query("DELETE FROM estatelab_jarvis_sessions WHERE NOT (id = ANY($1::text[]))", [jarvisSessions.map((session) => String(session.id))]);
+    await client.query("DELETE FROM estatelab_users WHERE NOT (id = ANY($1::text[]))", [users.map((user) => String(user.id))]);
+  }
+
+  async close() {
+    await this.pool.end();
+  }
+}
+
+export async function createStateStore({ databaseUrl, filePath, seedState, pool = null }) {
+  if (!databaseUrl && !pool) {
+    const store = new JsonStateStore(filePath);
+    await store.init(seedState);
+    return store;
+  }
+
+  let activePool = pool;
+  if (!activePool) {
+    let Pool;
+    try {
+      ({ Pool } = await import("pg"));
+    } catch {
+      throw new Error("DATABASE_URL is configured but the pg package is unavailable. Run npm install before starting EstateLab.");
+    }
+    const configuredPoolMax = Number(globalThis.process?.env?.ESTATELAB_PG_POOL_MAX || 5);
+    activePool = new Pool({
+      connectionString: databaseUrl,
+      max: Number.isFinite(configuredPoolMax) ? Math.max(1, configuredPoolMax) : 5,
+      connectionTimeoutMillis: 8000,
+      idleTimeoutMillis: 30000,
+      application_name: "estatelab-jarvis"
+    });
+    activePool.on("error", (error) => console.error("EstateLab PostgreSQL pool error", error));
+  }
+
+  const store = new PostgresStateStore(activePool);
+  await store.init(seedState);
+  return store;
+}

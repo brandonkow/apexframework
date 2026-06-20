@@ -6,7 +6,7 @@ EstateLab Jarvis is no longer only a static local page. It is a full-stack assis
 
 - A frontend voice/chat interface in `public/`.
 - A Node backend in `server.js`.
-- A curated owner knowledge base in `docs/`, `data/db.json`, and `rag/corpus.json`.
+- A curated owner knowledge base in `docs/`, `rag/corpus.json`, and the selected runtime store.
 - Public Jarvis chat sessions persisted separately from the curated knowledge base.
 - Optional member authentication with private, resumable sessions.
 - Owner-only APIs protected by `ESTATELAB_OWNER_TOKEN`.
@@ -31,7 +31,7 @@ Normal users cannot:
 - Edit decisions.
 - Modify the owner knowledge base.
 
-Public chat history is stored under `jarvis.sessions` in `data/db.json`. It is conversation memory, not curated knowledge.
+Public chat history is stored in PostgreSQL or under `jarvis.sessions` in the JSON fallback. It is conversation memory, not curated knowledge.
 
 Guest sessions are bound to their browser client ID. Member sessions are bound to the authenticated user ID. Session IDs alone do not grant read or delete access.
 
@@ -81,21 +81,21 @@ x-estatelab-owner-token: <ESTATELAB_OWNER_TOKEN>
 
 If no owner token is configured, owner APIs are disabled.
 
-## Current Storage
+## Storage
 
-The current version uses file-backed JSON storage:
+EstateLab supports two storage modes:
 
-- `data/db.json`: properties, comps, brain, Jarvis sessions, member records, and hashed authentication sessions.
+- PostgreSQL when `DATABASE_URL` is configured. Users, auth sessions, Jarvis sessions, and messages use normalized tables. Core owner datasets use JSONB columns inside the same transactional store.
+- `data/db.json` when `DATABASE_URL` is absent. This remains the zero-configuration local fallback and migration source.
 - `rag/corpus.json`: retrieval snippets.
 - `docs/`: long-form framework and operating rules.
 
-This is suitable for a private prototype and local development.
+The PostgreSQL schema is created automatically. An empty database imports the current JSON state on first startup. Revision checks reject stale concurrent writes instead of silently overwriting newer state.
 
 ## Production Upgrade Path
 
-For a public launch, replace file-backed JSON storage with:
+The next production upgrades are:
 
-- PostgreSQL or Supabase for users, sessions, decisions, properties, and audit records.
 - Object storage for uploaded documents.
 - A vector database or embedding index for retrieval.
 - Email verification, password recovery, and administrative account controls.

@@ -1,10 +1,11 @@
 import http from "node:http";
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { createHash, randomBytes, randomUUID, scrypt as scryptCallback, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { createStateStore } from "./storage.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const BUNDLED_DATA_DIR = path.join(__dirname, "data");
@@ -15,6 +16,7 @@ const BUNDLED_DB_PATH = path.join(BUNDLED_DATA_DIR, "db.json");
 const RAG_PATH = path.resolve(globalThis.process?.env?.ESTATELAB_RAG_PATH || path.join(__dirname, "rag", "corpus.json"));
 const PUBLIC_DIR = path.join(__dirname, "public");
 const PORT = Number(globalThis.process?.env?.PORT || 3000);
+const DATABASE_URL = String(globalThis.process?.env?.DATABASE_URL || "").trim();
 
 const jsonHeaders = { "Content-Type": "application/json; charset=utf-8" };
 const OWNER_TOKEN = String(globalThis.process?.env?.ESTATELAB_OWNER_TOKEN || "");
@@ -86,22 +88,6 @@ const mimeTypes = {
   ".svg": "image/svg+xml"
 };
 
-async function ensureDb() {
-  await mkdir(DATA_DIR, { recursive: true });
-  if (!existsSync(DB_PATH)) {
-    const seed = DB_PATH !== BUNDLED_DB_PATH && existsSync(BUNDLED_DB_PATH)
-      ? await readJson(BUNDLED_DB_PATH, { properties: [], comps: [], brain: emptyBrain(), jarvis: emptyJarvis(), auth: emptyAuth() })
-      : { properties: [], comps: [], brain: emptyBrain(), jarvis: emptyJarvis(), auth: emptyAuth() };
-    await writeFile(DB_PATH, JSON.stringify({
-      properties: seed.properties || [],
-      comps: seed.comps || [],
-      brain: normalizeBrain(seed.brain),
-      jarvis: emptyJarvis(),
-      auth: emptyAuth()
-    }, null, 2));
-  }
-}
-
 async function readJson(file, fallback) {
   try {
     return JSON.parse(await readFile(file, "utf8"));
@@ -110,14 +96,47 @@ async function readJson(file, fallback) {
   }
 }
 
+async function readStorageSeed(file, fallback) {
+  if (!existsSync(file)) return fallback;
+  try {
+    return JSON.parse(await readFile(file, "utf8"));
+  } catch (error) {
+    throw new Error(`EstateLab cannot read the storage seed at ${file}: ${error.message}`);
+  }
+}
+
+let stateStore;
+
+function normalizedDbState(db) {
+  return {
+    properties: db?.properties || [],
+    comps: db?.comps || [],
+    brain: normalizeBrain(db?.brain),
+    jarvis: normalizeJarvis(db?.jarvis),
+    auth: normalizeAuth(db?.auth),
+    ...(db?._storageRevision === undefined ? {} : { _storageRevision: db._storageRevision })
+  };
+}
+
+async function initializeStore() {
+  const fallback = { properties: [], comps: [], brain: emptyBrain(), jarvis: emptyJarvis(), auth: emptyAuth() };
+  const seedPath = existsSync(DB_PATH) ? DB_PATH : BUNDLED_DB_PATH;
+  const rawSeed = await readStorageSeed(seedPath, fallback);
+  const seed = normalizedDbState(rawSeed);
+  if (Number(rawSeed.auth?.version || 0) < 1) seed.jarvis = emptyJarvis();
+  stateStore = await createStateStore({
+    databaseUrl: DATABASE_URL,
+    filePath: DB_PATH,
+    seedState: seed
+  });
+}
+
+async function readDb() {
+  return stateStore.read();
+}
+
 async function writeDb(db) {
-  await writeFile(DB_PATH, JSON.stringify({
-    properties: db.properties || [],
-    comps: db.comps || [],
-    brain: normalizeBrain(db.brain),
-    jarvis: normalizeJarvis(db.jarvis),
-    auth: normalizeAuth(db.auth)
-  }, null, 2));
+  await stateStore.write(normalizedDbState(db));
 }
 
 function emptyBrain() {
@@ -1635,11 +1654,12 @@ async function router(req, res) {
     return send(res, 200, {
       status: "ok",
       app: "estatelab-jarvis",
+      storage: stateStore.kind,
       time: new Date().toISOString()
     });
   }
 
-  const db = await readJson(DB_PATH, { properties: [] });
+  let db = await readDb();
   const requiresAuthMigration = Number(db.auth?.version || 0) < 1;
   db.properties ||= [];
   db.comps ||= [];
@@ -1649,6 +1669,7 @@ async function router(req, res) {
   if (requiresAuthMigration) {
     db.jarvis = emptyJarvis();
     await writeDb(db);
+    db = await readDb();
   }
   const actor = currentAuth(req, db);
 
@@ -1740,6 +1761,7 @@ async function router(req, res) {
     return send(res, 200, {
       status: "online",
       mode: "public-jarvis",
+      storage: stateStore.kind,
       knowledge: {
         references: Array.isArray(corpus) ? corpus.length : 0,
         activeBeliefs: db.brain.beliefs.filter((belief) => belief.status !== "retired").length,
@@ -2067,7 +2089,7 @@ async function router(req, res) {
 let readyPromise;
 
 function ready() {
-  readyPromise ||= ensureDb();
+  readyPromise ||= initializeStore();
   return readyPromise;
 }
 

@@ -17,7 +17,7 @@ Authentication protects personal Jarvis conversations without weakening the owne
 - Passwords are hashed with Node.js `scrypt` and a unique random salt.
 - Raw passwords are never stored.
 - Login tokens use 32 random bytes.
-- Only SHA-256 hashes of login tokens are stored in `data/db.json`.
+- Only SHA-256 hashes of login tokens are stored in the selected runtime store.
 - Login cookies are `HttpOnly`, `SameSite=Strict`, and scoped to the whole app.
 - Cookies receive the `Secure` attribute when the request arrives through HTTPS, including Render's forwarded HTTPS requests.
 - Authentication attempts are limited in memory by source address.
@@ -26,11 +26,11 @@ Authentication protects personal Jarvis conversations without weakening the owne
 
 ## Storage Boundary
 
-The current prototype stores users and hashed auth sessions under `auth` in the runtime `data/db.json`. This is suitable for controlled early use with a persistent Render disk, but not the final scale architecture.
+When `DATABASE_URL` is configured, users and hashed auth sessions are stored in normalized PostgreSQL tables. Without it, the local fallback stores them under `auth` in the runtime `data/db.json`.
 
 The first authentication deployment clears legacy pre-authentication guest sessions from an existing runtime database. Those sessions had no enforceable user owner, so retaining them would weaken the new access boundary.
 
-The next storage phase should migrate users, auth sessions, and Jarvis sessions to PostgreSQL with transactional writes, indexed ownership queries, persistent rate limits, and an audit trail. The owner knowledge base must remain logically separate from public account data.
+The owner knowledge base remains logically separate from public account and conversation data even when both use the same PostgreSQL service.
 
 ## Current Limitations
 
@@ -38,4 +38,4 @@ The next storage phase should migrate users, auth sessions, and Jarvis sessions 
 - No password reset or account recovery.
 - No owner-facing account administration.
 - Rate limiting resets when the Node process restarts.
-- File storage does not provide transactional concurrency across multiple server instances.
+- JSON fallback storage does not provide transactional concurrency across multiple server instances.

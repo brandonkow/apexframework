@@ -22,6 +22,10 @@ services:
         value: gpt-4.1-mini
       - key: ESTATELAB_AUTH_SESSION_DAYS
         value: 30
+      - key: DATABASE_URL
+        sync: false
+      - key: ESTATELAB_PG_POOL_MAX
+        value: 5
     disk:
       name: estatelab-data
       mountPath: /var/data
