@@ -270,8 +270,7 @@ button {
   border-bottom: 1px solid;
 }
 
-.systemBar,
-.footerData {
+.systemBar {
   position: fixed;
   right: 32px;
   left: 32px;
@@ -287,10 +286,6 @@ button {
 
 .systemBar {
   top: 27px;
-}
-
-.footerData {
-  bottom: 27px;
 }
 
 .systemBrand {
@@ -553,7 +548,7 @@ button {
 .conversation {
   position: fixed;
   right: 0;
-  bottom: 38px;
+  bottom: 22px;
   left: 0;
   z-index: 5;
   display: grid;
@@ -564,14 +559,14 @@ button {
 }
 
 .contextDeck {
-  display: flex;
-  align-items: flex-end;
-  justify-content: flex-end;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: min(560px, 100%);
+  margin: 0 auto;
   gap: 8px;
 }
 
 .contextPanel {
-  flex: 0 1 270px;
   min-width: 0;
   overflow: hidden;
   border: 1px solid rgba(103, 229, 255, 0.16);
@@ -581,23 +576,32 @@ button {
     rgba(2, 13, 21, 0.54);
   box-shadow: inset 0 0 24px rgba(28, 190, 221, 0.035);
   backdrop-filter: blur(14px);
-  transition: flex-basis 220ms ease, border-color 220ms ease, background 220ms ease;
+  transition: border-color 220ms ease, background 220ms ease;
 }
 
 .contextPanel.expanded {
-  flex: 1 1 620px;
   border-color: rgba(103, 229, 255, 0.24);
   background:
     linear-gradient(135deg, rgba(90, 231, 255, 0.09), transparent 28%),
     rgba(2, 13, 21, 0.7);
 }
 
+.contextDeck:has(.contextPanel.expanded) {
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
+}
+
+.contextDeck:has(.contextPanel.expanded) .contextPanel:not(.expanded) {
+  display: none;
+}
+
 .aiDisclosure {
-  margin: -3px 12px 0 auto;
+  width: 100%;
+  margin: -3px 0 0;
   color: #527b85;
   font-size: 0.46rem;
   letter-spacing: 0.07em;
-  text-align: right;
+  text-align: center;
 }
 
 .aiDisclosure[hidden] {
@@ -1037,7 +1041,7 @@ button {
 
 .commandBar {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 7px;
   border: 1px solid rgba(103, 229, 255, 0.24);
   border-radius: 999px;
@@ -1089,46 +1093,47 @@ button {
   background: rgba(41, 158, 181, 0.16);
 }
 
-.voiceControls {
+.utilityBar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 0 13px;
+  justify-content: center;
+  gap: 6px;
+  min-height: 24px;
   color: #537681;
-  font-size: 0.53rem;
-  letter-spacing: 0.13em;
+  font-size: 0.49rem;
+  letter-spacing: 0.11em;
 }
 
-.voiceControls button {
-  border: 0;
-  padding: 0;
+.utilityBar button {
+  border: 1px solid rgba(103, 229, 255, 0.14);
+  border-radius: 999px;
+  padding: 5px 9px;
   cursor: pointer;
   color: inherit;
-  background: transparent;
+  background: rgba(2, 13, 21, 0.46);
   font-size: inherit;
   letter-spacing: inherit;
 }
 
-.voiceControls button:hover {
-  color: var(--cyan);
-}
-
-.voiceControls .analyzeDealBtn {
-  border: 1px solid rgba(103, 229, 255, 0.28);
-  border-radius: 999px;
-  padding: 5px 9px;
+.utilityBar button:hover {
+  border-color: rgba(103, 229, 255, 0.34);
   color: var(--cyan);
   background: rgba(41, 158, 181, 0.09);
 }
 
-.voiceControls .analyzeDealBtn:hover {
+.utilityBar .analyzeDealBtn {
+  border-color: rgba(103, 229, 255, 0.28);
+  color: var(--cyan);
+  background: rgba(41, 158, 181, 0.09);
+}
+
+.utilityBar .analyzeDealBtn:hover {
   border-color: rgba(103, 229, 255, 0.52);
   background: rgba(41, 158, 181, 0.18);
 }
 
-.voiceControls .analyzeDealBtn:disabled {
+.utilityBar .analyzeDealBtn:disabled {
   cursor: progress;
   opacity: 0.5;
 }
@@ -1223,24 +1228,17 @@ button {
 }
 
 @media (max-width: 640px) {
-  .systemBar,
-  .footerData {
+  .systemBar {
     right: 18px;
     left: 18px;
   }
 
-  .systemBrand,
-  .footerData span:first-child,
-  .footerData span:last-child {
+  .systemBrand {
     display: none;
   }
 
   .systemBar {
-    justify-content: flex-end;
-  }
-
-  .footerData {
-    justify-content: center;
+    justify-content: space-between;
   }
 
   .assistantStage {
@@ -1262,13 +1260,13 @@ button {
   }
 
   .conversation {
-    bottom: 44px;
+    bottom: 18px;
     width: min(920px, calc(100% - 24px));
   }
 
   .contextDeck {
-    display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
   }
 
   .contextGrid {

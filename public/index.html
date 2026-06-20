@@ -32,8 +32,8 @@
 
     <header class="systemBar">
       <span class="systemBrand">ESTATELAB / JARVIS</span>
-      <span id="systemStatus" class="systemStatus"><i></i> SYSTEM READY</span>
-      <span id="sessionStatus" class="sessionStatus">SESSION SYNCING</span>
+      <span id="systemStatus" class="systemStatus"><i></i> READY</span>
+      <span id="sessionStatus" class="sessionStatus">CONNECTING</span>
     </header>
 
     <main class="interface">
@@ -65,7 +65,7 @@
         <section class="contextDeck" aria-label="Deal and investor context">
           <section class="contextPanel">
             <button class="contextHeader" type="button" data-context-toggle="deal" aria-expanded="false" aria-controls="dealContextFields">
-              <span>Deal Card <small>optional</small></span>
+              <span>Deal</span>
               <b class="contextAction">OPEN</b>
             </button>
             <div id="dealContextFields" class="contextGrid" data-context-body="deal" hidden>
@@ -130,7 +130,7 @@
 
           <section class="contextPanel">
             <button class="contextHeader" type="button" data-context-toggle="profile" aria-expanded="false" aria-controls="profileContextFields">
-              <span>Financial Profile <small>optional</small></span>
+              <span>Profile</span>
               <b class="contextAction">OPEN</b>
             </button>
             <div id="profileContextFields" class="contextGrid" data-context-body="profile" hidden>
@@ -163,35 +163,24 @@
           </section>
         </section>
 
-        <p id="aiDisclosure" class="aiDisclosure" hidden>AI mode sends chat and entered deal/profile context to OpenAI for response generation. Public input does not update EstateLab knowledge.</p>
+        <p id="aiDisclosure" class="aiDisclosure" hidden>AI uses submitted chat and context. EstateLab knowledge remains owner-controlled.</p>
 
         <form id="chatForm" class="commandBar" autocomplete="off">
           <label class="srOnly" for="chatInput">Message Jarvis</label>
-          <input id="chatInput" placeholder="Ask about a property, market, or investment decision..." />
-          <button id="micBtn" class="commandButton micButton" type="button" aria-label="Use voice input">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 0 0 3.5-3.5V5a3.5 3.5 0 1 0-7 0v7a3.5 3.5 0 0 0 3.5 3.5Zm-1-10.5a1 1 0 1 1 2 0v7a1 1 0 1 1-2 0V5Zm7 7a1 1 0 1 1 2 0 8 8 0 0 1-7 7.94V22h3a1 1 0 1 1 0 2H8a1 1 0 1 1 0-2h3v-2.06A8 8 0 0 1 4 12a1 1 0 1 1 2 0 6 6 0 0 0 12 0Z"/></svg>
-          </button>
+          <input id="chatInput" placeholder="Ask Jarvis..." />
           <button class="commandButton sendButton" type="submit" aria-label="Send message">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3.4 20.4 18-8a1 1 0 0 0 0-1.82l-18-8A1 1 0 0 0 2.03 3.7L4.4 10.8l9.1.2a1 1 0 0 1 0 2l-9.1.2-2.37 7.1a1 1 0 0 0 1.37 1.1Z"/></svg>
           </button>
         </form>
 
-        <div class="voiceControls">
-          <button id="analyzeDealBtn" class="analyzeDealBtn" type="button">ANALYSE DEAL</button>
-          <button id="newSessionBtn" type="button">NEW SESSION</button>
-          <button id="resetChatBtn" type="button">RESET CHAT</button>
-          <button id="stopVoiceBtn" class="stopVoiceBtn" type="button" hidden>STOP VOICE</button>
-          <button id="soundToggle" type="button" aria-pressed="true">VOICE RESPONSE ON</button>
-          <span id="voiceSupport">Checking voice interface...</span>
+        <div class="utilityBar" aria-label="Conversation controls">
+          <button id="analyzeDealBtn" class="analyzeDealBtn" type="button" aria-label="Analyse the current deal">ANALYSE</button>
+          <button id="resetChatBtn" type="button" aria-label="Start a new chat">NEW CHAT</button>
+          <button id="soundToggle" type="button" aria-pressed="true" aria-label="Toggle voice responses">VOICE ON</button>
+          <button id="stopVoiceBtn" class="stopVoiceBtn" type="button" hidden>STOP</button>
         </div>
       </section>
     </main>
-
-    <footer class="footerData" aria-hidden="true">
-      <span>MY / REAL ESTATE INTELLIGENCE</span>
-      <span id="localTime"></span>
-      <span>PRIVATE LOCAL SYSTEM</span>
-    </footer>
 
     <script src="/app.js" type="module"></script>
   </body>

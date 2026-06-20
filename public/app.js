@@ -1,18 +1,14 @@
 const jarvisOrb = document.querySelector("#jarvisOrb");
 const chatForm = document.querySelector("#chatForm");
 const chatInput = document.querySelector("#chatInput");
-const micBtn = document.querySelector("#micBtn");
 const transcript = document.querySelector("#transcript");
 const assistantPrompt = document.querySelector("#assistantPrompt");
 const systemStatus = document.querySelector("#systemStatus");
 const sessionStatus = document.querySelector("#sessionStatus");
 const soundToggle = document.querySelector("#soundToggle");
 const stopVoiceBtn = document.querySelector("#stopVoiceBtn");
-const newSessionBtn = document.querySelector("#newSessionBtn");
 const resetChatBtn = document.querySelector("#resetChatBtn");
 const analyzeDealBtn = document.querySelector("#analyzeDealBtn");
-const voiceSupport = document.querySelector("#voiceSupport");
-const localTime = document.querySelector("#localTime");
 const aiDisclosure = document.querySelector("#aiDisclosure");
 const dealFields = Array.from(document.querySelectorAll("[data-deal-field]"));
 const profileFields = Array.from(document.querySelectorAll("[data-profile-field]"));
@@ -50,7 +46,13 @@ function escapeHtml(value) {
 }
 
 function setSystemState(state, prompt) {
-  systemStatus.innerHTML = `<i></i> ${escapeHtml(state).toUpperCase()}`;
+  const compactState = {
+    "System ready": "Ready",
+    "Connection issue": "Offline",
+    "Voice interrupted": "Voice issue",
+    "Resetting": "Starting"
+  }[state] || state;
+  systemStatus.innerHTML = `<i></i> ${escapeHtml(compactState).toUpperCase()}`;
   assistantPrompt.textContent = prompt;
 }
 
@@ -346,7 +348,7 @@ async function createSession() {
   });
   sessionId = result.session.id;
   window.localStorage.setItem(sessionKey, sessionId);
-  setSessionState("SESSION READY");
+  setSessionState("READY");
   transcript.innerHTML = "";
   document.body.classList.remove("conversationActive");
   return result.session;
@@ -369,7 +371,7 @@ async function resetChat() {
     setSystemState("System ready", "Clean chat ready.");
   } catch {
     setSystemState("Connection issue", "Jarvis backend is unavailable.");
-    setSessionState("SESSION OFFLINE");
+    setSessionState("OFFLINE");
   }
 }
 
@@ -378,7 +380,7 @@ async function loadSession(id) {
   sessionId = result.session.id;
   window.localStorage.setItem(sessionKey, sessionId);
   renderSession(result.session);
-  setSessionState(`SESSION ${result.session.messages.length} MSG`);
+  setSessionState(`${result.session.messages.length} MSG`);
   return result.session;
 }
 
@@ -406,7 +408,7 @@ async function askJarvis(question) {
   sessionId = result.session.id;
   window.localStorage.setItem(sessionKey, sessionId);
   const responseMode = result.mode === "llm" ? "AI" : "FRAMEWORK";
-  setSessionState(`SESSION ${result.session.messages.length} MSG / ${responseMode}`);
+  setSessionState(`${responseMode} · ${result.session.messages.length}`);
   return result;
 }
 
@@ -427,7 +429,7 @@ async function submitQuestion(question) {
     addMessage("jarvis", message);
     speak(message);
     setSystemState("Connection issue", "Start EstateLab and try again.");
-    setSessionState("SESSION OFFLINE");
+    setSessionState("OFFLINE");
   } finally {
     if (!window.speechSynthesis?.speaking) jarvisOrb.classList.remove("speaking");
   }
@@ -470,7 +472,7 @@ async function runDealAnalysis() {
     sessionId = result.session.id;
     window.localStorage.setItem(sessionKey, sessionId);
     const responseMode = result.mode === "llm" ? "AI" : "FRAMEWORK";
-    setSessionState(`SESSION ${result.session.messages.length} MSG / ${responseMode}`);
+    setSessionState(`${responseMode} · ${result.session.messages.length}`);
     addDealAnalysis(result.analysis, result.sources);
     speak(result.analysis.voiceSummary);
     if (!voiceResponsesEnabled) setSystemState("System ready", "Analysis complete.");
@@ -480,7 +482,7 @@ async function runDealAnalysis() {
     setSystemState("Connection issue", "Deal analysis could not be completed.");
   } finally {
     analyzeDealBtn.disabled = false;
-    analyzeDealBtn.textContent = "ANALYSE DEAL";
+    analyzeDealBtn.textContent = "ANALYSE";
     if (!window.speechSynthesis?.speaking) jarvisOrb.classList.remove("speaking");
   }
 }
@@ -529,9 +531,6 @@ if (recognition) {
     if (!window.speechSynthesis?.speaking) setSystemState("System ready", "Ready when you are.");
   };
 
-  voiceSupport.textContent = "TAP ORB FOR VOICE INPUT";
-} else {
-  voiceSupport.textContent = "VOICE INPUT REQUIRES A SUPPORTED BROWSER";
 }
 
 chatForm.addEventListener("submit", (event) => {
@@ -540,26 +539,13 @@ chatForm.addEventListener("submit", (event) => {
 });
 
 jarvisOrb.addEventListener("click", startListening);
-micBtn.addEventListener("click", startListening);
 stopVoiceBtn.addEventListener("click", () => stopSpeaking("Voice stopped."));
 resetChatBtn.addEventListener("click", resetChat);
 analyzeDealBtn.addEventListener("click", runDealAnalysis);
 
-newSessionBtn.addEventListener("click", async () => {
-  stopSpeaking("Starting a clean conversation.");
-  setSystemState("Creating session", "Starting a clean conversation.");
-  try {
-    await createSession();
-    setSystemState("System ready", "New session ready.");
-  } catch {
-    setSystemState("Connection issue", "Jarvis backend is unavailable.");
-    setSessionState("SESSION OFFLINE");
-  }
-});
-
 soundToggle.addEventListener("click", () => {
   voiceResponsesEnabled = !voiceResponsesEnabled;
-  soundToggle.textContent = voiceResponsesEnabled ? "VOICE RESPONSE ON" : "VOICE RESPONSE OFF";
+  soundToggle.textContent = voiceResponsesEnabled ? "VOICE ON" : "VOICE OFF";
   soundToggle.setAttribute("aria-pressed", String(voiceResponsesEnabled));
   if (!voiceResponsesEnabled) stopSpeaking("Voice response off.");
 });
@@ -572,18 +558,7 @@ for (const field of profileFields) {
   field.addEventListener("input", () => saveContext(profileFields, "data-profile-field", profileContextKey));
 }
 
-function updateClock() {
-  localTime.textContent = new Intl.DateTimeFormat("en-MY", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false
-  }).format(new Date());
-}
-
 async function bootJarvis() {
-  updateClock();
-  setInterval(updateClock, 1000);
   restoreContext(dealFields, "data-deal-field", dealContextKey);
   restoreContext(profileFields, "data-profile-field", profileContextKey);
   bootContextPanels();
@@ -592,11 +567,11 @@ async function bootJarvis() {
     const intelligenceMode = status.llm?.enabled ? "AI" : "FRAMEWORK";
     aiDisclosure.hidden = !status.llm?.enabled;
     await ensureSession();
-    setSessionState(`ONLINE / ${status.knowledge.references} REF / ${status.knowledge.activeBeliefs} BELIEFS / ${intelligenceMode}`);
+    setSessionState(`${intelligenceMode} READY`);
     setSystemState("System ready", "Ready when you are.");
   } catch {
     setSystemState("Connection issue", "Jarvis backend is unavailable.");
-    setSessionState("SESSION OFFLINE");
+    setSessionState("OFFLINE");
   }
 }
 
