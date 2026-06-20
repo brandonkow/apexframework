@@ -32,9 +32,10 @@ For the first Render migration:
 ## Schema
 
 - `estatelab_meta`: storage revision and update time.
-- `estatelab_core`: properties, comparables, and owner brain data as JSONB.
-- `estatelab_users`: member identity and password hashes.
+- `estatelab_core`: properties, comparables, owner brain data, evidence metadata, chunks, embeddings, and retrieval events as JSONB.
+- `estatelab_users`: member identity, password hashes, verification state, role, and disabled state.
 - `estatelab_auth_sessions`: hashed login tokens and expiry.
+- `estatelab_auth_tokens`: hashed verification and password-reset codes with purpose and expiry.
 - `estatelab_jarvis_sessions`: user or guest conversation ownership.
 - `estatelab_jarvis_messages`: ordered messages and source metadata.
 
@@ -49,5 +50,6 @@ Removing `DATABASE_URL` switches the app back to JSON. PostgreSQL changes made a
 ## Remaining Limits
 
 - The application currently synchronizes its bounded in-memory state into normalized tables per write. This is reliable for the current single-service scale, but high-volume growth should move each route to narrower repository operations.
-- Authentication rate limits remain process-local.
-- Uploaded documents and vector embeddings still require dedicated storage.
+- Authentication and public request limits remain process-local.
+- Raw uploaded source files remain in `ESTATELAB_OBJECT_DIR`; PostgreSQL stores their metadata and retrievable chunks, not the original bytes.
+- The bounded JSONB embedding index is appropriate for the current corpus. Large-scale retrieval should move vectors to a purpose-built index.

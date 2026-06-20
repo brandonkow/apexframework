@@ -6,6 +6,7 @@ import { createHash, randomBytes, randomUUID, scrypt as scryptCallback, timingSa
 import { promisify } from "node:util";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createStateStore } from "./storage.js";
+import { KnowledgeService } from "./knowledge.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const BUNDLED_DATA_DIR = path.join(__dirname, "data");
@@ -17,19 +18,38 @@ const RAG_PATH = path.resolve(globalThis.process?.env?.ESTATELAB_RAG_PATH || pat
 const PUBLIC_DIR = path.join(__dirname, "public");
 const PORT = Number(globalThis.process?.env?.PORT || 3000);
 const DATABASE_URL = String(globalThis.process?.env?.DATABASE_URL || "").trim();
+const OBJECT_DIR = path.resolve(globalThis.process?.env?.ESTATELAB_OBJECT_DIR || path.join(DATA_DIR, "objects"));
 
 const jsonHeaders = { "Content-Type": "application/json; charset=utf-8" };
 const OWNER_TOKEN = String(globalThis.process?.env?.ESTATELAB_OWNER_TOKEN || "");
 const OPENAI_API_KEY = String(globalThis.process?.env?.OPENAI_API_KEY || "").trim();
 const OPENAI_MODEL = String(globalThis.process?.env?.OPENAI_MODEL || "gpt-4.1-mini").trim();
+const OPENAI_EMBEDDING_MODEL = String(globalThis.process?.env?.OPENAI_EMBEDDING_MODEL || "text-embedding-3-small").trim();
+const OPENAI_TRANSCRIPTION_MODEL = String(globalThis.process?.env?.OPENAI_TRANSCRIPTION_MODEL || "gpt-4o-mini-transcribe").trim();
+const OPENAI_SPEECH_MODEL = String(globalThis.process?.env?.OPENAI_SPEECH_MODEL || "gpt-4o-mini-tts").trim();
+const OPENAI_SPEECH_VOICE = String(globalThis.process?.env?.OPENAI_SPEECH_VOICE || "marin").trim();
 const OPENAI_TIMEOUT_MS = Math.max(5000, Number(globalThis.process?.env?.OPENAI_TIMEOUT_MS || 25000));
+const EMAIL_WEBHOOK_URL = String(globalThis.process?.env?.ESTATELAB_EMAIL_WEBHOOK_URL || "").trim();
+const EMAIL_WEBHOOK_SECRET = String(globalThis.process?.env?.ESTATELAB_EMAIL_WEBHOOK_SECRET || "").trim();
+const REQUIRE_EMAIL_VERIFICATION = String(globalThis.process?.env?.ESTATELAB_REQUIRE_EMAIL_VERIFICATION || "false").toLowerCase() === "true";
+const AUTH_DEBUG_TOKENS = String(globalThis.process?.env?.ESTATELAB_AUTH_DEBUG_TOKENS || "false").toLowerCase() === "true";
 const AUTH_COOKIE = "estatelab_session";
 const AUTH_SESSION_DAYS = Math.max(1, Number(globalThis.process?.env?.ESTATELAB_AUTH_SESSION_DAYS || 30));
 const AUTH_ATTEMPT_WINDOW_MS = 15 * 60 * 1000;
 const AUTH_ATTEMPT_LIMIT = 10;
-const MAX_JSON_BODY_BYTES = 1024 * 1024;
+const MAX_JSON_BODY_BYTES = 8 * 1024 * 1024;
+const MAX_DOCUMENT_BYTES = 5 * 1024 * 1024;
 const scrypt = promisify(scryptCallback);
 const authAttempts = new Map();
+const requestWindows = new Map();
+const knowledgeService = new KnowledgeService({
+  objectDir: OBJECT_DIR,
+  apiKey: OPENAI_API_KEY,
+  embeddingModel: OPENAI_EMBEDDING_MODEL,
+  transcriptionModel: OPENAI_TRANSCRIPTION_MODEL,
+  speechModel: OPENAI_SPEECH_MODEL,
+  timeoutMs: OPENAI_TIMEOUT_MS
+});
 const thinkingQuestions = [
   {
     id: "mandate-job",
@@ -112,6 +132,7 @@ function normalizedDbState(db) {
     properties: db?.properties || [],
     comps: db?.comps || [],
     brain: normalizeBrain(db?.brain),
+    knowledge: normalizeKnowledge(db?.knowledge),
     jarvis: normalizeJarvis(db?.jarvis),
     auth: normalizeAuth(db?.auth),
     ...(db?._storageRevision === undefined ? {} : { _storageRevision: db._storageRevision })
@@ -119,7 +140,7 @@ function normalizedDbState(db) {
 }
 
 async function initializeStore() {
-  const fallback = { properties: [], comps: [], brain: emptyBrain(), jarvis: emptyJarvis(), auth: emptyAuth() };
+  const fallback = { properties: [], comps: [], brain: emptyBrain(), knowledge: emptyKnowledge(), jarvis: emptyJarvis(), auth: emptyAuth() };
   const seedPath = existsSync(DB_PATH) ? DB_PATH : BUNDLED_DB_PATH;
   const rawSeed = await readStorageSeed(seedPath, fallback);
   const seed = normalizedDbState(rawSeed);
@@ -129,6 +150,7 @@ async function initializeStore() {
     filePath: DB_PATH,
     seedState: seed
   });
+  await knowledgeService.init();
 }
 
 async function readDb() {
@@ -148,19 +170,23 @@ function emptyJarvis() {
 }
 
 function emptyAuth() {
-  return { version: 1, users: [], sessions: [] };
+  return { version: 2, users: [], sessions: [], tokens: [] };
 }
 
 function normalizeAuth(auth) {
   const now = Date.now();
+  const legacyUsersAreVerified = Number(auth?.version || 1) < 2;
   return {
-    version: 1,
+    version: 2,
     users: Array.isArray(auth?.users)
       ? auth.users.map((user) => ({
         id: String(user.id || ""),
         email: String(user.email || "").trim().toLowerCase(),
         displayName: String(user.displayName || "").trim(),
         passwordHash: String(user.passwordHash || ""),
+        role: user.role === "admin" ? "admin" : "member",
+        emailVerifiedAt: String(user.emailVerifiedAt || (legacyUsersAreVerified ? user.createdAt || new Date().toISOString() : "")),
+        disabledAt: String(user.disabledAt || ""),
         createdAt: String(user.createdAt || new Date().toISOString())
       })).filter((user) => user.id && user.email && user.passwordHash).slice(0, 10000)
       : [],
@@ -171,8 +197,64 @@ function normalizeAuth(auth) {
         createdAt: String(session.createdAt || new Date().toISOString()),
         expiresAt: String(session.expiresAt || "")
       })).filter((session) => session.tokenHash && session.userId && Date.parse(session.expiresAt) > now).slice(0, 20000)
+      : [],
+    tokens: Array.isArray(auth?.tokens)
+      ? auth.tokens.map((token) => ({
+        tokenHash: String(token.tokenHash || ""),
+        userId: String(token.userId || ""),
+        purpose: token.purpose === "password-reset" ? "password-reset" : "email-verification",
+        createdAt: String(token.createdAt || new Date().toISOString()),
+        expiresAt: String(token.expiresAt || "")
+      })).filter((token) => token.tokenHash && token.userId && Date.parse(token.expiresAt) > now).slice(0, 20000)
       : []
   };
+}
+
+function emptyKnowledge() {
+  return { version: 1, documents: [], chunks: [], retrievalEvents: [] };
+}
+
+function normalizeKnowledge(knowledge) {
+  const documents = Array.isArray(knowledge?.documents)
+    ? knowledge.documents.map((document) => ({
+      id: String(document.id || ""),
+      title: String(document.title || "Untitled evidence").trim(),
+      filename: String(document.filename || "evidence.txt").trim(),
+      mimeType: String(document.mimeType || "application/octet-stream").trim(),
+      storageKey: String(document.storageKey || "").trim(),
+      checksum: String(document.checksum || "").trim(),
+      sourceUrl: String(document.sourceUrl || "").trim(),
+      tags: Array.isArray(document.tags) ? document.tags.map(String).slice(0, 20) : [],
+      status: document.status === "stored" ? "stored" : "indexed",
+      indexMode: document.indexMode === "hybrid" ? "hybrid" : "lexical",
+      chunkCount: Math.max(0, Number(document.chunkCount || 0)),
+      createdAt: String(document.createdAt || new Date().toISOString()),
+      updatedAt: String(document.updatedAt || document.createdAt || new Date().toISOString())
+    })).filter((document) => document.id && document.storageKey).slice(-500)
+    : [];
+  const documentIds = new Set(documents.map((document) => document.id));
+  const chunks = Array.isArray(knowledge?.chunks)
+    ? knowledge.chunks.map((chunk) => ({
+      id: String(chunk.id || ""),
+      documentId: String(chunk.documentId || ""),
+      position: Math.max(0, Number(chunk.position || 0)),
+      content: String(chunk.content || "").trim().slice(0, 3000),
+      embedding: Array.isArray(chunk.embedding) ? chunk.embedding.map(Number) : null
+    })).filter((chunk) => chunk.id && documentIds.has(chunk.documentId) && chunk.content).slice(-5000)
+    : [];
+  const retrievalEvents = Array.isArray(knowledge?.retrievalEvents)
+    ? knowledge.retrievalEvents.map((event) => ({
+      id: String(event.id || randomUUID()),
+      createdAt: String(event.createdAt || new Date().toISOString()),
+      queryHash: String(event.queryHash || ""),
+      queryLength: Math.max(0, Number(event.queryLength || 0)),
+      mode: String(event.mode || "lexical"),
+      sourceIds: Array.isArray(event.sourceIds) ? event.sourceIds.map(String).slice(0, 10) : [],
+      latencyMs: Math.max(0, Number(event.latencyMs || 0)),
+      userId: String(event.userId || "")
+    })).slice(-1000)
+    : [];
+  return { version: 1, documents, chunks, retrievalEvents };
 }
 
 function normalizeBrain(brain) {
@@ -256,6 +338,9 @@ function publicUser(user) {
     id: user.id,
     email: user.email,
     displayName: user.displayName,
+    role: user.role || "member",
+    emailVerified: Boolean(user.emailVerifiedAt),
+    disabled: Boolean(user.disabledAt),
     createdAt: user.createdAt
   };
 }
@@ -330,6 +415,58 @@ function createAuthSession(userId) {
   };
 }
 
+function createOneTimeToken(userId, purpose, lifetimeMinutes = 60) {
+  const token = randomBytes(32).toString("base64url");
+  const now = new Date();
+  return {
+    token,
+    record: {
+      tokenHash: hashAuthToken(token),
+      userId,
+      purpose,
+      createdAt: now.toISOString(),
+      expiresAt: new Date(now.getTime() + lifetimeMinutes * 60 * 1000).toISOString()
+    }
+  };
+}
+
+function replaceAuthToken(auth, record) {
+  const tokens = (auth.tokens || []).filter((token) => !(token.userId === record.userId && token.purpose === record.purpose));
+  return { ...auth, tokens: [record, ...tokens].slice(0, 20000) };
+}
+
+async function deliverAuthToken(user, purpose, token, expiresAt) {
+  if (!EMAIL_WEBHOOK_URL) return false;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+  try {
+    const response = await fetch(EMAIL_WEBHOOK_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(EMAIL_WEBHOOK_SECRET ? { "Authorization": `Bearer ${EMAIL_WEBHOOK_SECRET}` } : {})
+      },
+      body: JSON.stringify({
+        app: "EstateLab Jarvis",
+        type: purpose,
+        to: user.email,
+        displayName: user.displayName,
+        token,
+        expiresAt
+      }),
+      signal: controller.signal
+    });
+    if (!response.ok) throw new Error(`Email webhook failed with status ${response.status}.`);
+    return true;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function debugTokenPayload(purpose, token) {
+  return AUTH_DEBUG_TOKENS ? { debug: { purpose, token } } : {};
+}
+
 function currentAuth(req, db) {
   const token = parseCookies(req)[AUTH_COOKIE];
   if (!token) return { user: null, session: null };
@@ -337,7 +474,7 @@ function currentAuth(req, db) {
   const session = db.auth.sessions.find((item) => item.tokenHash === tokenHash);
   if (!session) return { user: null, session: null };
   const user = db.auth.users.find((item) => item.id === session.userId);
-  return user ? { user, session } : { user: null, session: null };
+  return user && !user.disabledAt ? { user, session } : { user: null, session: null };
 }
 
 function requestClientId(req, body = {}) {
@@ -390,6 +527,24 @@ function allowAuthAttempt(req) {
 
 function clearAuthAttempts(req) {
   authAttempts.delete(authRateKey(req));
+}
+
+function allowRequest(req, bucket, limit, windowMs) {
+  const now = Date.now();
+  const key = `${bucket}:${authRateKey(req)}`;
+  const entry = requestWindows.get(key);
+  if (!entry || now >= entry.resetAt) {
+    requestWindows.set(key, { count: 1, resetAt: now + windowMs });
+    return true;
+  }
+  if (entry.count >= limit) return false;
+  entry.count += 1;
+  if (requestWindows.size > 10000) {
+    for (const [requestKey, value] of requestWindows) {
+      if (now >= value.resetAt) requestWindows.delete(requestKey);
+    }
+  }
+  return true;
 }
 
 function titleFromQuery(query) {
@@ -1364,7 +1519,7 @@ Give a natural Jarvis commentary in 60 to 110 words. Start with the verdict, exp
   return requestOpenAIText({ instructions: jarvisLlmInstructions, input, maxOutputTokens: 220 });
 }
 
-async function retrieveGuidance(query, property, brain) {
+async function retrieveGuidance(query, property, brain, knowledge = emptyKnowledge()) {
   const corpus = await readJson(RAG_PATH, []);
   const queryTerms = tokenize(`${query} ${property ? JSON.stringify(property) : ""}`);
   const scored = corpus
@@ -1374,6 +1529,11 @@ async function retrieveGuidance(query, property, brain) {
     .filter((doc) => doc.score > 0)
     .sort((a, b) => b.score - a.score)
     .slice(0, 4);
+  const evidenceResult = await knowledgeService.retrieve(String(query || ""), knowledge.chunks, 4);
+  const evidenceHits = evidenceResult.matches.map((chunk) => {
+    const document = knowledge.documents.find((item) => item.id === chunk.documentId);
+    return { ...chunk, title: document?.title || "Owner evidence", tags: document?.tags || [] };
+  });
 
   const beliefHits = brain.beliefs
     .map((belief) => ({ ...belief, score: termScore(queryTerms, `${belief.claim} ${belief.scope} ${belief.evidenceFor} ${belief.evidenceAgainst} ${belief.falsifier}`) }))
@@ -1388,6 +1548,7 @@ async function retrieveGuidance(query, property, brain) {
 
   const sections = [];
   if (scored.length) sections.push(`Relevant reference guidance:\n${scored.map((doc) => `- ${doc.title}: ${doc.body}`).join("\n")}`);
+  if (evidenceHits.length) sections.push(`Relevant owner evidence:\n${evidenceHits.map((item) => `- ${item.title}: ${item.content}`).join("\n")}`);
   if (beliefHits.length) {
     sections.push(`Your relevant recorded beliefs:\n${beliefHits.map((belief) => `- ${belief.claim} (${belief.confidence}% confidence). Falsifier: ${belief.falsifier || "not defined"}`).join("\n")}`);
   }
@@ -1400,13 +1561,14 @@ async function retrieveGuidance(query, property, brain) {
     answer: sections.join("\n\n"),
     sources: [
       ...scored.map(({ id, title, tags }) => ({ id, title, tags, type: "reference" })),
+      ...evidenceHits.map(({ id, title, tags, score }) => ({ id, title, tags, score, type: "evidence" })),
       ...beliefHits.map(({ id, claim }) => ({ id, title: claim, type: "belief" })),
       ...decisionHits.map(({ id, subject }) => ({ id, title: subject, type: "decision" }))
     ]
   };
 }
 
-async function retrieveJarvisAnswer(query, brain, session, context = {}) {
+async function retrieveJarvisAnswer(query, brain, session, context = {}, knowledge = emptyKnowledge()) {
   const dealCard = cleanContextRecord(context.dealCard, dealContextLabels);
   const financialProfile = cleanContextRecord(context.financialProfile, profileContextLabels);
   const hasStructuredContext = hasContextData({ dealCard, financialProfile });
@@ -1429,12 +1591,12 @@ async function retrieveJarvisAnswer(query, brain, session, context = {}) {
           decisions: [],
           fallbackAnswer
         });
-        return { answer, sources: [], mode: "llm" };
+        return { answer, sources: [], mode: "llm", retrievalMode: "none" };
       } catch (error) {
         console.warn(`Jarvis LLM fallback: ${error.message}`);
       }
     }
-    return { answer: fallbackAnswer, sources: [], mode: "framework" };
+    return { answer: fallbackAnswer, sources: [], mode: "framework", retrievalMode: "none" };
   }
 
   const corpus = await readJson(RAG_PATH, []);
@@ -1442,6 +1604,17 @@ async function retrieveJarvisAnswer(query, brain, session, context = {}) {
     ? session.messages.slice(-6).map((message) => message.content).join(" ")
     : "";
   const queryTerms = tokenize(`${recentSessionContext} ${query} ${contextForSearch}`);
+  const evidenceResult = await knowledgeService.retrieve(`${recentSessionContext} ${query} ${contextForSearch}`, knowledge.chunks, 4);
+  const ownerEvidence = evidenceResult.matches.map((chunk) => {
+    const document = knowledge.documents.find((item) => item.id === chunk.documentId);
+    return {
+      ...chunk,
+      title: document?.title || "Owner evidence",
+      tags: document?.tags || [],
+      body: chunk.content,
+      type: "evidence"
+    };
+  });
   const topReferences = corpus
     .map((doc) => ({ ...doc, score: termScore(queryTerms, `${doc.title} ${doc.tags?.join(" ")} ${doc.body}`) }))
     .filter((doc) => doc.score > 0)
@@ -1511,6 +1684,7 @@ async function retrieveJarvisAnswer(query, brain, session, context = {}) {
 
   const sections = [
     verdict,
+    bulletSection("Owner evidence", ownerEvidence.slice(0, 2).map((reference) => `${reference.title}: ${shortSentence(reference.content, 180)}`), 2),
     bulletSection("Deal read", dealRead, 3),
     bulletSection("Why", reasoning, 3),
     bulletSection("Watch-outs", risks, 2),
@@ -1521,6 +1695,7 @@ async function retrieveJarvisAnswer(query, brain, session, context = {}) {
 
   const fallbackAnswer = sections.join("\n\n");
   const promptReferences = uniqueSources([
+    ...ownerEvidence,
     ...topReferences,
     rentalReference,
     supplyReference,
@@ -1528,6 +1703,13 @@ async function retrieveJarvisAnswer(query, brain, session, context = {}) {
     evidenceReference
   ], 6);
   const sources = [
+      ...ownerEvidence.map((reference) => ({
+        id: reference.id,
+        title: reference.title,
+        type: "evidence",
+        preview: conciseText(reference.content, 160),
+        score: reference.score
+      })),
       ...uniqueSources([...topReferences, rentalReference, supplyReference, buyerPoolReference, evidenceReference], 6).map((reference) => ({
         id: reference.id,
         title: reference.title,
@@ -1563,13 +1745,13 @@ async function retrieveJarvisAnswer(query, brain, session, context = {}) {
         decisions: topDecisions,
         fallbackAnswer
       });
-      return { answer, sources, mode: "llm" };
+      return { answer, sources, mode: "llm", retrievalMode: evidenceResult.mode };
     } catch (error) {
       console.warn(`Jarvis LLM fallback: ${error.message}`);
     }
   }
 
-  return { answer: fallbackAnswer, sources, mode: "framework" };
+  return { answer: fallbackAnswer, sources, mode: "framework", retrievalMode: evidenceResult.mode };
 }
 
 async function readBody(req) {
@@ -1609,6 +1791,10 @@ function isPublicApiRoute(method, pathname) {
     || (method === "POST" && pathname === "/api/auth/register")
     || (method === "POST" && pathname === "/api/auth/login")
     || (method === "POST" && pathname === "/api/auth/logout")
+    || (method === "POST" && pathname === "/api/auth/request-verification")
+    || (method === "POST" && pathname === "/api/auth/verify-email")
+    || (method === "POST" && pathname === "/api/auth/forgot-password")
+    || (method === "POST" && pathname === "/api/auth/reset-password")
     || (method === "GET" && pathname === "/api/jarvis/status")
     || (method === "GET" && pathname === "/api/jarvis/sessions")
     || (method === "POST" && pathname === "/api/jarvis/sessions")
@@ -1616,6 +1802,8 @@ function isPublicApiRoute(method, pathname) {
     || (method === "DELETE" && pathname.startsWith("/api/jarvis/sessions/"))
     || (method === "POST" && pathname === "/api/jarvis/analyze-deal")
     || (method === "POST" && pathname === "/api/jarvis/query")
+    || (method === "POST" && pathname === "/api/jarvis/transcribe")
+    || (method === "POST" && pathname === "/api/jarvis/speech")
   );
 }
 
@@ -1650,6 +1838,14 @@ async function router(req, res) {
     });
   }
 
+  const publicRoute = isPublicApiRoute(req.method, url.pathname);
+  if (publicRoute && url.pathname.startsWith("/api/jarvis/") && !allowRequest(req, "jarvis", 40, 10 * 60 * 1000)) {
+    return send(res, 429, { error: "Jarvis has received too many requests from this connection. Pause briefly and try again." }, { ...jsonHeaders, "Retry-After": "600" });
+  }
+  if (publicRoute && ["/api/jarvis/transcribe", "/api/jarvis/speech"].includes(url.pathname) && !allowRequest(req, "audio", 16, 10 * 60 * 1000)) {
+    return send(res, 429, { error: "Voice usage is temporarily limited. Try again shortly." }, { ...jsonHeaders, "Retry-After": "600" });
+  }
+
   if (req.method === "GET" && url.pathname === "/api/health") {
     return send(res, 200, {
       status: "ok",
@@ -1664,6 +1860,7 @@ async function router(req, res) {
   db.properties ||= [];
   db.comps ||= [];
   db.brain = normalizeBrain(db.brain);
+  db.knowledge = normalizeKnowledge(db.knowledge);
   db.jarvis = normalizeJarvis(db.jarvis);
   db.auth = normalizeAuth(db.auth);
   if (requiresAuthMigration) {
@@ -1702,16 +1899,25 @@ async function router(req, res) {
       email,
       displayName,
       passwordHash: await hashPassword(password),
+      role: "member",
+      emailVerifiedAt: "",
+      disabledAt: "",
       createdAt: new Date().toISOString()
     };
     const authSession = createAuthSession(user.id);
+    const verification = createOneTimeToken(user.id, "email-verification", 24 * 60);
     db.auth.users.push(user);
     db.auth.sessions.unshift(authSession.record);
+    db.auth = replaceAuthToken(db.auth, verification.record);
     await writeDb(db);
+    deliverAuthToken(user, verification.record.purpose, verification.token, verification.record.expiresAt)
+      .catch((error) => console.warn(`EstateLab verification delivery: ${error.message}`));
     clearAuthAttempts(req);
     return send(res, 201, {
       authenticated: true,
-      user: publicUser(user)
+      user: publicUser(user),
+      verificationPending: true,
+      ...debugTokenPayload("email-verification", verification.token)
     }, {
       ...jsonHeaders,
       "Set-Cookie": authCookie(req, authSession.token, authSession.maxAgeSeconds)
@@ -1731,6 +1937,10 @@ async function router(req, res) {
       await scrypt(password || "invalid", "estatelab-login-check", 64);
     }
     if (!user || !passwordMatches) return send(res, 401, { error: "Email or password is incorrect." });
+    if (user.disabledAt) return send(res, 403, { error: "This account has been disabled." });
+    if (REQUIRE_EMAIL_VERIFICATION && !user.emailVerifiedAt) {
+      return send(res, 403, { error: "Verify your email before signing in." });
+    }
 
     const authSession = createAuthSession(user.id);
     db.auth.sessions.unshift(authSession.record);
@@ -1756,6 +1966,78 @@ async function router(req, res) {
     });
   }
 
+  if (req.method === "POST" && url.pathname === "/api/auth/request-verification") {
+    if (!allowAuthAttempt(req)) return send(res, 429, { error: "Too many account attempts. Try again later." });
+    if (!actor.user) return send(res, 401, { error: "Sign in before requesting verification." });
+    if (actor.user.emailVerifiedAt) return send(res, 200, { sent: false, alreadyVerified: true });
+    const verification = createOneTimeToken(actor.user.id, "email-verification", 24 * 60);
+    db.auth = replaceAuthToken(db.auth, verification.record);
+    await writeDb(db);
+    const delivered = await deliverAuthToken(actor.user, verification.record.purpose, verification.token, verification.record.expiresAt)
+      .catch((error) => {
+        console.warn(`EstateLab verification delivery: ${error.message}`);
+        return false;
+      });
+    return send(res, 200, {
+      sent: delivered,
+      alreadyVerified: false,
+      ...debugTokenPayload("email-verification", verification.token)
+    });
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/auth/verify-email") {
+    if (!allowAuthAttempt(req)) return send(res, 429, { error: "Too many account attempts. Try again later." });
+    const body = await readBody(req);
+    const tokenHash = hashAuthToken(body.token);
+    const token = db.auth.tokens.find((item) => item.tokenHash === tokenHash && item.purpose === "email-verification");
+    const user = token ? db.auth.users.find((item) => item.id === token.userId) : null;
+    if (!token || !user) return send(res, 400, { error: "This verification token is invalid or expired." });
+    user.emailVerifiedAt = new Date().toISOString();
+    db.auth.tokens = db.auth.tokens.filter((item) => item.tokenHash !== tokenHash);
+    await writeDb(db);
+    clearAuthAttempts(req);
+    return send(res, 200, { verified: true, user: publicUser(user) });
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/auth/forgot-password") {
+    if (!allowAuthAttempt(req)) return send(res, 429, { error: "Too many account attempts. Try again later." });
+    const body = await readBody(req);
+    const user = db.auth.users.find((item) => item.email === normalizeEmail(body.email) && !item.disabledAt);
+    let debug = {};
+    if (user) {
+      const reset = createOneTimeToken(user.id, "password-reset", 60);
+      db.auth = replaceAuthToken(db.auth, reset.record);
+      await writeDb(db);
+      deliverAuthToken(user, reset.record.purpose, reset.token, reset.record.expiresAt)
+        .catch((error) => console.warn(`EstateLab reset delivery: ${error.message}`));
+      debug = debugTokenPayload("password-reset", reset.token);
+    }
+    return send(res, 200, {
+      accepted: true,
+      message: "If that account exists, password reset instructions have been sent.",
+      ...debug
+    });
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/auth/reset-password") {
+    if (!allowAuthAttempt(req)) return send(res, 429, { error: "Too many account attempts. Try again later." });
+    const body = await readBody(req);
+    const password = String(body.password || "");
+    if (password.length < 10 || password.length > 128) {
+      return send(res, 400, { error: "Password must be between 10 and 128 characters." });
+    }
+    const tokenHash = hashAuthToken(body.token);
+    const token = db.auth.tokens.find((item) => item.tokenHash === tokenHash && item.purpose === "password-reset");
+    const user = token ? db.auth.users.find((item) => item.id === token.userId && !item.disabledAt) : null;
+    if (!token || !user) return send(res, 400, { error: "This reset token is invalid or expired." });
+    user.passwordHash = await hashPassword(password);
+    db.auth.tokens = db.auth.tokens.filter((item) => item.userId !== user.id);
+    db.auth.sessions = db.auth.sessions.filter((session) => session.userId !== user.id);
+    await writeDb(db);
+    clearAuthAttempts(req);
+    return send(res, 200, { reset: true });
+  }
+
   if (req.method === "GET" && url.pathname === "/api/jarvis/status") {
     const corpus = await readJson(RAG_PATH, []);
     return send(res, 200, {
@@ -1764,6 +2046,8 @@ async function router(req, res) {
       storage: stateStore.kind,
       knowledge: {
         references: Array.isArray(corpus) ? corpus.length : 0,
+        ownerDocuments: db.knowledge.documents.length,
+        indexedChunks: db.knowledge.chunks.length,
         activeBeliefs: db.brain.beliefs.filter((belief) => belief.status !== "retired").length,
         decisions: db.brain.decisions.length
       },
@@ -1772,8 +2056,35 @@ async function router(req, res) {
         provider: openAiEnabled() ? "openai" : null,
         model: openAiEnabled() ? OPENAI_MODEL : null
       },
+      audio: {
+        serverStt: knowledgeService.audioEnabled(),
+        serverTts: knowledgeService.audioEnabled()
+      },
+      accounts: {
+        emailDelivery: Boolean(EMAIL_WEBHOOK_URL),
+        verificationRequired: REQUIRE_EMAIL_VERIFICATION
+      },
       boundary: "Public chats are stored as Jarvis sessions only. They do not update the owner knowledge base."
     });
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/jarvis/transcribe") {
+    if (!knowledgeService.audioEnabled()) return send(res, 503, { error: "Server voice is not configured." });
+    const body = await readBody(req);
+    const audio = Buffer.from(String(body.audioBase64 || ""), "base64");
+    if (!audio.length || audio.length > MAX_DOCUMENT_BYTES) return send(res, 400, { error: "Voice recording is missing or too large." });
+    const text = await knowledgeService.transcribe(audio, String(body.mimeType || "audio/webm"), String(body.filename || "voice.webm"));
+    if (!text) return send(res, 422, { error: "No speech could be transcribed." });
+    return send(res, 200, { text });
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/jarvis/speech") {
+    if (!knowledgeService.audioEnabled()) return send(res, 503, { error: "Server voice is not configured." });
+    const body = await readBody(req);
+    const text = String(body.text || "").trim();
+    if (!text || text.length > 4000) return send(res, 400, { error: "Speech text must be between 1 and 4000 characters." });
+    const audio = await knowledgeService.synthesize(text, String(body.voice || OPENAI_SPEECH_VOICE));
+    return send(res, 200, audio, { "Content-Type": "audio/mpeg", "Cache-Control": "no-store" });
   }
 
   if (req.method === "POST" && url.pathname === "/api/jarvis/sessions") {
@@ -1870,6 +2181,109 @@ async function router(req, res) {
       message: jarvisMessage,
       session: publicJarvisSession(session)
     });
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/owner/documents") {
+    return send(res, 200, {
+      documents: db.knowledge.documents.slice().sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt))),
+      summary: {
+        documents: db.knowledge.documents.length,
+        indexed: db.knowledge.documents.filter((document) => document.status === "indexed").length,
+        chunks: db.knowledge.chunks.length,
+        embeddingProvider: knowledgeService.embeddingsEnabled() ? "openai" : null
+      }
+    });
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/owner/documents") {
+    const body = await readBody(req);
+    const title = String(body.title || "").trim();
+    const filename = String(body.filename || "evidence.txt").trim();
+    const mimeType = String(body.mimeType || "text/plain").trim();
+    if (!title || title.length > 160) return send(res, 400, { error: "Document title must be between 1 and 160 characters." });
+    let content;
+    if (String(body.contentBase64 || "")) content = Buffer.from(String(body.contentBase64), "base64");
+    else content = Buffer.from(String(body.text || ""), "utf8");
+    if (!content.length) return send(res, 400, { error: "Document content is required." });
+    if (content.length > MAX_DOCUMENT_BYTES) return send(res, 413, { error: "Documents are limited to 5 MB." });
+    const checksum = createHash("sha256").update(content).digest("hex");
+    if (db.knowledge.documents.some((document) => document.checksum === checksum)) {
+      return send(res, 409, { error: "This evidence file has already been uploaded." });
+    }
+
+    const id = randomUUID();
+    const storageKey = await knowledgeService.storeObject(id, filename, content);
+    const extracted = knowledgeService.extractText(content, mimeType, filename);
+    const indexed = await knowledgeService.indexText(id, extracted);
+    const now = new Date().toISOString();
+    const document = {
+      id,
+      title,
+      filename,
+      mimeType,
+      storageKey,
+      checksum,
+      sourceUrl: String(body.sourceUrl || "").trim().slice(0, 2000),
+      tags: Array.isArray(body.tags) ? body.tags.map((tag) => String(tag).trim()).filter(Boolean).slice(0, 20) : [],
+      status: indexed.chunks.length ? "indexed" : "stored",
+      indexMode: indexed.mode,
+      chunkCount: indexed.chunks.length,
+      createdAt: now,
+      updatedAt: now
+    };
+    db.knowledge.documents.push(document);
+    db.knowledge.chunks.push(...indexed.chunks);
+    db.knowledge = normalizeKnowledge(db.knowledge);
+    await writeDb(db);
+    return send(res, 201, {
+      document,
+      note: document.status === "stored" ? "The original file is stored, but this format needs text extraction before Jarvis can retrieve it." : "Evidence indexed for Jarvis retrieval."
+    });
+  }
+
+  if (req.method === "DELETE" && url.pathname.startsWith("/api/owner/documents/")) {
+    const id = url.pathname.split("/").pop();
+    const document = db.knowledge.documents.find((item) => item.id === id);
+    if (!document) return send(res, 404, { error: "Evidence document not found." });
+    db.knowledge.documents = db.knowledge.documents.filter((item) => item.id !== id);
+    db.knowledge.chunks = db.knowledge.chunks.filter((chunk) => chunk.documentId !== id);
+    await writeDb(db);
+    await knowledgeService.removeObject(id);
+    return send(res, 204, "");
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/owner/retrieval/metrics") {
+    const events = db.knowledge.retrievalEvents;
+    const sourceCounts = new Map();
+    for (const event of events) {
+      for (const sourceId of event.sourceIds) sourceCounts.set(sourceId, (sourceCounts.get(sourceId) || 0) + 1);
+    }
+    return send(res, 200, {
+      totalQueries: events.length,
+      modes: events.reduce((counts, event) => ({ ...counts, [event.mode]: (counts[event.mode] || 0) + 1 }), {}),
+      averageLatencyMs: events.length ? Math.round(events.reduce((sum, event) => sum + event.latencyMs, 0) / events.length) : 0,
+      topSources: [...sourceCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12).map(([id, hits]) => ({ id, hits })),
+      recent: events.slice(-50).reverse()
+    });
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/admin/users") {
+    return send(res, 200, {
+      users: db.auth.users.map(publicUser).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
+    });
+  }
+
+  if (req.method === "PATCH" && url.pathname.startsWith("/api/admin/users/")) {
+    const id = url.pathname.split("/").pop();
+    const user = db.auth.users.find((item) => item.id === id);
+    if (!user) return send(res, 404, { error: "User not found." });
+    const body = await readBody(req);
+    if (body.role !== undefined) user.role = body.role === "admin" ? "admin" : "member";
+    if (body.disabled !== undefined) user.disabledAt = body.disabled ? new Date().toISOString() : "";
+    if (body.emailVerified !== undefined) user.emailVerifiedAt = body.emailVerified ? (user.emailVerifiedAt || new Date().toISOString()) : "";
+    if (user.disabledAt) db.auth.sessions = db.auth.sessions.filter((session) => session.userId !== user.id);
+    await writeDb(db);
+    return send(res, 200, { user: publicUser(user) });
   }
 
   if (req.method === "GET" && url.pathname === "/api/properties") {
@@ -2038,13 +2452,14 @@ async function router(req, res) {
 
   if (req.method === "POST" && url.pathname === "/api/rag/query") {
     const body = await readBody(req);
-    return send(res, 200, await retrieveGuidance(body.query, body.property, db.brain));
+    return send(res, 200, await retrieveGuidance(body.query, body.property, db.brain, db.knowledge));
   }
 
   if (req.method === "POST" && url.pathname === "/api/jarvis/query") {
     const body = await readBody(req);
     const query = String(body.query || "").trim();
     if (!query) return send(res, 400, { error: "A Jarvis query is required." });
+    if (query.length > 4000) return send(res, 400, { error: "Keep each Jarvis message under 4000 characters." });
     const clientId = requestClientId(req, body);
     let session = accessibleJarvisSession(db, body.sessionId, actor, clientId);
     if (!session) session = createJarvisSession({ clientId }, actor.user);
@@ -2060,10 +2475,11 @@ async function router(req, res) {
     };
     session.messages.push(userMessage);
 
+    const retrievalStartedAt = Date.now();
     const result = await retrieveJarvisAnswer(query, db.brain, session, {
       dealCard: body.dealCard,
       financialProfile: body.financialProfile
-    });
+    }, db.knowledge);
     const jarvisMessage = {
       id: randomUUID(),
       role: "jarvis",
@@ -2075,6 +2491,17 @@ async function router(req, res) {
     session.updatedAt = jarvisMessage.createdAt;
     session.messages = session.messages.slice(-80);
     db.jarvis = upsertJarvisSession(db.jarvis, session);
+    db.knowledge.retrievalEvents.push({
+      id: randomUUID(),
+      createdAt: new Date().toISOString(),
+      queryHash: createHash("sha256").update(query).digest("hex").slice(0, 24),
+      queryLength: query.length,
+      mode: result.retrievalMode || "lexical",
+      sourceIds: (result.sources || []).map((source) => source.id).slice(0, 10),
+      latencyMs: Date.now() - retrievalStartedAt,
+      userId: actor.user?.id || ""
+    });
+    db.knowledge.retrievalEvents = db.knowledge.retrievalEvents.slice(-1000);
     await writeDb(db);
     return send(res, 200, {
       ...result,

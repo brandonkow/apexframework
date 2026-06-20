@@ -14,14 +14,32 @@ services:
         value: /var/data
       - key: ESTATELAB_RAG_PATH
         value: ./rag/corpus.json
+      - key: ESTATELAB_OBJECT_DIR
+        value: /var/data/objects
       - key: ESTATELAB_OWNER_TOKEN
         sync: false
       - key: OPENAI_API_KEY
         sync: false
       - key: OPENAI_MODEL
         value: gpt-4.1-mini
+      - key: OPENAI_EMBEDDING_MODEL
+        value: text-embedding-3-small
+      - key: OPENAI_TRANSCRIPTION_MODEL
+        value: gpt-4o-mini-transcribe
+      - key: OPENAI_SPEECH_MODEL
+        value: gpt-4o-mini-tts
+      - key: OPENAI_SPEECH_VOICE
+        value: marin
       - key: ESTATELAB_AUTH_SESSION_DAYS
         value: 30
+      - key: ESTATELAB_REQUIRE_EMAIL_VERIFICATION
+        value: false
+      - key: ESTATELAB_EMAIL_WEBHOOK_URL
+        sync: false
+      - key: ESTATELAB_EMAIL_WEBHOOK_SECRET
+        sync: false
+      - key: ESTATELAB_AUTH_DEBUG_TOKENS
+        value: false
       - key: DATABASE_URL
         sync: false
       - key: ESTATELAB_PG_POOL_MAX

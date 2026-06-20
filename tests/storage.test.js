@@ -44,18 +44,34 @@ function sampleState(revision = 0) {
     properties: [{ id: "property-1" }],
     comps: [{ id: "comp-1" }],
     brain: { answers: [], beliefs: [], decisions: [] },
-    auth: {
+    knowledge: {
       version: 1,
+      documents: [{ id: "document-1", title: "Evidence" }],
+      chunks: [],
+      retrievalEvents: []
+    },
+    auth: {
+      version: 2,
       users: [{
         id: "user-1",
         email: "member@example.com",
         displayName: "Member",
         passwordHash: "scrypt$salt$hash",
+        role: "member",
+        emailVerifiedAt: "2026-01-01T00:00:00.000Z",
+        disabledAt: "",
         createdAt: "2026-01-01T00:00:00.000Z"
       }],
       sessions: [{
         tokenHash: "token-hash",
         userId: "user-1",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        expiresAt: "2030-01-01T00:00:00.000Z"
+      }],
+      tokens: [{
+        tokenHash: "one-time-token-hash",
+        userId: "user-1",
+        purpose: "password-reset",
         createdAt: "2026-01-01T00:00:00.000Z",
         expiresAt: "2030-01-01T00:00:00.000Z"
       }]
@@ -106,11 +122,13 @@ test("PostgreSQL store writes normalized state inside one transaction", async ()
   assert.equal(client.calls.at(-1).text, "COMMIT");
   assert.ok(client.calls.some((call) => call.text.includes("INSERT INTO estatelab_users")));
   assert.ok(client.calls.some((call) => call.text.includes("INSERT INTO estatelab_auth_sessions")));
+  assert.ok(client.calls.some((call) => call.text.includes("INSERT INTO estatelab_auth_tokens")));
   assert.ok(client.calls.some((call) => call.text.includes("INSERT INTO estatelab_jarvis_sessions")));
   assert.ok(client.calls.some((call) => call.text.includes("INSERT INTO estatelab_jarvis_messages")));
   const coreWrite = client.calls.find((call) => call.text.includes("INSERT INTO estatelab_core"));
   assert.equal(typeof coreWrite.params[0], "string");
   assert.deepEqual(JSON.parse(coreWrite.params[0]), [{ id: "property-1" }]);
+  assert.equal(JSON.parse(coreWrite.params[3]).documents[0].id, "document-1");
   assert.equal(client.released, true);
 });
 
@@ -143,12 +161,13 @@ test("PostgreSQL store reconstructs users, sessions, and ordered messages", asyn
   const client = new FakeClient((text) => {
     if (text === "SELECT revision FROM estatelab_meta WHERE singleton = TRUE") return { rows: [{ revision: "7" }] };
     if (text.startsWith("SELECT properties, comps, brain")) {
-      return { rows: [{ properties: [{ id: "p" }], comps: [], brain: { beliefs: [] } }] };
+      return { rows: [{ properties: [{ id: "p" }], comps: [], brain: { beliefs: [] }, knowledge: { documents: [{ id: "d" }] } }] };
     }
     if (text.startsWith("SELECT id, email, display_name")) {
       return { rows: [{ id: "u", email: "u@example.com", display_name: "User", password_hash: "hash", created_at: new Date("2026-01-01T00:00:00.000Z") }] };
     }
     if (text.startsWith("SELECT token_hash, user_id")) {
+      if (text.includes("purpose")) return { rows: [{ token_hash: "ot", user_id: "u", purpose: "email-verification", created_at: new Date("2026-01-01T00:00:00.000Z"), expires_at: new Date("2030-01-01T00:00:00.000Z") }] };
       return { rows: [{ token_hash: "t", user_id: "u", created_at: new Date("2026-01-01T00:00:00.000Z"), expires_at: new Date("2030-01-01T00:00:00.000Z") }] };
     }
     if (text.startsWith("SELECT id, user_id, client_id")) {
@@ -163,6 +182,8 @@ test("PostgreSQL store reconstructs users, sessions, and ordered messages", asyn
   const state = await store.read();
   assert.equal(state._storageRevision, 7);
   assert.equal(state.auth.users[0].displayName, "User");
+  assert.equal(state.auth.tokens[0].purpose, "email-verification");
+  assert.equal(state.knowledge.documents[0].id, "d");
   assert.equal(state.jarvis.sessions[0].messages[0].content, "Hi");
   assert.equal(client.calls[0].text, "BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
   assert.equal(client.calls.at(-1).text, "COMMIT");

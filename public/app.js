@@ -22,10 +22,23 @@ const authEmail = document.querySelector("#authEmail");
 const authPassword = document.querySelector("#authPassword");
 const authSubmit = document.querySelector("#authSubmit");
 const authModeToggle = document.querySelector("#authModeToggle");
+const authRecoveryToggle = document.querySelector("#authRecoveryToggle");
 const authMessage = document.querySelector("#authMessage");
+const authRecovery = document.querySelector("#authRecovery");
+const recoveryEmail = document.querySelector("#recoveryEmail");
+const recoveryRequest = document.querySelector("#recoveryRequest");
+const recoveryToken = document.querySelector("#recoveryToken");
+const recoveryPassword = document.querySelector("#recoveryPassword");
+const recoverySubmit = document.querySelector("#recoverySubmit");
+const recoveryCancel = document.querySelector("#recoveryCancel");
+const recoveryMessage = document.querySelector("#recoveryMessage");
 const authUserPanel = document.querySelector("#authUser");
 const authUserName = document.querySelector("#authUserName");
 const authUserEmail = document.querySelector("#authUserEmail");
+const authVerificationState = document.querySelector("#authVerificationState");
+const verificationToken = document.querySelector("#verificationToken");
+const verificationRequest = document.querySelector("#verificationRequest");
+const verificationSubmit = document.querySelector("#verificationSubmit");
 const logoutButton = document.querySelector("#logoutButton");
 const dealFields = Array.from(document.querySelectorAll("[data-deal-field]"));
 const profileFields = Array.from(document.querySelectorAll("[data-profile-field]"));
@@ -42,9 +55,19 @@ let voiceResponsesEnabled = true;
 let listening = false;
 let speaking = false;
 let voiceStopRequested = false;
+let voiceRequestId = 0;
 let sessionId = window.localStorage.getItem(sessionKey);
 let authMode = "login";
 let authenticatedUser = null;
+let serverSttEnabled = false;
+let serverTtsEnabled = false;
+let emailDeliveryEnabled = false;
+let emailVerificationRequired = false;
+let mediaRecorder = null;
+let mediaStream = null;
+let recordedAudio = [];
+let activeServerAudio = null;
+let activeAudioUrl = "";
 
 function clientId() {
   const existing = window.localStorage.getItem(clientKey);
@@ -88,7 +111,19 @@ function setAuthMode(mode) {
   authPassword.autocomplete = registering ? "new-password" : "current-password";
   authSubmit.textContent = registering ? "CREATE ACCOUNT" : "SIGN IN";
   authModeToggle.textContent = registering ? "SIGN IN" : "CREATE ACCOUNT";
+  authRecoveryToggle.hidden = registering || !emailDeliveryEnabled;
   authMessage.textContent = "";
+}
+
+function showAuthRecovery(show) {
+  authRecovery.hidden = !show;
+  authForm.hidden = show || Boolean(authenticatedUser);
+  authTitle.textContent = show ? "RESET PASSWORD" : authMode === "register" ? "CREATE ACCOUNT" : "SIGN IN";
+  recoveryMessage.textContent = "";
+  if (show) {
+    recoveryEmail.value = authEmail.value.trim();
+    recoveryEmail.focus();
+  }
 }
 
 function renderAuthState(user) {
@@ -97,11 +132,18 @@ function renderAuthState(user) {
   const firstName = String(authenticatedUser?.displayName || "GUEST").trim().split(/\s+/)[0];
   accountLabel.textContent = firstName.slice(0, 16).toUpperCase();
   authForm.hidden = signedIn;
+  authRecovery.hidden = true;
   authUserPanel.hidden = !signedIn;
   authTitle.textContent = signedIn ? "ACCOUNT" : authMode === "register" ? "CREATE ACCOUNT" : "SIGN IN";
   if (signedIn) {
     authUserName.textContent = authenticatedUser.displayName;
     authUserEmail.textContent = authenticatedUser.email;
+    const canVerify = emailDeliveryEnabled || emailVerificationRequired;
+    authVerificationState.textContent = authenticatedUser.emailVerified ? "VERIFIED" : canVerify ? "UNVERIFIED" : "VERIFICATION OPTIONAL";
+    authVerificationState.classList.toggle("verified", Boolean(authenticatedUser.emailVerified));
+    verificationToken.hidden = Boolean(authenticatedUser.emailVerified) || !emailDeliveryEnabled;
+    verificationRequest.hidden = Boolean(authenticatedUser.emailVerified) || !emailDeliveryEnabled;
+    verificationSubmit.hidden = Boolean(authenticatedUser.emailVerified) || !emailDeliveryEnabled;
   }
 }
 
@@ -124,10 +166,12 @@ function closeAuthPanel() {
 function sourceLabel(type) {
   if (type === "belief") return "BELIEF";
   if (type === "decision") return "DECISION";
+  if (type === "evidence") return "EVIDENCE";
   return "REFERENCE";
 }
 
 function sourceName(source) {
+  if (source?.type === "evidence") return "owner evidence";
   const title = String(source?.title || "").toLowerCase();
   if (title.includes("rental") || title.includes("installment") || title.includes("tenant")) return "rental rule";
   if (title.includes("future supply") || title.includes("substitute") || title.includes("competition")) return "supply rule";
@@ -357,14 +401,67 @@ function collapseContextPanels() {
 }
 
 function stopSpeaking(prompt = "Voice stopped.") {
+  voiceRequestId += 1;
   if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+  if (activeServerAudio) {
+    activeServerAudio.pause();
+    activeServerAudio.src = "";
+    activeServerAudio = null;
+  }
+  if (activeAudioUrl) {
+    URL.revokeObjectURL(activeAudioUrl);
+    activeAudioUrl = "";
+  }
   voiceStopRequested = true;
   setSpeakingState(false);
   if (!listening) setSystemState("System ready", prompt);
 }
 
+async function speakWithServer(text) {
+  stopSpeaking("Ready when you are.");
+  const requestId = ++voiceRequestId;
+  try {
+    setSpeakingState(true);
+    setSystemState("Speaking", "Delivering analysis.");
+    const response = await fetch("/api/jarvis/speech", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+        "x-estatelab-client-id": clientId()
+      },
+      body: JSON.stringify({ text })
+    });
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.error || "Server voice is unavailable.");
+    }
+    if (requestId !== voiceRequestId) return;
+    activeAudioUrl = URL.createObjectURL(await response.blob());
+    activeServerAudio = new Audio(activeAudioUrl);
+    activeServerAudio.onended = () => {
+      setSpeakingState(false);
+      setSystemState("System ready", voiceStopRequested ? "Voice stopped." : "Ready when you are.");
+      stopSpeaking("Ready when you are.");
+      voiceStopRequested = false;
+    };
+    activeServerAudio.onerror = () => {
+      setSpeakingState(false);
+      setSystemState("Voice interrupted", "The written answer is still available.");
+    };
+    await activeServerAudio.play();
+  } catch {
+    setSpeakingState(false);
+    setSystemState("Voice interrupted", "The written answer is still available.");
+  }
+}
+
 function speak(text) {
-  if (!voiceResponsesEnabled || !("speechSynthesis" in window)) return;
+  if (!voiceResponsesEnabled) return;
+  if (!("speechSynthesis" in window)) {
+    if (serverTtsEnabled) void speakWithServer(text);
+    return;
+  }
   stopSpeaking("Ready when you are.");
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.rate = 0.96;
@@ -384,6 +481,65 @@ function speak(text) {
     voiceStopRequested = false;
   };
   window.speechSynthesis.speak(utterance);
+}
+
+function blobBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || "").split(",")[1] || "");
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function startServerListening() {
+  if (mediaRecorder?.state === "recording") {
+    mediaRecorder.stop();
+    return;
+  }
+  if (!serverSttEnabled || !window.MediaRecorder || !navigator.mediaDevices?.getUserMedia) {
+    setSystemState("Voice unavailable", "Use the command bar on this browser.");
+    chatInput.focus();
+    return;
+  }
+  try {
+    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    recordedAudio = [];
+    const preferredType = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"]
+      .find((type) => MediaRecorder.isTypeSupported(type));
+    mediaRecorder = new MediaRecorder(mediaStream, preferredType ? { mimeType: preferredType } : undefined);
+    mediaRecorder.ondataavailable = (event) => {
+      if (event.data.size) recordedAudio.push(event.data);
+    };
+    mediaRecorder.onstop = async () => {
+      listening = false;
+      jarvisOrb.classList.remove("listening");
+      mediaStream?.getTracks().forEach((track) => track.stop());
+      const audio = new Blob(recordedAudio, { type: mediaRecorder.mimeType || "audio/webm" });
+      if (!audio.size) return setSystemState("Voice interrupted", "No recording was captured.");
+      setSystemState("Analyzing", "Transcribing your message.");
+      try {
+        const result = await requestJson("/api/jarvis/transcribe", {
+          method: "POST",
+          body: JSON.stringify({
+            audioBase64: await blobBase64(audio),
+            mimeType: audio.type,
+            filename: audio.type.includes("mp4") ? "voice.mp4" : "voice.webm"
+          })
+        });
+        chatInput.value = result.text;
+        await submitQuestion(result.text);
+      } catch (error) {
+        setSystemState("Voice interrupted", error.message || "Voice transcription failed.");
+      }
+    };
+    mediaRecorder.start();
+    listening = true;
+    jarvisOrb.classList.add("listening");
+    setSystemState("Listening", "Speak naturally. Tap again when finished.");
+  } catch {
+    setSystemState("Voice interrupted", "Microphone access was not available.");
+  }
 }
 
 async function requestJson(url, options = {}) {
@@ -428,11 +584,80 @@ async function submitAuth() {
     renderAuthState(result.user);
     authPassword.value = "";
     await ensureSession();
-    setSystemState("System ready", `Welcome back, ${result.user.displayName}.`);
+    setSystemState("System ready", result.verificationPending ? "Account ready. Verify your email when convenient." : `Welcome back, ${result.user.displayName}.`);
   } catch (error) {
     authMessage.textContent = error.message || "Account access is unavailable.";
   } finally {
     authSubmit.disabled = false;
+  }
+}
+
+async function requestPasswordReset() {
+  const email = recoveryEmail.value.trim();
+  if (!email) return recoveryEmail.focus();
+  recoveryRequest.disabled = true;
+  recoveryMessage.textContent = "Sending reset instructions...";
+  try {
+    const result = await requestJson("/api/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify({ email })
+    });
+    recoveryMessage.textContent = result.message;
+    if (result.debug?.token) recoveryToken.value = result.debug.token;
+  } catch (error) {
+    recoveryMessage.textContent = error.message || "Password recovery is unavailable.";
+  } finally {
+    recoveryRequest.disabled = false;
+  }
+}
+
+async function resetPassword() {
+  recoverySubmit.disabled = true;
+  recoveryMessage.textContent = "Updating password...";
+  try {
+    await requestJson("/api/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify({ token: recoveryToken.value.trim(), password: recoveryPassword.value })
+    });
+    recoveryPassword.value = "";
+    showAuthRecovery(false);
+    setAuthMode("login");
+    authMessage.textContent = "Password updated. Sign in with the new password.";
+  } catch (error) {
+    recoveryMessage.textContent = error.message || "Password could not be updated.";
+  } finally {
+    recoverySubmit.disabled = false;
+  }
+}
+
+async function requestVerification() {
+  verificationRequest.disabled = true;
+  try {
+    const result = await requestJson("/api/auth/request-verification", { method: "POST", body: "{}" });
+    if (result.debug?.token) verificationToken.value = result.debug.token;
+    setSystemState("System ready", result.sent ? "Verification code sent." : "Verification request created.");
+  } catch (error) {
+    setSystemState("Connection issue", error.message || "Verification is unavailable.");
+  } finally {
+    verificationRequest.disabled = false;
+  }
+}
+
+async function verifyEmail() {
+  const token = verificationToken.value.trim();
+  if (!token) return verificationToken.focus();
+  verificationSubmit.disabled = true;
+  try {
+    const result = await requestJson("/api/auth/verify-email", {
+      method: "POST",
+      body: JSON.stringify({ token })
+    });
+    renderAuthState(result.user);
+    setSystemState("System ready", "Email verified.");
+  } catch (error) {
+    setSystemState("Connection issue", error.message || "Verification failed.");
+  } finally {
+    verificationSubmit.disabled = false;
   }
 }
 
@@ -551,7 +776,7 @@ async function submitQuestion(question) {
     setSystemState("Connection issue", "Start EstateLab and try again.");
     setSessionState("OFFLINE");
   } finally {
-    if (!window.speechSynthesis?.speaking) jarvisOrb.classList.remove("speaking");
+    if (!speaking && !window.speechSynthesis?.speaking) jarvisOrb.classList.remove("speaking");
   }
 }
 
@@ -603,7 +828,7 @@ async function runDealAnalysis() {
   } finally {
     analyzeDealBtn.disabled = false;
     analyzeDealBtn.textContent = "ANALYSE";
-    if (!window.speechSynthesis?.speaking) jarvisOrb.classList.remove("speaking");
+    if (!speaking && !window.speechSynthesis?.speaking) jarvisOrb.classList.remove("speaking");
   }
 }
 
@@ -613,8 +838,7 @@ function startListening() {
     return;
   }
   if (!recognition) {
-    setSystemState("Voice unavailable", "Use the command bar on this browser.");
-    chatInput.focus();
+    void startServerListening();
     return;
   }
   if (listening) {
@@ -668,10 +892,19 @@ accountToggle.addEventListener("click", () => {
 });
 authClose.addEventListener("click", closeAuthPanel);
 authModeToggle.addEventListener("click", () => setAuthMode(authMode === "login" ? "register" : "login"));
+authRecoveryToggle.addEventListener("click", () => showAuthRecovery(true));
 authForm.addEventListener("submit", (event) => {
   event.preventDefault();
   submitAuth();
 });
+authRecovery.addEventListener("submit", (event) => {
+  event.preventDefault();
+  resetPassword();
+});
+recoveryRequest.addEventListener("click", requestPasswordReset);
+recoveryCancel.addEventListener("click", () => showAuthRecovery(false));
+verificationRequest.addEventListener("click", requestVerification);
+verificationSubmit.addEventListener("click", verifyEmail);
 logoutButton.addEventListener("click", logout);
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !authPanel.hidden) closeAuthPanel();
@@ -700,6 +933,11 @@ async function bootJarvis() {
   try {
     const status = await requestJson("/api/jarvis/status");
     const intelligenceMode = status.llm?.enabled ? "AI" : "FRAMEWORK";
+    serverSttEnabled = Boolean(status.audio?.serverStt);
+    serverTtsEnabled = Boolean(status.audio?.serverTts);
+    emailDeliveryEnabled = Boolean(status.accounts?.emailDelivery);
+    emailVerificationRequired = Boolean(status.accounts?.verificationRequired);
+    setAuthMode(authMode);
     aiDisclosure.hidden = !status.llm?.enabled;
     await loadAuthState();
     await ensureSession();

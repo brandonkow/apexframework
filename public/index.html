@@ -78,13 +78,31 @@
             <div class="authActions">
               <button id="authSubmit" class="authPrimary" type="submit">SIGN IN</button>
               <button id="authModeToggle" type="button">CREATE ACCOUNT</button>
+              <button id="authRecoveryToggle" type="button">RESET PASSWORD</button>
             </div>
             <p id="authMessage" class="authMessage" role="status"></p>
           </form>
 
+          <form id="authRecovery" class="authForm authRecovery" hidden>
+            <label>Email<input id="recoveryEmail" type="email" autocomplete="email" maxlength="254" /></label>
+            <button id="recoveryRequest" class="authPrimary" type="button">SEND RESET CODE</button>
+            <label>Reset code<input id="recoveryToken" autocomplete="one-time-code" /></label>
+            <label>New password<input id="recoveryPassword" type="password" autocomplete="new-password" minlength="10" maxlength="128" /></label>
+            <div class="authActions">
+              <button id="recoverySubmit" class="authPrimary" type="submit">SET PASSWORD</button>
+              <button id="recoveryCancel" type="button">BACK</button>
+            </div>
+            <p id="recoveryMessage" class="authMessage" role="status"></p>
+          </form>
+
           <div id="authUser" class="authUser" hidden>
-            <span><small>SIGNED IN AS</small><b id="authUserName"></b><em id="authUserEmail"></em></span>
-            <button id="logoutButton" type="button">SIGN OUT</button>
+            <span><small>SIGNED IN AS</small><b id="authUserName"></b><em id="authUserEmail"></em><i id="authVerificationState">UNVERIFIED</i></span>
+            <div class="authUserActions">
+              <input id="verificationToken" aria-label="Email verification code" placeholder="Verification code" autocomplete="one-time-code" />
+              <button id="verificationRequest" type="button">SEND CODE</button>
+              <button id="verificationSubmit" type="button">VERIFY</button>
+              <button id="logoutButton" type="button">SIGN OUT</button>
+            </div>
           </div>
         </section>
 

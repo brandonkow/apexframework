@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "check": "node --check server.js && node --check storage.js && node --check public/app.js",
+    "check": "node --check server.js && node --check storage.js && node --check knowledge.js && node --check public/app.js",
     "test": "node --test tests/*.test.js"
   },
   "engines": {

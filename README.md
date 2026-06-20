@@ -6,9 +6,12 @@ The public user experience is intentionally simple: users interact with one Jarv
 
 ## What Is Included
 
-- Jarvis-style browser UI with voice input and voice response support.
+- Jarvis-style browser UI with browser voice plus server speech fallback.
 - Optional member accounts with private, resumable chat sessions; guests remain device-scoped.
+- Email verification, password recovery, and owner-only account administration.
 - PostgreSQL production storage with automatic JSON fallback for local development.
+- Owner-controlled evidence uploads, private original-file storage, chunking, optional embeddings, hybrid retrieval, and retrieval monitoring.
+- Public request limits for chat, voice, and account endpoints.
 - Seven-stage Deal Analysis using the Deal Card and Financial Profile, with structured verdicts, hard stops, stress metrics, counter-thesis, and missing evidence.
 - Node.js backend with a single production database driver dependency (`pg`).
 - Public Jarvis endpoints for chat, session creation, and knowledge status.
@@ -36,10 +39,19 @@ PORT=3000
 ESTATELAB_OWNER_TOKEN=change-this-before-using-owner-apis
 ESTATELAB_DATA_DIR=./data
 ESTATELAB_RAG_PATH=./rag/corpus.json
+ESTATELAB_OBJECT_DIR=./data/objects
 OPENAI_API_KEY=your-server-side-api-key
 OPENAI_MODEL=gpt-4.1-mini
+OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+OPENAI_TRANSCRIPTION_MODEL=gpt-4o-mini-transcribe
+OPENAI_SPEECH_MODEL=gpt-4o-mini-tts
+OPENAI_SPEECH_VOICE=marin
 OPENAI_TIMEOUT_MS=25000
 ESTATELAB_AUTH_SESSION_DAYS=30
+ESTATELAB_REQUIRE_EMAIL_VERIFICATION=false
+ESTATELAB_EMAIL_WEBHOOK_URL=https://your-email-automation.example/hook
+ESTATELAB_EMAIL_WEBHOOK_SECRET=your-webhook-bearer-secret
+ESTATELAB_AUTH_DEBUG_TOKENS=false
 DATABASE_URL=postgresql://user:password@host:5432/database
 ESTATELAB_PG_POOL_MAX=5
 ```
@@ -49,6 +61,12 @@ ESTATELAB_PG_POOL_MAX=5
 `ESTATELAB_DATA_DIR` controls the JSON fallback and PostgreSQL migration source. If the folder is empty on first start, EstateLab seeds it from the bundled `data/db.json`.
 
 `OPENAI_API_KEY` enables conversational AI through the server-side OpenAI Responses API. The key is never sent to the browser. `OPENAI_MODEL` is configurable, and Jarvis automatically falls back to its deterministic EstateLab response engine if the API is unavailable.
+
+The same server key optionally enables evidence embeddings and server voice. Each model is independently configurable. Evidence retrieval falls back to lexical matching, browser speech remains the first voice path where available, and written chat continues if audio generation fails.
+
+`ESTATELAB_OBJECT_DIR` stores private originals uploaded through the owner evidence API. Text, Markdown, CSV, JSON, and HTML are indexed immediately. Other formats are retained but reported as stored rather than indexed. On Render, keep this directory on the persistent disk.
+
+`ESTATELAB_EMAIL_WEBHOOK_URL` is an optional server-to-server delivery hook for verification and reset codes. The hook receives `type`, `to`, `displayName`, `token`, and `expiresAt`; set `ESTATELAB_EMAIL_WEBHOOK_SECRET` to add a bearer credential. Keep `ESTATELAB_AUTH_DEBUG_TOKENS=false` in production. Enable mandatory verification only after delivery is working.
 
 When AI mode is enabled, chat messages and any Deal Card or Financial Profile context submitted with the message are sent to OpenAI for response generation. Public input remains conversation data and is not promoted into EstateLab's owner-controlled knowledge base.
 
@@ -67,6 +85,8 @@ Render is the recommended first deployment target because it can run the Node se
 5. Set `OPENAI_API_KEY` as a secret environment variable to enable conversational AI.
 6. Create or attach a PostgreSQL database and set `DATABASE_URL` to its internal connection URL.
 7. Keep the persistent disk and `ESTATELAB_DATA_DIR=/var/data` during the first migration so PostgreSQL can import the existing JSON state.
+8. Keep `ESTATELAB_OBJECT_DIR=/var/data/objects` on the disk for uploaded source originals.
+9. Optionally configure `ESTATELAB_EMAIL_WEBHOOK_URL`, test delivery, and then set `ESTATELAB_REQUIRE_EMAIL_VERIFICATION=true`.
 
 A starter `render.yaml` blueprint is included. It defines a Node web service in Singapore, `/api/health` health check, and a 1 GB persistent disk mounted at `/var/data`.
 
@@ -84,12 +104,18 @@ Public:
 - `POST /api/auth/register`
 - `POST /api/auth/login`
 - `POST /api/auth/logout`
+- `POST /api/auth/request-verification`
+- `POST /api/auth/verify-email`
+- `POST /api/auth/forgot-password`
+- `POST /api/auth/reset-password`
 - `GET /api/jarvis/sessions`
 - `POST /api/jarvis/sessions`
 - `GET /api/jarvis/sessions/:id`
 - `DELETE /api/jarvis/sessions/:id`
 - `POST /api/jarvis/query`
 - `POST /api/jarvis/analyze-deal`
+- `POST /api/jarvis/transcribe`
+- `POST /api/jarvis/speech`
 
 Owner-only:
 
@@ -97,6 +123,8 @@ Owner-only:
 - Second brain answer, belief, and decision APIs
 - Raw RAG guidance API
 - Comparable transaction APIs
+- Evidence document and retrieval-monitoring APIs
+- User administration APIs
 
 Owner-only calls require:
 
@@ -106,4 +134,4 @@ x-estatelab-owner-token: your-token
 
 ## Product Direction
 
-This version includes authentication, user-scoped sessions, and PostgreSQL production storage. The next product infrastructure milestone is evidence ingestion: owner-controlled document uploads, source metadata, embeddings, and retrieval monitoring.
+The original infrastructure roadmap is now implemented as one bounded production platform: authenticated conversations, PostgreSQL persistence, owner evidence ingestion, hybrid retrieval, monitoring, account lifecycle controls, abuse limits, and server voice fallback. Future work should be driven by measured usage rather than another automatic phase, especially retrieval quality, email-provider delivery, and storage scale.

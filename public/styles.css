@@ -677,6 +677,12 @@ button {
   margin-top: 13px;
 }
 
+.authForm[hidden],
+.authUser[hidden],
+.authRecovery[hidden] {
+  display: none;
+}
+
 .authForm label {
   display: grid;
   gap: 4px;
@@ -741,6 +747,43 @@ button {
   color: #6e99a3;
   font-size: 0.62rem;
   font-style: normal;
+}
+
+.authUser i {
+  width: fit-content;
+  margin-top: 3px;
+  color: #b9956d;
+  font-size: 0.46rem;
+  font-style: normal;
+  letter-spacing: 0.12em;
+}
+
+.authUser i.verified {
+  color: #79cbb9;
+}
+
+.authUserActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.authUserActions input {
+  min-height: 31px;
+  width: min(180px, 100%);
+  border: 1px solid rgba(103, 229, 255, 0.16);
+  border-radius: 999px;
+  outline: 0;
+  padding: 6px 10px;
+  color: var(--text);
+  background: rgba(0, 10, 17, 0.58);
+  font-size: 0.62rem;
+}
+
+.authUserActions input:focus {
+  border-color: rgba(103, 229, 255, 0.46);
 }
 
 .contextPanel {
@@ -1516,6 +1559,26 @@ button {
   .authForm input {
     min-height: 44px;
     font-size: 1rem;
+  }
+
+  .authActions,
+  .authUserActions {
+    flex-wrap: wrap;
+  }
+
+  .authUser {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .authUserActions {
+    justify-content: flex-start;
+  }
+
+  .authUserActions input {
+    width: 100%;
+    min-height: 42px;
+    font-size: 0.9rem;
   }
 
   .contextHeader {

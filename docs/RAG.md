@@ -10,25 +10,21 @@ The public Jarvis frontend is read-only. User prompts query the curated backend 
 
 ## Current Flow
 
-1. Store source guidance in `rag/corpus.json`.
-2. Send a question and optional property assumptions to `POST /api/rag/query`.
-3. Tokenize the question and property context.
-4. Score corpus entries by term overlap across title, tags, and body.
-5. Return the top matching excerpts as sourced underwriting guidance.
+1. Keep canonical framework guidance in `rag/corpus.json`.
+2. Upload owner evidence through `POST /api/owner/documents`; originals stay in `ESTATELAB_OBJECT_DIR`.
+3. Extract text-compatible files, split them into overlapping chunks, and generate embeddings when configured.
+4. Retrieve owner chunks with hybrid semantic and lexical scoring, alongside framework references, beliefs, and decisions.
+5. Return source metadata with every relevant answer and log retrieval mode, source IDs, and latency without retaining the raw question in monitoring.
 
-## Recommended Production RAG
+## Scaling Beyond The Current Index
 
-For a more robust version, replace term overlap with embeddings:
+The current implementation already supports embeddings without requiring an external vector database. At larger corpus sizes:
 
-1. Ingest PDFs, notes, inspection reports, lender terms, rent comps, and local market research.
-2. Chunk documents by semantic section with source metadata.
-3. Generate embeddings for each chunk.
-4. Store vectors plus metadata in a vector store.
-5. Retrieve top chunks using property assumptions and the user's question.
-6. Ask the model to answer only from retrieved context, with citations and uncertainty flags.
-7. Log questions with user feedback so the corpus can be improved.
-8. Retrieve relevant beliefs and past decisions alongside source documents.
-9. Highlight contradictions, stale beliefs, and outcomes that should update a principle.
+1. Add extraction for PDF and office formats.
+2. Move chunk vectors to PostgreSQL with a vector extension or a dedicated vector service.
+3. Add source recency, geography, evidence grade, and supersession metadata.
+4. Measure retrieval precision from owner feedback before changing ranking weights.
+5. Add contradiction and stale-evidence detection across sources and beliefs.
 
 ## Suggested Corpus Sources
 
