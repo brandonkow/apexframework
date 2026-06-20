@@ -591,8 +591,8 @@ async function bootJarvis() {
     const status = await requestJson("/api/jarvis/status");
     const intelligenceMode = status.llm?.enabled ? "AI" : "FRAMEWORK";
     aiDisclosure.hidden = !status.llm?.enabled;
-    setSessionState(`ONLINE / ${status.knowledge.references} REF / ${status.knowledge.activeBeliefs} BELIEFS / ${intelligenceMode}`);
     await ensureSession();
+    setSessionState(`ONLINE / ${status.knowledge.references} REF / ${status.knowledge.activeBeliefs} BELIEFS / ${intelligenceMode}`);
     setSystemState("System ready", "Ready when you are.");
   } catch {
     setSystemState("Connection issue", "Jarvis backend is unavailable.");
