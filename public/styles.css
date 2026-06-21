@@ -934,6 +934,150 @@ button {
   gap: 6px;
 }
 
+.shortlistPanel {
+  display: grid;
+  min-height: 0;
+  max-height: min(72dvh, 650px);
+  width: min(920px, 100%);
+  margin: 0 auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  gap: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(103, 229, 255, 0.24);
+  border-radius: 12px;
+  padding: 13px;
+  background: linear-gradient(135deg, rgba(90, 231, 255, 0.09), transparent 28%), rgba(2, 13, 21, 0.9);
+  box-shadow: 0 0 38px rgba(28, 190, 221, 0.09), inset 0 0 28px rgba(28, 190, 221, 0.04);
+  backdrop-filter: blur(18px);
+}
+
+.shortlistPanel[hidden] {
+  display: none;
+}
+
+.shortlistOpen .transcript,
+.shortlistOpen .contextDeck,
+.shortlistOpen .aiDisclosure,
+.shortlistOpen .commandBar,
+.shortlistOpen .utilityBar {
+  display: none;
+}
+
+.shortlistHeader,
+.shortlistItem header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.shortlistHeader > span,
+.shortlistItem header > span {
+  display: grid;
+  gap: 3px;
+}
+
+.shortlistHeader small,
+.shortlistItem header small {
+  color: #5d8c97;
+  font-size: 0.47rem;
+  font-weight: 400;
+  letter-spacing: 0.15em;
+}
+
+.shortlistHeader b,
+.shortlistItem header b {
+  color: var(--cyan-bright);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+}
+
+.shortlistHeader button,
+.shortlistActions button,
+.shortlistClear,
+.analysisActions button {
+  border: 1px solid rgba(103, 229, 255, 0.19);
+  border-radius: 999px;
+  padding: 7px 10px;
+  cursor: pointer;
+  color: #85bec9;
+  background: rgba(0, 10, 17, 0.48);
+  font-size: 0.49rem;
+  letter-spacing: 0.11em;
+}
+
+.shortlistIntro,
+.shortlistEmpty {
+  margin: 0;
+  color: #729ca6;
+  font-size: 0.64rem;
+  line-height: 1.5;
+}
+
+.shortlistList {
+  display: grid;
+  min-height: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.shortlistItem {
+  display: grid;
+  align-content: start;
+  gap: 9px;
+  border: 1px solid rgba(103, 229, 255, 0.14);
+  border-radius: 10px;
+  padding: 11px;
+  background: rgba(1, 12, 19, 0.66);
+}
+
+.shortlistItem header em {
+  color: var(--cyan);
+  font-size: 0.72rem;
+  font-style: normal;
+}
+
+.shortlistDimensions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.shortlistDimension {
+  display: grid;
+  gap: 2px;
+  border-left: 2px solid #6a9ca7;
+  padding-left: 7px;
+}
+
+.shortlistDimension.strong { border-color: #6fd9a0; }
+.shortlistDimension.weak { border-color: #e68e8e; }
+.shortlistDimension small { color: #638f99; font-size: 0.47rem; }
+.shortlistDimension b { color: #a7d0d8; font-size: 0.68rem; font-weight: 500; }
+
+.shortlistItem p {
+  margin: 0;
+  color: #7ea8b1;
+  font-size: 0.6rem;
+}
+
+.shortlistItem p b {
+  color: #9fc9d1;
+  font-weight: 500;
+}
+
+.shortlistActions {
+  display: flex;
+  gap: 6px;
+}
+
+.shortlistClear {
+  justify-self: end;
+}
+
 .contextPanel {
   min-width: 0;
   overflow: hidden;
@@ -1206,6 +1350,10 @@ button {
   padding: 14px;
 }
 
+.analysisReportTitle {
+  display: none;
+}
+
 .analysisHeader {
   display: flex;
   align-items: flex-start;
@@ -1302,6 +1450,136 @@ button {
 .analysisMeta b {
   color: #92cbd5;
   font-weight: 500;
+}
+
+.analysisDimensionSection,
+.analysisScenarioSection {
+  margin-top: 12px;
+}
+
+.analysisDimensionSection > h3,
+.analysisScenarioSection > h3 {
+  margin: 0 0 6px;
+  color: #67b7c7;
+  font-size: 0.5rem;
+  font-weight: 500;
+  letter-spacing: 0.17em;
+}
+
+.analysisDimensions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.analysisDimension {
+  display: grid;
+  gap: 6px;
+  border: 1px solid rgba(103, 229, 255, 0.1);
+  border-radius: 8px;
+  padding: 8px;
+  background: rgba(0, 11, 18, 0.38);
+}
+
+.analysisDimension > span {
+  display: grid;
+  gap: 2px;
+}
+
+.analysisDimension small {
+  color: #628f99;
+  font-size: 0.48rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.analysisDimension b {
+  color: #add6dd;
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+
+.analysisDimension > i {
+  height: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(103, 229, 255, 0.1);
+}
+
+.analysisDimension > i > em {
+  display: block;
+  height: 100%;
+  background: #d0ad69;
+}
+
+.analysisDimension.strong > i > em { background: #6fd9a0; }
+.analysisDimension.weak > i > em { background: #e68e8e; }
+
+.analysisScenarios {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.analysisScenario {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid rgba(103, 229, 255, 0.1);
+  border-left: 2px solid #d0ad69;
+  border-radius: 8px;
+  padding: 8px;
+  background: rgba(0, 11, 18, 0.38);
+}
+
+.analysisScenario.resilient { border-left-color: #6fd9a0; }
+.analysisScenario.risk { border-left-color: #e68e8e; }
+
+.analysisScenario > span {
+  display: grid;
+  gap: 2px;
+}
+
+.analysisScenario b {
+  color: #a8d0d8;
+  font-size: 0.6rem;
+  font-weight: 500;
+}
+
+.analysisScenario small,
+.analysisScenarioSection > p {
+  color: #638f99;
+  font-size: 0.49rem;
+}
+
+.analysisScenario em {
+  flex: 0 0 auto;
+  color: #d7b970;
+  font-size: 0.62rem;
+  font-style: normal;
+}
+
+.analysisScenario.resilient em { color: #7bdca9; }
+.analysisScenario.risk em { color: #ef9999; }
+
+.analysisScenarioSection > p {
+  margin: 5px 0 0;
+}
+
+.analysisActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.analysisActions button:hover,
+.shortlistActions button:hover,
+.shortlistHeader button:hover,
+.shortlistClear:hover {
+  border-color: rgba(103, 229, 255, 0.42);
+  color: var(--cyan);
 }
 
 .analysisMetrics {
@@ -1978,6 +2256,33 @@ button {
     grid-template-columns: 1fr;
   }
 
+  .analysisDimensions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .analysisScenarios,
+  .shortlistList {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .shortlistPanel {
+    max-height: calc(100dvh - 150px);
+    padding: 11px;
+  }
+
+  .shortlistDimensions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .analysisScenario {
+    align-items: flex-start;
+  }
+
+  .analysisActions button {
+    flex: 1;
+    min-height: 38px;
+  }
+
   .analysisHeader small,
   .analysisSection h3,
   .analysisCounter h3,
@@ -2053,6 +2358,123 @@ button {
     margin-top: -1px;
     font-size: 0.58rem;
     line-height: 1.35;
+  }
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+
+  body.printMode {
+    color: #172a31;
+    background: #fff;
+  }
+
+  body.printMode::before,
+  body.printMode .hud,
+  body.printMode .systemBar,
+  body.printMode .assistantStage,
+  body.printMode .contextDeck,
+  body.printMode .aiDisclosure,
+  body.printMode .commandBar,
+  body.printMode .utilityBar,
+  body.printMode .transcript > :not(.printTarget),
+  body.printMode .analysisActions,
+  body.printMode .intelligenceBadge,
+  body.printMode .sourceSummary {
+    display: none !important;
+  }
+
+  body.printMode .interface,
+  body.printMode .conversation,
+  body.printMode .transcript {
+    position: static;
+    display: block;
+    width: 100%;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    overflow: visible;
+  }
+
+  body.printMode .analysisMessage.printTarget {
+    display: block;
+    width: 100%;
+    border: 0;
+    padding: 0;
+    color: #172a31;
+    background: #fff;
+    box-shadow: none;
+  }
+
+  body.printMode .analysisReportTitle {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 18px;
+    border-bottom: 2px solid #2b8fa3;
+    padding-bottom: 12px;
+  }
+
+  body.printMode .analysisReportTitle > span {
+    display: grid;
+    width: 42px;
+    height: 42px;
+    place-items: center;
+    border: 1px solid #2b8fa3;
+    border-radius: 50%;
+    color: #2b8fa3;
+    font-size: 22px;
+  }
+
+  body.printMode .analysisReportTitle div {
+    display: grid;
+    gap: 2px;
+  }
+
+  body.printMode .analysisReportTitle small,
+  body.printMode .analysisReportTitle p {
+    margin: 0;
+    color: #55717a;
+    font-size: 8pt;
+    letter-spacing: 0.08em;
+  }
+
+  body.printMode .analysisReportTitle h1 {
+    margin: 0;
+    color: #17343d;
+    font-size: 18pt;
+    font-weight: 500;
+  }
+
+  body.printMode .analysisMessage *,
+  body.printMode .analysisHeader > span > b,
+  body.printMode .analysisSummary,
+  body.printMode .analysisJarvisTake p,
+  body.printMode .analysisDimension b,
+  body.printMode .analysisMetric b,
+  body.printMode .analysisStage b,
+  body.printMode .analysisSection li,
+  body.printMode .analysisCounter p {
+    color: #172a31;
+  }
+
+  body.printMode .analysisDimension,
+  body.printMode .analysisMetric,
+  body.printMode .analysisScenario,
+  body.printMode .analysisSection {
+    border-color: #c8d9de;
+    background: #f7fafb;
+    break-inside: avoid;
+  }
+
+  body.printMode .analysisStages,
+  body.printMode .analysisScenarioSection,
+  body.printMode .analysisDetails,
+  body.printMode .analysisCounter {
+    break-inside: avoid;
   }
 }
 

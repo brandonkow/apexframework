@@ -123,6 +123,16 @@
           <div id="memoryList" class="memoryList"></div>
         </section>
 
+        <section id="shortlistPanel" class="shortlistPanel" aria-label="Deal shortlist" hidden>
+          <header class="shortlistHeader">
+            <span><small>PRIVATE TO THIS DEVICE</small><b>DEAL SHORTLIST</b></span>
+            <button id="shortlistClose" type="button" aria-label="Close deal shortlist">CLOSE</button>
+          </header>
+          <p class="shortlistIntro">Keep up to four analysed deals side by side. Compare the weak link, not just the headline score.</p>
+          <div id="shortlistList" class="shortlistList"></div>
+          <button id="shortlistClear" class="shortlistClear" type="button">CLEAR SHORTLIST</button>
+        </section>
+
         <section class="contextDeck" aria-label="Deal and investor context">
           <section class="contextPanel">
             <button class="contextHeader" type="button" data-context-toggle="deal" aria-expanded="false" aria-controls="dealContextFields">
@@ -174,12 +184,36 @@
                   <option>Unclear</option>
                 </select>
               </label>
-              <label>Evidence Confidence
-                <select data-deal-field="evidenceConfidence">
+              <label>Completed Comparables
+                <select data-deal-field="comparableTransactions">
                   <option value="">Select</option>
-                  <option>High</option>
-                  <option>Medium</option>
-                  <option>Low</option>
+                  <option>None</option>
+                  <option>1 to 2</option>
+                  <option>3 or more</option>
+                </select>
+              </label>
+              <label>Rental Evidence
+                <select data-deal-field="rentEvidence">
+                  <option value="">Select</option>
+                  <option>Signed tenancy or achieved rent</option>
+                  <option>Agent-confirmed</option>
+                  <option>Listing only</option>
+                  <option>None</option>
+                </select>
+              </label>
+              <label>Site Visit
+                <select data-deal-field="siteVisit">
+                  <option value="">Select</option>
+                  <option>Completed</option>
+                  <option>Not yet</option>
+                </select>
+              </label>
+              <label>Title / Legal Check
+                <select data-deal-field="legalCheck">
+                  <option value="">Select</option>
+                  <option>Clear</option>
+                  <option>Pending</option>
+                  <option>Issue found</option>
                 </select>
               </label>
               <label class="contextWide">Nearby Supply<input data-deal-field="nearbySupply" placeholder="Newer similar projects within 2.5km?" /></label>
@@ -237,6 +271,7 @@
 
         <div class="utilityBar" aria-label="Conversation controls">
           <button id="memoryToggle" type="button" aria-expanded="false" aria-controls="memoryPanel" hidden>MEMORY</button>
+          <button id="shortlistToggle" type="button" aria-expanded="false" aria-controls="shortlistPanel">SHORTLIST</button>
           <button id="resetChatBtn" type="button" aria-label="Start a new chat">NEW CHAT</button>
           <button id="soundToggle" type="button" aria-pressed="true" aria-label="Toggle voice responses">VOICE ON</button>
           <button id="stopVoiceBtn" class="stopVoiceBtn" type="button" hidden>STOP</button>

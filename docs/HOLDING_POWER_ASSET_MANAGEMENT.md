@@ -29,8 +29,10 @@ A property can look good at purchase but become fragile if rent, vacancy, JMB qu
 
 Founder default for normal retail investors:
 
-- A monthly loan shortfall up to about RM300 can be tolerable, excluding maintenance fee.
-- A monthly shortfall above RM500 becomes too stressful.
+- A rental-led high-rise should normally cover its loan installment and recurring charges.
+- A monthly loan-only shortfall up to about RM300 is a founder-reported tolerance, not an automatic approval rule.
+- Negative carry is a narrow exception for a financially strong investor pursuing a defensible landed appreciation thesis.
+- A true monthly shortfall above RM500 is a danger zone regardless of the headline yield.
 
 EstateLab should refine this by showing two numbers:
 
@@ -38,6 +40,8 @@ EstateLab should refine this by showing two numbers:
 - **True holding shortfall**: rent versus installment, maintenance fee, sinking fund, and ordinary recurring cost.
 
 Maintenance fee cannot disappear from the real survival test. If excluding it makes the deal look acceptable, EstateLab should flag that the owner is mentally undercounting the holding cost.
+
+When these rules conflict, the stricter survival rule wins. A small loan-only shortfall does not rescue a rental-led deal whose true holding cost is negative.
 
 ## Vacancy Assumption
 
@@ -243,4 +247,3 @@ Before purchase, EstateLab should require:
 The protection rule is:
 
 > Be mindful of the holding period before buying. Set an assumption and target year of disposal before the outcome is known.
-

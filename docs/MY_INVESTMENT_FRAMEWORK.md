@@ -422,7 +422,7 @@ Features that make a property feel cheap or low class include:
 
 - Poor materials in common areas.
 - Weak or poorly maintained facilities.
-- Resident demographics that reduce confidence.
+- Repeated observable conduct that harms cleanliness, safety, noise control, upkeep, or buyer confidence.
 - Unprofessional or weak security guards.
 - Bad arrival experience.
 - Poor cleanliness, smell, noise, or maintenance.
@@ -436,9 +436,9 @@ These signals damage both own-stay emotion and resale confidence. EstateLab shou
 When comparing high-rise projects in the same area, the two strongest project-level differentiators are:
 
 - Management team quality.
-- Resident demographics and behavior.
+- Observable resident behaviour and building-use patterns.
 
-These factors can explain why one high-rise performs better than another even when both are on the same road. Facade design matters, but it is not enough. A beautiful building can become obsolete if maintenance, resident behavior, sinking fund discipline, security, cleanliness, and common-area upkeep are poor.
+These factors can explain why one high-rise performs better than another even when both are on the same road. EstateLab must not infer quality from ethnicity, income class, occupation, or other protected or demographic traits. It should use observable evidence such as noise, short-stay traffic, cleanliness, security incidents, rule enforcement, upkeep, complaint patterns, and owner participation. Facade design matters, but it is not enough. A beautiful building can become obsolete if maintenance, resident behavior, sinking fund discipline, security, cleanliness, and common-area upkeep are poor.
 
 EstateLab should therefore treat high-rise quality as an operating ecosystem, not just a physical product.
 
@@ -1106,7 +1106,7 @@ EstateLab should not jump straight to a final score. The final decision should f
 2. Check hard stops.
 3. Check evidence quality and confidence.
 4. Calculate the weighted score.
-5. Review sub-scores for rental, resale, own-stay, risk, and entry discipline.
+5. Review the four decision dimensions: property quality, investor suitability, evidence quality, and market and exit resilience.
 6. Assign an action label.
 7. Record the decision before the outcome is known.
 
@@ -1131,25 +1131,23 @@ Use one final weighted score, but always show the key sub-scores beside it.
 
 Action labels:
 
-- **Reject**: unresolved hard stop, score below 60, or the thesis depends on ignoring a major weakness.
-- **Monitor**: score 60 to 69, or evidence is insufficient, or catalyst/demand is not yet proven.
-- **Negotiate**: score 70 to 79, no hard stops, but price or terms must improve before the deal is attractive.
-- **Shortlist**: score 80 to 87, no hard stops, evidence is good, but final due diligence or price discipline remains.
-- **Strong buy candidate**: score 88 and above, no hard stops, confidence is high, price is disciplined, and the thesis survives downside testing.
+- **Reject**: an unresolved legal, structural, transaction, title, or property-level hard stop is present.
+- **Pause**: the property may be workable, but affordability, reserve, debt service, or holding survival is not ready.
+- **Investigate**: material evidence is missing, a dimension remains weak, or the weighted decision score and confidence do not yet support a shortlist.
+- **Shortlist**: no hard stop is present, no stage is in risk status, the weighted decision score is at least 74, and evidence confidence is at least 65.
 
-The label "strong buy candidate" still requires legal, financing, valuation, and site-visit completion before purchase commitment.
+Apex Analytic does not issue an automatic instruction to purchase. A shortlist remains subject to legal, financing, valuation, market, and site-visit verification.
 
-### Required Sub-Scores
+### Required Decision Dimensions
 
-EstateLab should show one final score and five sub-scores:
+Apex Analytic should show one weighted decision score and four dimensions:
 
-- **Rental holding score**: tenant urgency, achieved rent evidence, vacancy, installment coverage, maintenance charges, and new-supply rental risk.
-- **Resale and exit score**: buyer pool, price-segment liquidity, bankability, title, tenure, restrictions, future supply, and substitute competition.
-- **Own-stay appeal score**: layout, view, surrounding environment, project image, neighbourhood feel, security, and site-visit vibe.
-- **Risk-control score**: management, resident behavior, legal/title quality, density, lift waiting time, defects, transactionability, and downside survival.
-- **Entry discipline score**: completed comparable support, discount to real market value, all-in cost, renovation budget, and margin of safety.
+- **Property quality**: entry value, rental and own-stay appeal, management, unit position, tenure, and buyer depth.
+- **Investor suitability**: reserve, debt burden, financing, holding cash flow, life commitments, and portfolio concentration.
+- **Evidence quality**: completed comparable transactions, achieved-rent proof, site visit, legal checks, and source confidence.
+- **Market and exit**: supply pressure, future buyer breadth, unit liquidity, and resilience against substitute projects.
 
-The final recommendation should explain the weakest sub-score first, because the weakest link often decides the real investment outcome.
+The seven stages remain the diagnostic workflow behind these dimensions. The final recommendation should explain the weakest dimension first because that is often what determines the real outcome.
 
 ### Evidence Confidence
 

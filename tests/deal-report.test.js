@@ -1,0 +1,125 @@
+import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
+import { mkdtemp, rm } from "node:fs/promises";
+import net from "node:net";
+import os from "node:os";
+import path from "node:path";
+import test from "node:test";
+import { fileURLToPath } from "node:url";
+
+const repoDir = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+
+async function freePort() {
+  const probe = net.createServer();
+  await new Promise((resolve, reject) => {
+    probe.once("error", reject);
+    probe.listen(0, "127.0.0.1", resolve);
+  });
+  const address = probe.address();
+  await new Promise((resolve) => probe.close(resolve));
+  return address.port;
+}
+
+async function waitForHealth(baseUrl, child) {
+  for (let attempt = 0; attempt < 60; attempt += 1) {
+    if (child.exitCode !== null) throw new Error(`Test server exited with code ${child.exitCode}.`);
+    try {
+      const response = await fetch(`${baseUrl}/api/health`);
+      if (response.ok) return;
+    } catch {
+      // Startup is still in progress.
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error("Test server did not become ready.");
+}
+
+async function post(baseUrl, pathname, body) {
+  const response = await fetch(`${baseUrl}${pathname}`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-estatelab-client-id": "deal-report-test"
+    },
+    body: JSON.stringify(body)
+  });
+  return { response, payload: await response.json() };
+}
+
+test("deal report separates evidence, suitability, exit risk, and downside scenarios", async (t) => {
+  const dataDir = await mkdtemp(path.join(os.tmpdir(), "apex-deal-report-"));
+  const port = await freePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const child = spawn(process.execPath, [path.join(repoDir, "server.js")], {
+    cwd: repoDir,
+    env: { ...process.env, PORT: String(port), ESTATELAB_DATA_DIR: dataDir, OPENAI_API_KEY: "", OPENROUTER_API_KEY: "" },
+    stdio: "ignore"
+  });
+
+  t.after(async () => {
+    if (child.exitCode === null) {
+      child.kill();
+      await new Promise((resolve) => child.once("exit", resolve));
+    }
+    await rm(dataDir, { recursive: true, force: true });
+  });
+
+  await waitForHealth(baseUrl, child);
+  const session = await post(baseUrl, "/api/jarvis/sessions", {});
+  const dealCard = {
+    area: "Bayan Lepas, Penang",
+    projectName: "Evidence Residence",
+    propertyType: "Condo",
+    propertyAge: "5",
+    askingPrice: "RM400k",
+    conservativeFairValue: "RM500k",
+    expectedRent: "RM3,000",
+    maintenance: "RM300",
+    estimatedInstallment: "RM2,000",
+    cashOutlay: "RM80k",
+    tenure: "Freehold residential title",
+    unitPosition: "Good",
+    ownStayAppeal: "Strong",
+    managementQuality: "Strong",
+    exitBuyerPool: "Own-stay and investor",
+    comparableTransactions: "3 or more",
+    rentEvidence: "Signed tenancy or achieved rent",
+    siteVisit: "Completed",
+    legalCheck: "Clear",
+    nearbySupply: "No direct similar supply",
+    investmentThesis: "Employment demand supports rent and the unit has broad resale appeal.",
+    killCriterion: "Walk away if title or achieved rent cannot be verified."
+  };
+  const financialProfile = {
+    monthlyIncome: "RM10,000",
+    cashReserveMonths: "8",
+    cashAvailable: "RM150k",
+    currentDebt: "RM1,000",
+    investmentGoal: "Balanced rental and resale",
+    holdingPeriod: "7",
+    existingProperties: "1"
+  };
+
+  const result = await post(baseUrl, "/api/jarvis/analyze-deal", {
+    sessionId: session.payload.session.id,
+    dealCard,
+    financialProfile
+  });
+  assert.equal(result.response.status, 200);
+  assert.equal(result.payload.analysis.dimensions.length, 4);
+  assert.deepEqual(result.payload.analysis.dimensions.map((item) => item.key), ["property", "investor", "evidence", "exit"]);
+  assert.equal(result.payload.analysis.dimensions.find((item) => item.key === "evidence").score, 95);
+  assert.equal(result.payload.analysis.scenarios.length, 4);
+  assert.equal(result.payload.analysis.scenarios[0].monthlyCashFlow, 700);
+  assert.ok(result.payload.analysis.scenarios[3].monthlyCashFlow < result.payload.analysis.scenarios[0].monthlyCashFlow);
+  assert.ok(result.payload.analysis.metrics.some((metric) => metric.label === "Operating yield"));
+  assert.equal(result.payload.analysis.verdict, "SHORTLIST");
+
+  const unsafe = await post(baseUrl, "/api/jarvis/analyze-deal", {
+    sessionId: session.payload.session.id,
+    dealCard: { ...dealCard, legalCheck: "Issue found" },
+    financialProfile
+  });
+  assert.equal(unsafe.payload.analysis.verdict, "REJECT");
+  assert.ok(unsafe.payload.analysis.hardStops.some((message) => /title or legal issue/i.test(message)));
+});

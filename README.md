@@ -13,7 +13,8 @@ The public user experience is intentionally simple: users interact with one Apex
 - PostgreSQL production storage with automatic JSON fallback for local development.
 - Owner-controlled evidence uploads, private original-file storage, chunking, optional embeddings, hybrid retrieval, and retrieval monitoring.
 - Public request limits for chat, voice, and account endpoints.
-- Seven-stage Deal Analysis using the Deal Card and Financial Profile, with structured verdicts, hard stops, stress metrics, counter-thesis, and missing evidence.
+- Seven-stage Deal Analysis using the Deal Card and Financial Profile, with hard-stop precedence, four decision dimensions, evidence grading, downside scenarios, and a counter-thesis.
+- Printable Apex Deal Reports plus a private browser shortlist for comparing up to four analysed properties.
 - Node.js backend with a single production database driver dependency (`pg`).
 - Public assistant endpoints for chat, session creation, and knowledge status.
 - Owner-protected APIs for property analysis, RAG querying, beliefs, decisions, and comparable data.

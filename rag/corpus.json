@@ -363,7 +363,7 @@
     "id": "holding-shortfall-vacancy-rule",
     "title": "Holding shortfall and vacancy rule",
     "tags": ["holding power", "cash flow", "vacancy", "installment", "malaysia"],
-    "body": "After purchase, Malaysian retail investors often struggle when rent cannot cover the loan installment. Founder defaults: RM300 loan-only monthly shortfall can be tolerable for normal retail investors, while more than RM500 is too stressful. EstateLab should also calculate true holding shortfall including maintenance fee, sinking fund, and ordinary recurring costs. One month vacancy is the base case, but two to three months should be stress tested when competition, seasonality, repairs, or weak demand are present."
+    "body": "After purchase, Malaysian retail investors often struggle when rent cannot cover the loan installment. A rental-led high-rise should normally cover installment and recurring charges. RM300 loan-only monthly shortfall is a founder-reported tolerance, not an automatic approval rule; negative carry is a narrow exception for a financially strong investor with a defensible landed appreciation thesis. More than RM500 true monthly shortfall is a danger zone. Calculate both loan-only and true holding shortfall. One month vacancy is the base case, with harsher stress tests when competition, seasonality, repairs, or demand justify them."
   },
   {
     "id": "holding-rental-drop-review",

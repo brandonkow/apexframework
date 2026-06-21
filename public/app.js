@@ -48,6 +48,11 @@ const memoryInput = document.querySelector("#memoryInput");
 const memoryList = document.querySelector("#memoryList");
 const memoryApprovedCount = document.querySelector("#memoryApprovedCount");
 const memoryPendingCount = document.querySelector("#memoryPendingCount");
+const shortlistToggle = document.querySelector("#shortlistToggle");
+const shortlistPanel = document.querySelector("#shortlistPanel");
+const shortlistClose = document.querySelector("#shortlistClose");
+const shortlistList = document.querySelector("#shortlistList");
+const shortlistClear = document.querySelector("#shortlistClear");
 const dealFields = Array.from(document.querySelectorAll("[data-deal-field]"));
 const profileFields = Array.from(document.querySelectorAll("[data-profile-field]"));
 const contextToggles = Array.from(document.querySelectorAll("[data-context-toggle]"));
@@ -59,6 +64,8 @@ const clientKey = "estatelab.jarvis.clientId";
 const dealContextKey = "estatelab.jarvis.dealCard";
 const profileContextKey = "estatelab.jarvis.financialProfile";
 const contextPanelKey = "estatelab.jarvis.contextPanels";
+const shortlistKey = "apex.shortlist.v1";
+const analysisRegistry = new Map();
 let voiceResponsesEnabled = true;
 let listening = false;
 let speaking = false;
@@ -76,6 +83,7 @@ let mediaStream = null;
 let recordedAudio = [];
 let activeServerAudio = null;
 let activeAudioUrl = "";
+let printTarget = null;
 
 function clientId() {
   const existing = window.localStorage.getItem(clientKey);
@@ -159,6 +167,7 @@ function renderAuthState(user) {
 
 function openAuthPanel() {
   closeMemoryPanel();
+  closeShortlistPanel();
   collapseContextPanels();
   authPanel.hidden = false;
   accountToggle.setAttribute("aria-expanded", "true");
@@ -290,6 +299,7 @@ function closeMemoryPanel() {
 async function openMemoryPanel() {
   if (!authenticatedUser) return openAuthPanel();
   closeAuthPanel();
+  closeShortlistPanel();
   collapseContextPanels();
   memoryPanel.hidden = false;
   memoryToggle.setAttribute("aria-expanded", "true");
@@ -346,6 +356,162 @@ function addMemorySuggestion(item) {
   transcript.scrollTop = transcript.scrollHeight;
 }
 
+function readShortlist() {
+  try {
+    const items = JSON.parse(window.localStorage.getItem(shortlistKey) || "[]");
+    return Array.isArray(items) ? items.slice(0, 4) : [];
+  } catch {
+    window.localStorage.removeItem(shortlistKey);
+    return [];
+  }
+}
+
+function writeShortlist(items) {
+  const next = items.slice(0, 4);
+  window.localStorage.setItem(shortlistKey, JSON.stringify(next));
+  shortlistToggle.textContent = next.length ? `SHORTLIST ${next.length}` : "SHORTLIST";
+  return next;
+}
+
+function analysisSubject(analysis) {
+  const deal = analysis?.context?.dealCard || {};
+  return deal.projectName || deal.area || "Untitled deal";
+}
+
+function shortlistItemMarkup(item) {
+  const dimensions = (item.dimensions || []).map((dimension) => `
+    <span class="shortlistDimension ${escapeHtml(dimension.status)}">
+      <small>${escapeHtml(dimension.label)}</small><b>${escapeHtml(dimension.score)}</b>
+    </span>
+  `).join("");
+  const weakest = [...(item.dimensions || [])].sort((a, b) => a.score - b.score)[0];
+  return `
+    <article class="shortlistItem" data-shortlist-item="${escapeHtml(item.id)}">
+      <header><span><small>${escapeHtml(item.verdict)}</small><b>${escapeHtml(item.subject)}</b></span><em>${escapeHtml(item.averageScore)}/100</em></header>
+      <div class="shortlistDimensions">${dimensions}</div>
+      <p><b>Weak link</b> ${escapeHtml(weakest ? `${weakest.label} (${weakest.score}/100)` : "Evidence not available")}</p>
+      <div class="shortlistActions">
+        <button type="button" data-shortlist-action="load" data-shortlist-id="${escapeHtml(item.id)}">LOAD DEAL</button>
+        <button type="button" data-shortlist-action="remove" data-shortlist-id="${escapeHtml(item.id)}">REMOVE</button>
+      </div>
+    </article>
+  `;
+}
+
+function renderShortlist() {
+  const items = readShortlist();
+  writeShortlist(items);
+  shortlistList.innerHTML = items.length
+    ? items.map(shortlistItemMarkup).join("")
+    : '<p class="shortlistEmpty">No analysed deals saved yet. Run an analysis, then choose SAVE TO SHORTLIST.</p>';
+  shortlistClear.hidden = !items.length;
+}
+
+function closeShortlistPanel() {
+  shortlistPanel.hidden = true;
+  shortlistToggle.setAttribute("aria-expanded", "false");
+  document.body.classList.remove("shortlistOpen");
+}
+
+function openShortlistPanel() {
+  closeAuthPanel();
+  closeMemoryPanel();
+  collapseContextPanels();
+  renderShortlist();
+  shortlistPanel.hidden = false;
+  shortlistToggle.setAttribute("aria-expanded", "true");
+  document.body.classList.add("shortlistOpen");
+}
+
+function saveAnalysisToShortlist(analysis) {
+  const deal = analysis?.context?.dealCard || {};
+  const subject = analysisSubject(analysis);
+  const id = `${subject}|${deal.askingPrice || ""}`.toLowerCase().replace(/[^a-z0-9|]+/g, "-");
+  const item = {
+    id,
+    subject,
+    savedAt: new Date().toISOString(),
+    verdict: analysis.verdict,
+    summary: analysis.summary,
+    averageScore: analysis.averageScore,
+    confidence: analysis.confidence,
+    dimensions: analysis.dimensions || [],
+    metrics: analysis.metrics || [],
+    scenarios: analysis.scenarios || [],
+    hardStops: analysis.hardStops || [],
+    counterThesis: analysis.counterThesis,
+    context: analysis.context || {}
+  };
+  const existing = readShortlist().filter((saved) => saved.id !== id);
+  writeShortlist([item, ...existing]);
+  return item;
+}
+
+function restoreSavedDeal(item) {
+  const deal = item?.context?.dealCard || {};
+  const profile = item?.context?.financialProfile || {};
+  for (const field of dealFields) {
+    const key = field.getAttribute("data-deal-field");
+    field.value = deal[key] || "";
+  }
+  for (const field of profileFields) {
+    const key = field.getAttribute("data-profile-field");
+    field.value = profile[key] || "";
+  }
+  saveContext(dealFields, "data-deal-field", dealContextKey);
+  saveContext(profileFields, "data-profile-field", profileContextKey);
+  closeShortlistPanel();
+  const dealToggle = contextToggles.find((toggle) => toggle.getAttribute("data-context-toggle") === "deal");
+  if (dealToggle) setContextPanelState(dealToggle, true);
+  setSystemState("System ready", `${item.subject} loaded for review.`);
+}
+
+function handleShortlistAction(button) {
+  const id = button.getAttribute("data-shortlist-id");
+  const action = button.getAttribute("data-shortlist-action");
+  const items = readShortlist();
+  if (action === "remove") {
+    writeShortlist(items.filter((item) => item.id !== id));
+    renderShortlist();
+    return;
+  }
+  if (action === "load") {
+    const item = items.find((saved) => saved.id === id);
+    if (item) restoreSavedDeal(item);
+  }
+}
+
+function printAnalysis(message) {
+  if (!message) return;
+  printTarget?.classList.remove("printTarget");
+  printTarget = message;
+  printTarget.classList.add("printTarget");
+  document.body.classList.add("printMode");
+  window.print();
+}
+
+function finishPrinting() {
+  printTarget?.classList.remove("printTarget");
+  printTarget = null;
+  document.body.classList.remove("printMode");
+}
+
+function handleAnalysisAction(button) {
+  const message = button.closest(".analysisMessage");
+  const analysis = analysisRegistry.get(message?.dataset.analysisId);
+  if (!message || !analysis) return;
+  const action = button.getAttribute("data-analysis-action");
+  if (action === "report") {
+    printAnalysis(message);
+    return;
+  }
+  if (action === "shortlist") {
+    saveAnalysisToShortlist(analysis);
+    button.textContent = "SAVED";
+    setSystemState("System ready", `${analysisSubject(analysis)} saved to your shortlist.`);
+  }
+}
+
 function analysisSection(title, items = [], className = "") {
   if (!items.length) return "";
   return `
@@ -359,6 +525,9 @@ function analysisSection(title, items = [], className = "") {
 function addDealAnalysis(analysis, sources = [], intelligence = {}) {
   document.body.classList.add("conversationActive");
   const message = document.createElement("article");
+  const analysisId = crypto.randomUUID();
+  analysisRegistry.set(analysisId, analysis);
+  message.dataset.analysisId = analysisId;
   const verdictClass = String(analysis.verdict || "investigate").toLowerCase();
   const stageMarkup = (analysis.stages || []).map((stage) => `
     <li class="analysisStage">
@@ -376,9 +545,25 @@ function addDealAnalysis(analysis, sources = [], intelligence = {}) {
   const metricMarkup = (analysis.metrics || []).map((metric) => `
     <span class="analysisMetric"><small>${escapeHtml(metric.label)}</small><b>${escapeHtml(metric.value)}</b></span>
   `).join("");
+  const dimensionMarkup = (analysis.dimensions || []).map((dimension) => `
+    <article class="analysisDimension ${escapeHtml(dimension.status)}">
+      <span><small>${escapeHtml(dimension.label)}</small><b>${escapeHtml(dimension.score)}/100</b></span>
+      <i><em style="width:${Math.max(0, Math.min(100, Number(dimension.score) || 0))}%"></em></i>
+    </article>
+  `).join("");
+  const scenarioMarkup = (analysis.scenarios || []).map((scenario) => `
+    <article class="analysisScenario ${escapeHtml(scenario.status)}">
+      <span><b>${escapeHtml(scenario.label)}</b><small>${escapeHtml(scenario.assumption)}</small></span>
+      <em>${escapeHtml(scenario.value)}/mo</em>
+    </article>
+  `).join("");
+  const reportDate = new Intl.DateTimeFormat("en-MY", { dateStyle: "medium" }).format(new Date());
 
   message.className = "message jarvis analysisMessage";
   message.innerHTML = `
+    <header class="analysisReportTitle">
+      <span>A</span><div><small>APEX ANALYTIC</small><h1>DEAL DECISION REPORT</h1><p>${escapeHtml(analysisSubject(analysis))} / ${escapeHtml(reportDate)}</p></div>
+    </header>
     ${intelligenceMarkup(intelligence)}
     <div class="analysisHeader">
       <span><small>SEVEN-STAGE VERDICT</small><b>${escapeHtml(analysis.verdict)}</b></span>
@@ -392,10 +577,12 @@ function addDealAnalysis(analysis, sources = [], intelligence = {}) {
       </section>
     ` : ""}
     <div class="analysisMeta">
-      <span>FRAMEWORK SCORE <b>${escapeHtml(analysis.averageScore)}/100</b></span>
+      <span>DECISION SCORE <b>${escapeHtml(analysis.averageScore)}/100</b></span>
       <span>INPUT COMPLETE <b>${escapeHtml(analysis.completeness)}%</b></span>
     </div>
+    ${dimensionMarkup ? `<section class="analysisDimensionSection"><h3>FOUR-PART DECISION READ</h3><div class="analysisDimensions">${dimensionMarkup}</div></section>` : ""}
     ${metricMarkup ? `<div class="analysisMetrics">${metricMarkup}</div>` : ""}
+    ${scenarioMarkup ? `<section class="analysisScenarioSection"><h3>DOWNSIDE SCENARIOS</h3><div class="analysisScenarios">${scenarioMarkup}</div><p>Stress assumptions are decision tests, not forecasts.</p></section>` : ""}
     <ol class="analysisStages">${stageMarkup}</ol>
     <div class="analysisDetails">
       ${analysisSection("Hard stops", analysis.hardStops, "danger")}
@@ -407,6 +594,10 @@ function addDealAnalysis(analysis, sources = [], intelligence = {}) {
       <h3>STRONGEST COUNTER-THESIS</h3>
       <p>${escapeHtml(analysis.counterThesis)}</p>
     </section>
+    <div class="analysisActions">
+      <button type="button" data-analysis-action="shortlist">SAVE TO SHORTLIST</button>
+      <button type="button" data-analysis-action="report">DEAL REPORT</button>
+    </div>
     ${sourcesMarkup(sources)}
   `;
   transcript.append(message);
@@ -1020,6 +1211,16 @@ memoryToggle.addEventListener("click", () => {
   else closeMemoryPanel();
 });
 memoryClose.addEventListener("click", closeMemoryPanel);
+shortlistToggle.addEventListener("click", () => {
+  if (shortlistPanel.hidden) openShortlistPanel();
+  else closeShortlistPanel();
+});
+shortlistClose.addEventListener("click", closeShortlistPanel);
+shortlistClear.addEventListener("click", () => {
+  writeShortlist([]);
+  renderShortlist();
+  setSystemState("System ready", "Shortlist cleared.");
+});
 memoryForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const content = memoryInput.value.trim();
@@ -1042,10 +1243,16 @@ memoryForm.addEventListener("submit", async (event) => {
 });
 for (const container of [transcript, memoryList]) {
   container.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-memory-action]");
-    if (button) void handleMemoryAction(button);
+    const memoryButton = event.target.closest("[data-memory-action]");
+    if (memoryButton) void handleMemoryAction(memoryButton);
+    const analysisButton = event.target.closest("[data-analysis-action]");
+    if (analysisButton) handleAnalysisAction(analysisButton);
   });
 }
+shortlistList.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-shortlist-action]");
+  if (button) handleShortlistAction(button);
+});
 authClose.addEventListener("click", closeAuthPanel);
 authModeToggle.addEventListener("click", () => setAuthMode(authMode === "login" ? "register" : "login"));
 authRecoveryToggle.addEventListener("click", () => showAuthRecovery(true));
@@ -1065,7 +1272,9 @@ logoutButton.addEventListener("click", logout);
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !authPanel.hidden) closeAuthPanel();
   if (event.key === "Escape" && !memoryPanel.hidden) closeMemoryPanel();
+  if (event.key === "Escape" && !shortlistPanel.hidden) closeShortlistPanel();
 });
+window.addEventListener("afterprint", finishPrinting);
 
 soundToggle.addEventListener("click", () => {
   voiceResponsesEnabled = !voiceResponsesEnabled;
@@ -1085,6 +1294,7 @@ for (const field of profileFields) {
 async function bootJarvis() {
   restoreContext(dealFields, "data-deal-field", dealContextKey);
   restoreContext(profileFields, "data-profile-field", profileContextKey);
+  renderShortlist();
   bootContextPanels();
   setAuthMode("login");
   try {

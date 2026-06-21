@@ -701,11 +701,11 @@
         "id": "stage-4-holding-shortfall-vacancy",
         "createdAt": "2026-06-19T00:00:00.000Z",
         "status": "active",
-        "claim": "For normal Malaysian retail investors, rental unable to cover installment is the main holding stress; RM300 loan-only monthly shortfall may be tolerable, while more than RM500 is a danger zone.",
+        "claim": "For normal Malaysian retail investors, rental-led high-rise property should normally cover installment and recurring charges; RM300 loan-only shortfall is a founder-reported tolerance rather than an approval rule, while more than RM500 true shortfall is a danger zone.",
         "scope": "Stage 4 holding power; Malaysian retail residential investors",
         "confidence": 84,
         "evidenceFor": "Founder input identifies rent versus installment as the main holding failure point and provides practical shortfall thresholds for normal retail investors.",
-        "evidenceAgainst": "True stress depends on income, cash reserve, maintenance fee, debt level, tenant quality, and whether the property is rental-led or appreciation-led.",
+        "evidenceAgainst": "A controlled shortfall may be acceptable for a financially strong investor pursuing a defensible landed appreciation thesis, but true stress still depends on income, reserve, maintenance, debt, tenant quality, and holding period.",
         "falsifier": "Revise if actual ownership cases show normal retail investors comfortably surviving larger shortfalls without distress, or if smaller shortfalls commonly force bad decisions.",
         "nextReview": ""
       },

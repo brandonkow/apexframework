@@ -1062,6 +1062,10 @@ const dealContextLabels = {
   managementQuality: "Management and build quality",
   exitBuyerPool: "Exit buyer pool",
   evidenceConfidence: "Evidence confidence",
+  comparableTransactions: "Completed comparable transactions",
+  rentEvidence: "Rental evidence",
+  siteVisit: "Site visit",
+  legalCheck: "Title and legal check",
   nearbySupply: "Nearby supply",
   investmentThesis: "Investment thesis",
   mainConcern: "Main concern",
@@ -1118,7 +1122,7 @@ function dealContextNotes(dealCard) {
   if (price && rent) {
     const yieldPercent = money((rent * 12 / price) * 100);
     notes.push(`Deal card implies about ${yieldPercent}% gross yield before vacancy and costs.`);
-    if (yieldPercent < 6) notes.push("That is below the founder's 6% rental-yield baseline, so holding power needs extra caution.");
+    if (yieldPercent < 6) notes.push("That is below the founder's 6% gross-yield screening baseline. It is not the same as 6% net ROI, so holding costs still need a separate test.");
   }
   if (maintenance && rent) {
     const rentAfterMaintenance = money(rent - maintenance);
@@ -1175,6 +1179,13 @@ function formatRinggit(value) {
   return `${sign}RM${Math.abs(Math.round(value)).toLocaleString("en-MY")}`;
 }
 
+function stressStatus(monthlyCashFlow) {
+  if (!Number.isFinite(monthlyCashFlow)) return "unknown";
+  if (monthlyCashFlow >= 0) return "resilient";
+  if (monthlyCashFlow >= -300) return "pressure";
+  return "risk";
+}
+
 function analyzeSevenStageDeal(rawDealCard = {}, rawFinancialProfile = {}) {
   const dealCard = cleanContextRecord(rawDealCard, dealContextLabels);
   const financialProfile = cleanContextRecord(rawFinancialProfile, profileContextLabels);
@@ -1201,9 +1212,11 @@ function analyzeSevenStageDeal(rawDealCard = {}, rawFinancialProfile = {}) {
   const isLanded = /(landed|terrace|semi|bungalow|townhouse)/.test(propertyType);
   const isAppreciationGoal = goal.includes("appreciation");
   const grossYield = price && rent ? (rent * 12 / price) * 100 : null;
+  const operatingYield = price && rent
+    ? (((rent * 11) - (maintenance * 12)) / price) * 100
+    : null;
   const discountToFairValue = price && fairValue ? ((fairValue - price) / fairValue) * 100 : null;
   const holdingCashFlow = rent && installment ? rent - installment - maintenance : null;
-  const loanOnlyShortfall = rent && installment ? Math.max(0, installment - rent) : null;
   const postDealDsr = income && installment ? ((currentDebt + installment) / income) * 100 : null;
   const cashAfterPurchase = cashAvailableProvided && cashOutlayProvided ? cashAvailable - cashOutlay : null;
   const hardStops = [];
@@ -1219,7 +1232,10 @@ function analyzeSevenStageDeal(rawDealCard = {}, rawFinancialProfile = {}) {
   if (!installment) missingEvidence.push("A lender-backed monthly instalment estimate");
   if (!dealCard.managementQuality) missingEvidence.push("Management, maintenance, and build-quality checks");
   if (!dealCard.nearbySupply) missingEvidence.push("Direct competing supply within roughly 2.5km");
-  if (!dealCard.evidenceConfidence) missingEvidence.push("Source dates and confidence for the evidence packet");
+  if (!dealCard.comparableTransactions || dealCard.comparableTransactions === "None") missingEvidence.push("Recent completed comparable transactions");
+  if (!dealCard.rentEvidence || dealCard.rentEvidence === "None" || dealCard.rentEvidence === "Listing only") missingEvidence.push("Achieved-rent proof beyond advertised listings");
+  if (dealCard.siteVisit !== "Completed") missingEvidence.push("A completed site visit");
+  if (dealCard.legalCheck !== "Clear") missingEvidence.push("Clear title, caveat, restriction, and legal checks");
   if (!dealCard.investmentThesis) missingEvidence.push("A written causal investment thesis");
   if (!dealCard.killCriterion) missingEvidence.push("An observable walk-away criterion");
 
@@ -1261,6 +1277,9 @@ function analyzeSevenStageDeal(rawDealCard = {}, rawFinancialProfile = {}) {
   const concernText = `${dealCard.mainConcern || ""} ${dealCard.investmentThesis || ""}`.toLowerCase();
   if (/(fishy|caveat|title dispute|fake document|misleading|undisclosed cash)/.test(concernText)) {
     addHardStop(1, "The transaction or title appears suspicious and must be resolved before proceeding.");
+  }
+  if (dealCard.legalCheck === "Issue found") {
+    addHardStop(1, "A title or legal issue has been identified and must be resolved before proceeding.");
   }
   if (discountToFairValue !== null && discountToFairValue < 0) {
     watchouts.push("The asking price is above the stated conservative fair value.");
@@ -1309,9 +1328,6 @@ function analyzeSevenStageDeal(rawDealCard = {}, rawFinancialProfile = {}) {
     else if (isLanded && isAppreciationGoal && Math.abs(holdingCashFlow) <= 450) {
       holdingScore += 5;
       watchouts.push("The landed appreciation case has tolerable negative carry only if the user can hold it safely.");
-    } else if (loanOnlyShortfall !== null && loanOnlyShortfall <= 300) {
-      holdingScore -= 10;
-      watchouts.push("The loan-only shortfall is within the founder tolerance, but true holding cost remains negative.");
     } else {
       holdingScore -= 35;
       addHardStop(4, "Rent does not provide acceptable coverage for the instalment and recurring charges.", "pause");
@@ -1343,10 +1359,20 @@ function analyzeSevenStageDeal(rawDealCard = {}, rawFinancialProfile = {}) {
     marketScore -= 15;
     watchouts.push("Nearby supply may compete for the same tenant and future buyer pool.");
   }
-  if (dealCard.evidenceConfidence === "High") marketScore += 20;
-  else if (dealCard.evidenceConfidence === "Medium") marketScore += 10;
-  else if (dealCard.evidenceConfidence === "Low") marketScore -= 15;
+  if (dealCard.comparableTransactions === "3 or more") marketScore += 10;
+  if (dealCard.rentEvidence === "Signed tenancy or achieved rent" || dealCard.rentEvidence === "Agent-confirmed") marketScore += 10;
   marketScore = clampScore(marketScore);
+
+  let evidenceScore = 10;
+  if (dealCard.comparableTransactions === "3 or more") evidenceScore += 25;
+  else if (dealCard.comparableTransactions === "1 to 2") evidenceScore += 14;
+  if (dealCard.rentEvidence === "Signed tenancy or achieved rent") evidenceScore += 25;
+  else if (dealCard.rentEvidence === "Agent-confirmed") evidenceScore += 18;
+  else if (dealCard.rentEvidence === "Listing only") evidenceScore += 5;
+  if (dealCard.siteVisit === "Completed") evidenceScore += 20;
+  if (dealCard.legalCheck === "Clear") evidenceScore += 15;
+  else if (dealCard.legalCheck === "Pending") evidenceScore += 4;
+  evidenceScore = clampScore(evidenceScore);
 
   let journalScore = 35;
   if (dealCard.investmentThesis) journalScore += 25;
@@ -1373,7 +1399,7 @@ function analyzeSevenStageDeal(rawDealCard = {}, rawFinancialProfile = {}) {
       !financialProfile.existingProperties && financialProfile.existingProperties !== "0" ? "incomplete" : portfolioScore >= 70 ? "pass" : portfolioScore < 45 ? "risk" : "watch",
       portfolioScore >= 70 ? "The deal does not appear to weaken portfolio resilience." : "Concentration, liquidity, or life-capital competition needs review."),
     stage(6, "Market Intelligence", marketScore,
-      !supplyKnown || !dealCard.evidenceConfidence ? "incomplete" : marketScore >= 70 ? "pass" : marketScore < 45 ? "risk" : "watch",
+      !supplyKnown || evidenceScore < 55 ? "incomplete" : marketScore >= 70 ? "pass" : marketScore < 45 ? "risk" : "watch",
       "This stage uses supplied evidence only; live market conditions still require verification."),
     stage(7, "Decision Journal", journalScore,
       !dealCard.investmentThesis || !dealCard.killCriterion ? "incomplete" : journalScore >= 70 ? "pass" : "watch",
@@ -1383,15 +1409,40 @@ function analyzeSevenStageDeal(rawDealCard = {}, rawFinancialProfile = {}) {
   const completedFields = [
     dealCard.area, dealCard.propertyType, price, fairValue, rent, installment,
     dealCard.ownStayAppeal, dealCard.managementQuality, dealCard.exitBuyerPool,
-    dealCard.evidenceConfidence, income, reserveMonths, cashAvailable, currentDebt,
+    dealCard.comparableTransactions, dealCard.rentEvidence,
+    dealCard.siteVisit, dealCard.legalCheck, income, reserveMonths, cashAvailable, currentDebt,
     financialProfile.existingProperties, dealCard.investmentThesis, dealCard.killCriterion
   ].filter((value) => value !== "" && value !== undefined && value !== null && value !== 0).length;
-  const completeness = Math.round(completedFields / 17 * 100);
-  const evidenceBase = dealCard.evidenceConfidence === "High" ? 78
-    : dealCard.evidenceConfidence === "Medium" ? 62
-      : dealCard.evidenceConfidence === "Low" ? 42 : 30;
-  const confidence = Math.min(95, Math.round(evidenceBase + completeness * 0.17));
-  const averageScore = Math.round(stages.reduce((sum, item) => sum + item.score, 0) / stages.length);
+  const completeness = Math.round(completedFields / 20 * 100);
+
+  let exitResilienceScore = 50;
+  if (dealCard.exitBuyerPool === "Own-stay and investor") exitResilienceScore += 20;
+  else if (dealCard.exitBuyerPool === "Investor mainly" || dealCard.exitBuyerPool === "Unclear") exitResilienceScore -= 20;
+  if (dealCard.unitPosition === "Good") exitResilienceScore += 10;
+  else if (dealCard.unitPosition === "Unfavourable") exitResilienceScore -= 20;
+  if (dealCard.ownStayAppeal === "Strong") exitResilienceScore += 10;
+  else if (dealCard.ownStayAppeal === "Weak") exitResilienceScore -= 15;
+  if (supplyRisk) exitResilienceScore -= 15;
+  if (discountToFairValue !== null && discountToFairValue >= 10) exitResilienceScore += 10;
+  exitResilienceScore = clampScore(exitResilienceScore);
+
+  const investorSuitabilityScore = clampScore(
+    suitabilityScore * 0.4 + financingScore * 0.2 + holdingScore * 0.3 + portfolioScore * 0.1
+  );
+  const marketExitScore = clampScore(marketScore * 0.55 + exitResilienceScore * 0.45);
+  const dimensions = [
+    { key: "property", label: "Property quality", score: propertyScore },
+    { key: "investor", label: "Investor suitability", score: investorSuitabilityScore },
+    { key: "evidence", label: "Evidence quality", score: evidenceScore },
+    { key: "exit", label: "Market and exit", score: marketExitScore }
+  ].map((item) => ({
+    ...item,
+    status: item.score >= 75 ? "strong" : item.score >= 55 ? "watch" : "weak"
+  }));
+  const averageScore = clampScore(
+    propertyScore * 0.3 + investorSuitabilityScore * 0.3 + evidenceScore * 0.2 + marketExitScore * 0.2
+  );
+  const confidence = Math.min(95, Math.round(evidenceScore * 0.82 + completeness * 0.13));
   const rejectStops = hardStops.filter((item) => item.action === "reject");
   const pauseStops = hardStops.filter((item) => item.action === "pause");
   let verdict = "INVESTIGATE";
@@ -1421,6 +1472,35 @@ function analyzeSevenStageDeal(rawDealCard = {}, rawFinancialProfile = {}) {
   const primaryRisk = hardStopText[0] || watchouts[0] || missing[0] || counterThesis;
   const voiceSummary = `My current verdict is ${verdict.toLowerCase()}. ${verdictSummary} The main issue is ${primaryRisk}`;
 
+  const scenarioInputsReady = Boolean(rent && installment);
+  const scenarios = scenarioInputsReady ? [
+    {
+      label: "Base case",
+      assumption: "Current rent, instalment, and maintenance",
+      monthlyCashFlow: rent - installment - maintenance
+    },
+    {
+      label: "Rent pressure",
+      assumption: "Rent falls 10%",
+      monthlyCashFlow: (rent * 0.9) - installment - maintenance
+    },
+    {
+      label: "Financing pressure",
+      assumption: "Instalment rises 10% as a rate-cost proxy",
+      monthlyCashFlow: rent - (installment * 1.1) - maintenance
+    },
+    {
+      label: "Combined downside",
+      assumption: "Rent -10%, instalment +10%, one vacant month per year",
+      monthlyCashFlow: (((rent * 0.9) * 11) - ((installment * 1.1) * 12) - (maintenance * 12)) / 12
+    }
+  ].map((item) => ({
+    ...item,
+    monthlyCashFlow: Math.round(item.monthlyCashFlow),
+    value: formatRinggit(item.monthlyCashFlow),
+    status: stressStatus(item.monthlyCashFlow)
+  })) : [];
+
   return {
     verdict,
     summary: verdictSummary,
@@ -1431,12 +1511,15 @@ function analyzeSevenStageDeal(rawDealCard = {}, rawFinancialProfile = {}) {
     counterThesis,
     metrics: [
       grossYield === null ? null : { label: "Gross yield", value: `${money(grossYield)}%` },
+      operatingYield === null ? null : { label: "Operating yield", value: `${money(operatingYield)}%` },
       discountToFairValue === null ? null : { label: "Discount to value", value: `${money(discountToFairValue)}%` },
       holdingCashFlow === null ? null : { label: "Monthly holding", value: formatRinggit(holdingCashFlow) },
       postDealDsr === null ? null : { label: "Post-deal DSR", value: `${money(postDealDsr)}%` },
       cashAfterPurchase === null ? null : { label: "Cash after purchase", value: formatRinggit(cashAfterPurchase) }
     ].filter(Boolean),
     stages,
+    dimensions,
+    scenarios,
     hardStops: hardStopText,
     watchouts: uniqueText(watchouts, 6),
     missingEvidence: missing,
@@ -1451,6 +1534,12 @@ function dealAnalysisText(analysis) {
     `Confidence ${analysis.confidence}%. Input completeness ${analysis.completeness}%.`
   ];
   if (analysis.aiCommentary) lines.push("", "Apex Analytic commentary", analysis.aiCommentary);
+  if (analysis.dimensions?.length) {
+    lines.push("", "Four-part decision read", ...analysis.dimensions.map((item) => `- ${item.label}: ${item.score}/100 (${item.status}).`));
+  }
+  if (analysis.scenarios?.length) {
+    lines.push("", "Downside scenarios", ...analysis.scenarios.map((item) => `- ${item.label}: ${item.value} per month. ${item.assumption}.`));
+  }
   lines.push("", "Seven-stage read", ...analysis.stages.map((item) => `- Stage ${item.number}, ${item.name}: ${item.status.toUpperCase()} (${item.score}/100). ${item.summary}`));
   if (analysis.hardStops.length) lines.push("", "Hard stops", ...analysis.hardStops.map((item) => `- ${item}`));
   if (analysis.watchouts.length) lines.push("", "Watch-outs", ...analysis.watchouts.map((item) => `- ${item}`));
