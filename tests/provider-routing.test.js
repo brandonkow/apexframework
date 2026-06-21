@@ -47,7 +47,7 @@ async function jsonRequest(baseUrl, pathname, { method = "GET", body } = {}) {
   return { response, payload: await response.json() };
 }
 
-test("OpenRouter reports the model that actually answered", async (t) => {
+test("OpenRouter uses its free router and reports the model that actually answered", async (t) => {
   let captured = null;
   const providerPort = await freePort();
   const provider = http.createServer(async (req, res) => {
@@ -99,7 +99,7 @@ test("OpenRouter reports the model that actually answered", async (t) => {
   await waitForHealth(baseUrl, child);
   const before = await jsonRequest(baseUrl, "/api/jarvis/status");
   assert.equal(before.payload.llm.provider, "openrouter");
-  assert.equal(before.payload.llm.configuredModel, "deepseek/deepseek-v4-flash");
+  assert.equal(before.payload.llm.configuredModel, "openrouter/free");
   assert.equal(before.payload.llm.resolvedModel, null);
 
   const session = await jsonRequest(baseUrl, "/api/jarvis/sessions", { method: "POST", body: {} });
@@ -117,7 +117,7 @@ test("OpenRouter reports the model that actually answered", async (t) => {
   assert.equal(captured.url, "/chat/completions");
   assert.equal(captured.authorization, "Bearer test-openrouter-key");
   assert.equal(captured.title, "Apex Analytic");
-  assert.equal(captured.body.model, "deepseek/deepseek-v4-flash");
+  assert.equal(captured.body.model, "openrouter/free");
   assert.equal(captured.body.messages[0].role, "system");
 
   const after = await jsonRequest(baseUrl, "/api/jarvis/status");

@@ -27,8 +27,10 @@ const OPENROUTER_API_KEY = String(globalThis.process?.env?.OPENROUTER_API_KEY ||
 const OPENAI_KEY_IS_OPENROUTER = /^sk-or-/i.test(RAW_OPENAI_API_KEY);
 const LLM_PROVIDER = String(globalThis.process?.env?.LLM_PROVIDER || (OPENROUTER_API_KEY || OPENAI_KEY_IS_OPENROUTER ? "openrouter" : "openai")).trim().toLowerCase();
 const LLM_API_KEY = String(globalThis.process?.env?.LLM_API_KEY || (LLM_PROVIDER === "openrouter" ? OPENROUTER_API_KEY || (OPENAI_KEY_IS_OPENROUTER ? RAW_OPENAI_API_KEY : "") : RAW_OPENAI_API_KEY)).trim();
-const RAW_LLM_MODEL = String(globalThis.process?.env?.LLM_MODEL || (LLM_PROVIDER === "openrouter" ? "openrouter/auto" : globalThis.process?.env?.OPENAI_MODEL || "gpt-4.1-mini")).trim();
-const LLM_MODEL = RAW_LLM_MODEL.replace(/^LLM_MODEL\s*=\s*/i, "").trim();
+const OPENROUTER_FREE_ROUTING = String(globalThis.process?.env?.OPENROUTER_FREE_ROUTING || "true").trim().toLowerCase() !== "false";
+const RAW_LLM_MODEL = String(globalThis.process?.env?.LLM_MODEL || globalThis.process?.env?.OPENAI_MODEL || "gpt-4.1-mini").trim();
+const CONFIGURED_LLM_MODEL = RAW_LLM_MODEL.replace(/^LLM_MODEL\s*=\s*/i, "").trim();
+const LLM_MODEL = LLM_PROVIDER === "openrouter" && OPENROUTER_FREE_ROUTING ? "openrouter/free" : CONFIGURED_LLM_MODEL;
 const LLM_BASE_URL = String(globalThis.process?.env?.LLM_BASE_URL || (LLM_PROVIDER === "openrouter" ? "https://openrouter.ai/api/v1" : "https://api.openai.com/v1")).replace(/\/$/, "");
 const OPENROUTER_SITE_URL = String(globalThis.process?.env?.OPENROUTER_SITE_URL || "").trim();
 const OPENAI_SERVICES_API_KEY = String(globalThis.process?.env?.OPENAI_SERVICES_API_KEY || (OPENAI_KEY_IS_OPENROUTER ? "" : RAW_OPENAI_API_KEY)).trim();

@@ -43,7 +43,7 @@ ESTATELAB_OBJECT_DIR=./data/objects
 OPENAI_API_KEY=your-server-side-api-key
 OPENAI_MODEL=gpt-4.1-mini
 OPENROUTER_API_KEY=your-openrouter-key
-LLM_MODEL=openrouter/auto
+OPENROUTER_FREE_ROUTING=true
 OPENAI_SERVICES_API_KEY=optional-separate-openai-key
 OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 OPENAI_TRANSCRIPTION_MODEL=gpt-4o-mini-transcribe
@@ -63,7 +63,7 @@ ESTATELAB_PG_POOL_MAX=5
 
 `ESTATELAB_DATA_DIR` controls the JSON fallback and PostgreSQL migration source. If the folder is empty on first start, Apex Analytic seeds it from the bundled `data/db.json`.
 
-Apex Analytic supports OpenAI and OpenRouter for conversational reasoning. Set `OPENROUTER_API_KEY` to select OpenRouter automatically; set `LLM_MODEL` to an exact OpenRouter model slug for consistent behavior, or use `openrouter/auto` and inspect the resolved model reported by `/api/jarvis/status` and the frontend session indicator. `OPENAI_API_KEY` remains compatible with direct OpenAI reasoning. The keys are never sent to the browser.
+Apex Analytic supports OpenAI and OpenRouter for conversational reasoning. Set `OPENROUTER_API_KEY` to select OpenRouter automatically. OpenRouter uses `openrouter/free` by default so it can choose an available free model for each request. Set `OPENROUTER_FREE_ROUTING=false` with an exact `LLM_MODEL` only when a fixed model is required. The frontend identifies AI-assisted responses without exposing the selected model. `OPENAI_API_KEY` remains compatible with direct OpenAI reasoning. The keys are never sent to the browser.
 
 Advanced provider overrides are `LLM_PROVIDER`, `LLM_API_KEY`, and `LLM_BASE_URL`. An OpenRouter key accidentally stored in `OPENAI_API_KEY` is detected by its `sk-or-` prefix and routed correctly.
 

@@ -102,13 +102,6 @@ function setSessionState(text) {
   sessionStatus.textContent = text;
 }
 
-function modelLabel(model, fallback = "AI") {
-  const value = String(model || "").trim();
-  if (!value) return fallback;
-  const slug = value.split("/").pop().replace(/[^a-zA-Z0-9.-]+/g, "-");
-  return slug.slice(0, 24).toUpperCase() || fallback;
-}
-
 function setAuthMode(mode) {
   authMode = mode === "register" ? "register" : "login";
   const registering = authMode === "register";
@@ -223,11 +216,7 @@ function intelligenceMarkup({ mode = "", provider = "", model = "" } = {}) {
     return '<span class="intelligenceBadge framework" title="No external reasoning model generated this response"><i></i>FRAMEWORK ONLY</span>';
   }
   if (mode !== "llm") return "";
-  const deepSeek = /deepseek/i.test(`${provider} ${model}`);
-  const label = deepSeek ? "FRAMEWORK + DEEPSEEK" : `FRAMEWORK + ${modelLabel(model)}`;
-  return '<span class="intelligenceBadge reasoning" title="Reasoning model: '
-    + escapeHtml(model || provider || "configured LLM")
-    + '"><i></i>' + escapeHtml(label) + '</span>';
+  return '<span class="intelligenceBadge reasoning" title="External AI reasoning was used for this response"><i></i>FRAMEWORK + AI</span>';
 }
 
 function addMessage(role, text, sources = [], intelligence = {}) {
@@ -773,7 +762,7 @@ async function askJarvis(question) {
   });
   sessionId = result.session.id;
   window.localStorage.setItem(sessionKey, sessionId);
-  const responseMode = result.mode === "llm" ? modelLabel(result.model) : "FRAMEWORK";
+  const responseMode = result.mode === "llm" ? "AI" : "FRAMEWORK";
   setSessionState(`${responseMode} / ${result.session.messages.length}`);
   return result;
 }
@@ -837,7 +826,7 @@ async function runDealAnalysis() {
     });
     sessionId = result.session.id;
     window.localStorage.setItem(sessionKey, sessionId);
-    const responseMode = result.mode === "llm" ? modelLabel(result.model) : "FRAMEWORK";
+    const responseMode = result.mode === "llm" ? "AI" : "FRAMEWORK";
     setSessionState(`${responseMode} / ${result.session.messages.length}`);
     addDealAnalysis(result.analysis, result.sources, result);
     speak(result.analysis.voiceSummary);
@@ -953,9 +942,7 @@ async function bootJarvis() {
   setAuthMode("login");
   try {
     const status = await requestJson("/api/jarvis/status");
-    const intelligenceMode = status.llm?.enabled
-      ? modelLabel(status.llm.resolvedModel || status.llm.configuredModel)
-      : "FRAMEWORK";
+    const intelligenceMode = status.llm?.enabled ? "AI" : "FRAMEWORK";
     serverSttEnabled = Boolean(status.audio?.serverStt);
     serverTtsEnabled = Boolean(status.audio?.serverTts);
     emailDeliveryEnabled = Boolean(status.accounts?.emailDelivery);
