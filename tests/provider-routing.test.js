@@ -48,21 +48,28 @@ async function jsonRequest(baseUrl, pathname, { method = "GET", body } = {}) {
 }
 
 test("OpenRouter uses its free router and reports the model that actually answered", async (t) => {
-  let captured = null;
+  const captured = [];
   const providerPort = await freePort();
   const provider = http.createServer(async (req, res) => {
     const chunks = [];
     for await (const chunk of req) chunks.push(chunk);
-    captured = {
+    captured.push({
       url: req.url,
       authorization: req.headers.authorization,
       title: req.headers["x-title"],
       body: JSON.parse(Buffer.concat(chunks).toString("utf8"))
-    };
+    });
+    const truncated = captured.length === 1;
     res.writeHead(200, { "content-type": "application/json" });
     res.end(JSON.stringify({
       model: "anthropic/claude-test-resolved",
-      choices: [{ message: { role: "assistant", content: "Hello. What property are we thinking about today?" } }]
+      choices: [{
+        finish_reason: truncated ? "length" : "stop",
+        message: {
+          role: "assistant",
+          content: truncated ? "Hello. What property" : "Hello. What property are we thinking about today?"
+        }
+      }]
     }));
   });
   await new Promise((resolve, reject) => {
@@ -111,14 +118,18 @@ test("OpenRouter uses its free router and reports the model that actually answer
   assert.equal(answer.payload.mode, "llm");
   assert.equal(answer.payload.provider, "openrouter");
   assert.equal(answer.payload.model, "anthropic/claude-test-resolved");
+  assert.equal(answer.payload.answer, "Hello. What property are we thinking about today?");
   assert.equal(answer.payload.message.mode, "llm");
   assert.equal(answer.payload.message.provider, "openrouter");
   assert.equal(answer.payload.message.model, "anthropic/claude-test-resolved");
-  assert.equal(captured.url, "/chat/completions");
-  assert.equal(captured.authorization, "Bearer test-openrouter-key");
-  assert.equal(captured.title, "Apex Analytic");
-  assert.equal(captured.body.model, "openrouter/free");
-  assert.equal(captured.body.messages[0].role, "system");
+  assert.equal(captured.length, 2);
+  assert.equal(captured[0].url, "/chat/completions");
+  assert.equal(captured[0].authorization, "Bearer test-openrouter-key");
+  assert.equal(captured[0].title, "Apex Analytic");
+  assert.equal(captured[0].body.model, "openrouter/free");
+  assert.equal(captured[0].body.messages[0].role, "system");
+  assert.ok(captured[1].body.max_tokens > captured[0].body.max_tokens);
+  assert.match(captured[1].body.messages[0].content, /complete answer/i);
 
   const after = await jsonRequest(baseUrl, "/api/jarvis/status");
   assert.equal(after.payload.llm.resolvedModel, "anthropic/claude-test-resolved");

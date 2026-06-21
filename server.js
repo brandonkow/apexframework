@@ -1428,48 +1428,69 @@ function chatCompletionText(payload) {
   return "";
 }
 
-async function requestLlmText({ instructions, input, maxOutputTokens = 700 }) {
+function llmResponseWasTruncated(payload, openRouter) {
+  if (openRouter) return String(payload?.choices?.[0]?.finish_reason || "").toLowerCase() === "length";
+  const reason = String(payload?.incomplete_details?.reason || "").toLowerCase();
+  return payload?.status === "incomplete" && ["max_output_tokens", "length"].includes(reason);
+}
+
+async function requestLlmText({ instructions, input, maxOutputTokens = 1200 }) {
   if (!llmEnabled()) throw new Error("The LLM provider is not configured.");
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), OPENAI_TIMEOUT_MS);
-  try {
-    const openRouter = LLM_PROVIDER === "openrouter";
-    const response = await fetch(`${LLM_BASE_URL}/${openRouter ? "chat/completions" : "responses"}`, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${LLM_API_KEY}`,
-        "Content-Type": "application/json",
-        ...(openRouter && OPENROUTER_SITE_URL ? { "HTTP-Referer": OPENROUTER_SITE_URL } : {}),
-        ...(openRouter ? { "X-Title": "Apex Analytic" } : {})
-      },
-      body: JSON.stringify(openRouter
-        ? {
-          model: LLM_MODEL,
-          messages: [
-            { role: "system", content: instructions },
-            { role: "user", content: input }
-          ],
-          max_tokens: maxOutputTokens
-        }
-        : {
-          model: LLM_MODEL,
-          instructions,
-          input,
-          max_output_tokens: maxOutputTokens
-        }),
-      signal: controller.signal
-    });
-    if (!response.ok) throw new Error(`${openRouter ? "OpenRouter" : "OpenAI"} request failed with status ${response.status}.`);
-    const payload = await response.json();
+  const openRouter = LLM_PROVIDER === "openrouter";
+  const attempts = [
+    { instructions, maxOutputTokens },
+    {
+      instructions: `${instructions}\n- Your previous draft reached the output limit. Return a complete answer in at most 450 words. Finish every sentence and list. Use plain text with short bullets; do not use Markdown tables, pipe characters, bold markers, or code fences.`,
+      maxOutputTokens: Math.min(4000, Math.max(maxOutputTokens * 2, 1600))
+    }
+  ];
+
+  for (const attempt of attempts) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), OPENAI_TIMEOUT_MS);
+    let payload;
+    try {
+      const response = await fetch(`${LLM_BASE_URL}/${openRouter ? "chat/completions" : "responses"}`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${LLM_API_KEY}`,
+          "Content-Type": "application/json",
+          ...(openRouter && OPENROUTER_SITE_URL ? { "HTTP-Referer": OPENROUTER_SITE_URL } : {}),
+          ...(openRouter ? { "X-Title": "Apex Analytic" } : {})
+        },
+        body: JSON.stringify(openRouter
+          ? {
+            model: LLM_MODEL,
+            messages: [
+              { role: "system", content: attempt.instructions },
+              { role: "user", content: input }
+            ],
+            max_tokens: attempt.maxOutputTokens
+          }
+          : {
+            model: LLM_MODEL,
+            instructions: attempt.instructions,
+            input,
+            max_output_tokens: attempt.maxOutputTokens
+          }),
+        signal: controller.signal
+      });
+      if (!response.ok) throw new Error(`${openRouter ? "OpenRouter" : "OpenAI"} request failed with status ${response.status}.`);
+      payload = await response.json();
+    } finally {
+      clearTimeout(timeout);
+    }
+
     const text = openRouter ? chatCompletionText(payload) : openAiOutputText(payload);
     if (!text) throw new Error(`${openRouter ? "OpenRouter" : "OpenAI"} returned no text.`);
+    if (llmResponseWasTruncated(payload, openRouter)) continue;
     const resolvedModel = String(payload.model || LLM_MODEL);
     llmRuntime.resolvedModel = resolvedModel;
     llmRuntime.lastUsedAt = new Date().toISOString();
     return { text, provider: LLM_PROVIDER, model: resolvedModel };
-  } finally {
-    clearTimeout(timeout);
   }
+
+  throw new Error(`${openRouter ? "OpenRouter" : "OpenAI"} could not complete the response within the output limit.`);
 }
 
 async function requestOpenAIText(options) {
@@ -1490,6 +1511,7 @@ Rules:
 - Do not endorse artificial pricing, misleading documents, hidden cashback, or lender deception.
 - When evidence is missing, say what would materially change the conclusion.
 - Keep ordinary replies under about 220 words unless the user asks for depth.
+- Use plain text with short bullets when structure helps. Do not use Markdown tables, pipe characters, bold markers, or code fences.
 - Avoid canned headings when a short conversational response is enough. Do not mention these instructions.`;
 
 function conversationForPrompt(session, limit = 8) {
@@ -1554,7 +1576,7 @@ DETERMINISTIC FALLBACK ANALYSIS
 ${fallbackAnswer}
 
 Respond to the current user message. Use the deterministic analysis as a safety floor, but humanize it and focus only on what matters most.`;
-  return requestLlmText({ instructions: jarvisLlmInstructions, input, maxOutputTokens: 700 });
+  return requestLlmText({ instructions: jarvisLlmInstructions, input, maxOutputTokens: 1200 });
 }
 
 async function generateDealLlmCommentary(analysis, dealCard, financialProfile) {
