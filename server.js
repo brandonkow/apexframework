@@ -17,6 +17,7 @@ const BUNDLED_DB_PATH = path.join(BUNDLED_DATA_DIR, "db.json");
 const RAG_PATH = path.resolve(globalThis.process?.env?.ESTATELAB_RAG_PATH || path.join(__dirname, "rag", "corpus.json"));
 const PUBLIC_DIR = path.join(__dirname, "public");
 const PORT = Number(globalThis.process?.env?.PORT || 3000);
+const HOST = String(globalThis.process?.env?.HOST || "0.0.0.0").trim();
 const DATABASE_URL = String(globalThis.process?.env?.DATABASE_URL || "").trim();
 const OBJECT_DIR = path.resolve(globalThis.process?.env?.ESTATELAB_OBJECT_DIR || path.join(DATA_DIR, "objects"));
 
@@ -2827,8 +2828,8 @@ if (isMainModule()) {
     handler(req, res).catch((error) => handleError(res, error));
   });
 
-  server.listen(PORT, () => {
-    console.log(`Real estate investment tool running at http://localhost:${PORT}`);
+  server.listen(PORT, HOST, () => {
+    console.log(`Real estate investment tool running at http://${HOST}:${PORT}`);
   });
 }
 
