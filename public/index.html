@@ -103,6 +103,15 @@
               <button id="logoutButton" type="button">SIGN OUT</button>
             </div>
           </div>
+
+          <section id="billingSummary" class="billingSummary" hidden>
+            <span><small>CURRENT PLAN</small><b id="billingPlanName">FREE</b><em id="billingUsage">3 reports remaining</em></span>
+            <div id="billingActions" class="billingActions"></div>
+          </section>
+          <div class="accountLibraryActions">
+            <button id="memoryToggle" type="button" aria-expanded="false" aria-controls="memoryPanel" hidden>MEMORY</button>
+            <button id="reportsToggle" type="button" aria-expanded="false" aria-controls="reportsPanel" hidden>REPORTS</button>
+          </div>
         </section>
 
         <section id="memoryPanel" class="memoryPanel" aria-label="Long-term memory" hidden>
@@ -121,6 +130,18 @@
             <button type="submit">ADD</button>
           </form>
           <div id="memoryList" class="memoryList"></div>
+        </section>
+
+        <section id="reportsPanel" class="reportsPanel" aria-label="Private deal reports" hidden>
+          <header class="reportsHeader">
+            <span><small>PRIVATE TO YOUR ACCOUNT</small><b>DEAL REPORTS</b></span>
+            <button id="reportsClose" type="button" aria-label="Close deal reports">CLOSE</button>
+          </header>
+          <div class="reportsSummary">
+            <span><b id="reportsSavedCount">0</b> SAVED</span>
+            <span id="reportsUsageLabel">FREE PLAN</span>
+          </div>
+          <div id="reportsList" class="reportsList"></div>
         </section>
 
         <section id="shortlistPanel" class="shortlistPanel" aria-label="Deal shortlist" hidden>
@@ -270,7 +291,6 @@
         </form>
 
         <div class="utilityBar" aria-label="Conversation controls">
-          <button id="memoryToggle" type="button" aria-expanded="false" aria-controls="memoryPanel" hidden>MEMORY</button>
           <button id="shortlistToggle" type="button" aria-expanded="false" aria-controls="shortlistPanel">SHORTLIST</button>
           <button id="resetChatBtn" type="button" aria-label="Start a new chat">NEW CHAT</button>
           <button id="soundToggle" type="button" aria-pressed="true" aria-label="Toggle voice responses">VOICE ON</button>

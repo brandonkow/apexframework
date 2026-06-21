@@ -48,6 +48,16 @@ const memoryInput = document.querySelector("#memoryInput");
 const memoryList = document.querySelector("#memoryList");
 const memoryApprovedCount = document.querySelector("#memoryApprovedCount");
 const memoryPendingCount = document.querySelector("#memoryPendingCount");
+const billingSummary = document.querySelector("#billingSummary");
+const billingPlanName = document.querySelector("#billingPlanName");
+const billingUsage = document.querySelector("#billingUsage");
+const billingActions = document.querySelector("#billingActions");
+const reportsToggle = document.querySelector("#reportsToggle");
+const reportsPanel = document.querySelector("#reportsPanel");
+const reportsClose = document.querySelector("#reportsClose");
+const reportsSavedCount = document.querySelector("#reportsSavedCount");
+const reportsUsageLabel = document.querySelector("#reportsUsageLabel");
+const reportsList = document.querySelector("#reportsList");
 const shortlistToggle = document.querySelector("#shortlistToggle");
 const shortlistPanel = document.querySelector("#shortlistPanel");
 const shortlistClose = document.querySelector("#shortlistClose");
@@ -84,6 +94,8 @@ let recordedAudio = [];
 let activeServerAudio = null;
 let activeAudioUrl = "";
 let printTarget = null;
+let billingState = null;
+let billingPlans = [];
 
 function clientId() {
   const existing = window.localStorage.getItem(clientKey);
@@ -151,8 +163,14 @@ function renderAuthState(user) {
   authRecovery.hidden = true;
   authUserPanel.hidden = !signedIn;
   memoryToggle.hidden = !signedIn;
+  reportsToggle.hidden = !signedIn;
+  billingSummary.hidden = !signedIn;
   authTitle.textContent = signedIn ? "ACCOUNT" : authMode === "register" ? "CREATE ACCOUNT" : "SIGN IN";
-  if (!signedIn) closeMemoryPanel();
+  if (!signedIn) {
+    closeMemoryPanel();
+    closeReportsPanel();
+    billingState = null;
+  }
   if (signedIn) {
     authUserName.textContent = authenticatedUser.displayName;
     authUserEmail.textContent = authenticatedUser.email;
@@ -162,11 +180,13 @@ function renderAuthState(user) {
     verificationToken.hidden = Boolean(authenticatedUser.emailVerified) || !emailDeliveryEnabled;
     verificationRequest.hidden = Boolean(authenticatedUser.emailVerified) || !emailDeliveryEnabled;
     verificationSubmit.hidden = Boolean(authenticatedUser.emailVerified) || !emailDeliveryEnabled;
+    void loadBillingStatus();
   }
 }
 
 function openAuthPanel() {
   closeMemoryPanel();
+  closeReportsPanel();
   closeShortlistPanel();
   collapseContextPanels();
   authPanel.hidden = false;
@@ -299,6 +319,7 @@ function closeMemoryPanel() {
 async function openMemoryPanel() {
   if (!authenticatedUser) return openAuthPanel();
   closeAuthPanel();
+  closeReportsPanel();
   closeShortlistPanel();
   collapseContextPanels();
   memoryPanel.hidden = false;
@@ -354,6 +375,120 @@ function addMemorySuggestion(item) {
   `;
   transcript.append(suggestion);
   transcript.scrollTop = transcript.scrollHeight;
+}
+
+function renderBillingStatus(status) {
+  if (!status) return;
+  billingState = status;
+  billingPlanName.textContent = status.plan.name.toUpperCase();
+  billingUsage.textContent = `${status.usage.remaining} reports remaining this month`;
+  const upgradePlans = billingPlans.filter((plan) => plan.id !== "free" && plan.id !== status.plan.id);
+  const available = upgradePlans.filter((plan) => plan.checkoutAvailable);
+  billingActions.innerHTML = available.length
+    ? available.map((plan) => `<button type="button" data-checkout-plan="${escapeHtml(plan.id)}">${escapeHtml(plan.name.toUpperCase())} / RM${escapeHtml(plan.priceRm)}</button>`).join("")
+    : '<small>UPGRADES READY AFTER CHECKOUT CONFIGURATION</small>';
+  reportsUsageLabel.textContent = `${status.plan.name.toUpperCase()} / ${status.usage.remaining} LEFT`;
+}
+
+async function loadBillingStatus() {
+  if (!authenticatedUser) return null;
+  try {
+    const [plansResult, status] = await Promise.all([
+      requestJson("/api/billing/plans"),
+      requestJson("/api/billing/status")
+    ]);
+    billingPlans = plansResult.plans || [];
+    renderBillingStatus(status);
+    return status;
+  } catch {
+    billingActions.innerHTML = '<small>PLAN STATUS UNAVAILABLE</small>';
+    return null;
+  }
+}
+
+async function startCheckout(plan) {
+  const button = billingActions.querySelector(`[data-checkout-plan="${CSS.escape(plan)}"]`);
+  if (button) button.disabled = true;
+  try {
+    const result = await requestJson("/api/billing/checkout", {
+      method: "POST",
+      body: JSON.stringify({ plan })
+    });
+    window.location.assign(result.checkoutUrl);
+  } catch (error) {
+    setSystemState("Connection issue", error.message || "Checkout is not available yet.");
+    if (button) button.disabled = false;
+  }
+}
+
+function reportHistoryItemMarkup(report) {
+  const weakest = report.weakestDimension;
+  const date = new Intl.DateTimeFormat("en-MY", { dateStyle: "medium" }).format(new Date(report.createdAt));
+  return `
+    <article class="reportHistoryItem" data-report-item="${escapeHtml(report.id)}">
+      <header><span><small>${escapeHtml(report.verdict)} / ${escapeHtml(date)}</small><b>${escapeHtml(report.subject)}</b></span><em>${escapeHtml(report.averageScore)}/100</em></header>
+      <p>${weakest ? `Weak link: ${escapeHtml(weakest.label)} (${escapeHtml(weakest.score)}/100)` : "Evidence details unavailable"}</p>
+      <div class="reportHistoryActions">
+        <button type="button" data-report-action="view" data-report-id="${escapeHtml(report.id)}">VIEW</button>
+        <button type="button" data-report-action="delete" data-report-id="${escapeHtml(report.id)}">DELETE</button>
+      </div>
+    </article>
+  `;
+}
+
+function renderReportHistory(payload = {}) {
+  const reports = Array.isArray(payload.reports) ? payload.reports : [];
+  reportsSavedCount.textContent = String(reports.length);
+  reportsList.innerHTML = reports.length
+    ? reports.map(reportHistoryItemMarkup).join("")
+    : '<p class="reportsEmpty">No saved deal reports yet. Signed-in analyses will appear here automatically.</p>';
+  if (payload.billing) renderBillingStatus(payload.billing);
+}
+
+function closeReportsPanel() {
+  reportsPanel.hidden = true;
+  reportsToggle.setAttribute("aria-expanded", "false");
+  document.body.classList.remove("reportsOpen");
+}
+
+async function openReportsPanel() {
+  if (!authenticatedUser) return openAuthPanel();
+  closeAuthPanel();
+  closeMemoryPanel();
+  closeShortlistPanel();
+  collapseContextPanels();
+  reportsPanel.hidden = false;
+  reportsToggle.setAttribute("aria-expanded", "true");
+  document.body.classList.add("reportsOpen");
+  reportsList.innerHTML = '<p class="reportsEmpty">Loading private reports...</p>';
+  try {
+    renderReportHistory(await requestJson("/api/reports"));
+  } catch (error) {
+    reportsList.innerHTML = `<p class="reportsEmpty">${escapeHtml(error.message)}</p>`;
+  }
+}
+
+async function handleReportAction(button) {
+  const id = button.getAttribute("data-report-id");
+  const action = button.getAttribute("data-report-action");
+  if (!id || !action) return;
+  button.disabled = true;
+  try {
+    if (action === "delete") {
+      await requestJson(`/api/reports/${encodeURIComponent(id)}`, { method: "DELETE" });
+      renderReportHistory(await requestJson("/api/reports"));
+      return;
+    }
+    const result = await requestJson(`/api/reports/${encodeURIComponent(id)}`);
+    closeReportsPanel();
+    transcript.innerHTML = "";
+    addDealAnalysis(result.report.analysis);
+    renderBillingStatus(result.billing);
+    setSystemState("System ready", `${result.report.subject} report loaded.`);
+  } catch (error) {
+    setSystemState("Connection issue", error.message || "The saved report is unavailable.");
+    button.disabled = false;
+  }
 }
 
 function readShortlist() {
@@ -416,6 +551,7 @@ function closeShortlistPanel() {
 function openShortlistPanel() {
   closeAuthPanel();
   closeMemoryPanel();
+  closeReportsPanel();
   collapseContextPanels();
   renderShortlist();
   shortlistPanel.hidden = false;
@@ -868,7 +1004,10 @@ async function requestJson(url, options = {}) {
   });
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));
-    throw new Error(payload.error || "Apex Analytic backend is unavailable.");
+    const error = new Error(payload.error || "Apex Analytic backend is unavailable.");
+    error.status = response.status;
+    error.payload = payload;
+    throw error;
   }
   if (response.status === 204) return null;
   return response.json();
@@ -979,6 +1118,7 @@ async function logout() {
   logoutButton.disabled = true;
   try {
     closeMemoryPanel();
+    closeReportsPanel();
     await requestJson("/api/auth/logout", { method: "POST", body: "{}" });
     renderAuthState(null);
     setAuthMode("login");
@@ -1134,6 +1274,7 @@ async function runDealAnalysis() {
     window.localStorage.setItem(sessionKey, sessionId);
     const responseMode = result.mode === "llm" ? "AI" : "FRAMEWORK";
     setSessionState(`${responseMode} / ${result.session.messages.length}`);
+    if (result.billing) renderBillingStatus(result.billing);
     addDealAnalysis(result.analysis, result.sources, result);
     speak(result.analysis.voiceSummary);
     if (!voiceResponsesEnabled) setSystemState("System ready", "Analysis complete.");
@@ -1211,6 +1352,19 @@ memoryToggle.addEventListener("click", () => {
   else closeMemoryPanel();
 });
 memoryClose.addEventListener("click", closeMemoryPanel);
+reportsToggle.addEventListener("click", () => {
+  if (reportsPanel.hidden) void openReportsPanel();
+  else closeReportsPanel();
+});
+reportsClose.addEventListener("click", closeReportsPanel);
+reportsList.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-report-action]");
+  if (button) void handleReportAction(button);
+});
+billingActions.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-checkout-plan]");
+  if (button) void startCheckout(button.getAttribute("data-checkout-plan"));
+});
 shortlistToggle.addEventListener("click", () => {
   if (shortlistPanel.hidden) openShortlistPanel();
   else closeShortlistPanel();
@@ -1272,6 +1426,7 @@ logoutButton.addEventListener("click", logout);
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !authPanel.hidden) closeAuthPanel();
   if (event.key === "Escape" && !memoryPanel.hidden) closeMemoryPanel();
+  if (event.key === "Escape" && !reportsPanel.hidden) closeReportsPanel();
   if (event.key === "Escape" && !shortlistPanel.hidden) closeShortlistPanel();
 });
 window.addEventListener("afterprint", finishPrinting);

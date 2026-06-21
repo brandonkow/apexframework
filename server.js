@@ -46,6 +46,12 @@ const REQUIRE_EMAIL_VERIFICATION = String(globalThis.process?.env?.ESTATELAB_REQ
 const AUTH_DEBUG_TOKENS = String(globalThis.process?.env?.ESTATELAB_AUTH_DEBUG_TOKENS || "false").toLowerCase() === "true";
 const AUTH_COOKIE = "estatelab_session";
 const AUTH_SESSION_DAYS = Math.max(1, Number(globalThis.process?.env?.ESTATELAB_AUTH_SESSION_DAYS || 30));
+const BILLING_ENFORCEMENT = String(globalThis.process?.env?.APEX_BILLING_ENFORCEMENT || "false").toLowerCase() === "true";
+const BILLING_WEBHOOK_SECRET = String(globalThis.process?.env?.APEX_BILLING_WEBHOOK_SECRET || "").trim();
+const PRO_CHECKOUT_URL = String(globalThis.process?.env?.APEX_PRO_CHECKOUT_URL || "").trim();
+const ADVISOR_CHECKOUT_URL = String(globalThis.process?.env?.APEX_ADVISOR_CHECKOUT_URL || "").trim();
+const PRO_PRICE_RM = Math.max(1, Number(globalThis.process?.env?.APEX_PRO_PRICE_RM || 59));
+const ADVISOR_PRICE_RM = Math.max(1, Number(globalThis.process?.env?.APEX_ADVISOR_PRICE_RM || 199));
 const AUTH_ATTEMPT_WINDOW_MS = 15 * 60 * 1000;
 const AUTH_ATTEMPT_LIMIT = 10;
 const MAX_JSON_BODY_BYTES = 8 * 1024 * 1024;
@@ -58,6 +64,35 @@ const llmRuntime = {
   configuredModel: LLM_MODEL,
   resolvedModel: "",
   lastUsedAt: ""
+};
+const BILLING_PLANS = {
+  free: {
+    id: "free",
+    name: "Free",
+    priceRm: 0,
+    reportLimit: 3,
+    historyLimit: 5,
+    checkoutUrl: "",
+    features: ["Framework chat", "3 deal reports monthly", "5 saved reports"]
+  },
+  pro: {
+    id: "pro",
+    name: "Pro",
+    priceRm: PRO_PRICE_RM,
+    reportLimit: 30,
+    historyLimit: 50,
+    checkoutUrl: PRO_CHECKOUT_URL,
+    features: ["Framework and AI reasoning", "30 deal reports monthly", "50 saved reports", "Long-term memory"]
+  },
+  advisor: {
+    id: "advisor",
+    name: "Advisor",
+    priceRm: ADVISOR_PRICE_RM,
+    reportLimit: 150,
+    historyLimit: 200,
+    checkoutUrl: ADVISOR_CHECKOUT_URL,
+    features: ["150 deal reports monthly", "200 saved reports", "Multi-deal workflow", "Priority capacity"]
+  }
 };
 const knowledgeService = new KnowledgeService({
   objectDir: OBJECT_DIR,
@@ -187,7 +222,7 @@ function emptyJarvis() {
 }
 
 function emptyAuth() {
-  return { version: 3, users: [], sessions: [], tokens: [] };
+  return { version: 4, users: [], sessions: [], tokens: [] };
 }
 
 function normalizeUserMemory(memory) {
@@ -208,11 +243,109 @@ function normalizeUserMemory(memory) {
   return { version: 1, items };
 }
 
+function billingPeriod(value = new Date()) {
+  const date = value instanceof Date ? value : new Date(value);
+  const safeDate = Number.isNaN(date.getTime()) ? new Date() : date;
+  return `${safeDate.getUTCFullYear()}-${String(safeDate.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+function normalizeUserBilling(billing) {
+  const validPlans = new Set(Object.keys(BILLING_PLANS));
+  const validStatuses = new Set(["active", "trialing", "past_due", "canceled"]);
+  const currentPeriod = billingPeriod();
+  const storedPeriod = String(billing?.usage?.period || "");
+  return {
+    version: 1,
+    plan: validPlans.has(billing?.plan) ? billing.plan : "free",
+    status: validStatuses.has(billing?.status) ? billing.status : "active",
+    reportCredits: Math.max(0, Math.min(10000, Math.floor(Number(billing?.reportCredits || 0)))),
+    usage: {
+      period: currentPeriod,
+      count: storedPeriod === currentPeriod ? Math.max(0, Math.floor(Number(billing?.usage?.count || 0))) : 0
+    },
+    externalCustomerId: String(billing?.externalCustomerId || "").slice(0, 160),
+    externalSubscriptionId: String(billing?.externalSubscriptionId || "").slice(0, 160),
+    processedEvents: Array.isArray(billing?.processedEvents) ? billing.processedEvents.map(String).slice(-100) : [],
+    updatedAt: String(billing?.updatedAt || new Date().toISOString())
+  };
+}
+
+function reportText(value, limit = 1200) {
+  return String(value || "").replace(/\s+/g, " ").trim().slice(0, limit);
+}
+
+function reportList(items, limit = 12) {
+  return Array.isArray(items) ? items.map((item) => reportText(item)).filter(Boolean).slice(0, limit) : [];
+}
+
+function normalizeReportContext(context) {
+  const cleanRecord = (record) => Object.fromEntries(Object.entries(record || {})
+    .slice(0, 40)
+    .map(([key, value]) => [String(key).slice(0, 80), reportText(value, 800)])
+    .filter(([, value]) => value));
+  return {
+    dealCard: cleanRecord(context?.dealCard),
+    financialProfile: cleanRecord(context?.financialProfile)
+  };
+}
+
+function normalizeReportAnalysis(analysis = {}) {
+  const objectList = (items, limit, mapper) => Array.isArray(items) ? items.slice(0, limit).map(mapper) : [];
+  return {
+    verdict: reportText(analysis.verdict, 40),
+    summary: reportText(analysis.summary, 600),
+    confidence: Math.max(0, Math.min(100, Number(analysis.confidence || 0))),
+    completeness: Math.max(0, Math.min(100, Number(analysis.completeness || 0))),
+    averageScore: Math.max(0, Math.min(100, Number(analysis.averageScore || 0))),
+    voiceSummary: reportText(analysis.voiceSummary, 1200),
+    aiCommentary: reportText(analysis.aiCommentary, 3000),
+    counterThesis: reportText(analysis.counterThesis, 1500),
+    metrics: objectList(analysis.metrics, 12, (item) => ({ label: reportText(item?.label, 80), value: reportText(item?.value, 80) })),
+    dimensions: objectList(analysis.dimensions, 4, (item) => ({
+      key: reportText(item?.key, 30),
+      label: reportText(item?.label, 80),
+      score: Math.max(0, Math.min(100, Number(item?.score || 0))),
+      status: ["strong", "watch", "weak"].includes(item?.status) ? item.status : "watch"
+    })),
+    scenarios: objectList(analysis.scenarios, 6, (item) => ({
+      label: reportText(item?.label, 80),
+      assumption: reportText(item?.assumption, 240),
+      monthlyCashFlow: Number(item?.monthlyCashFlow || 0),
+      value: reportText(item?.value, 80),
+      status: ["resilient", "pressure", "risk", "unknown"].includes(item?.status) ? item.status : "unknown"
+    })),
+    stages: objectList(analysis.stages, 7, (item) => ({
+      number: Math.max(1, Math.min(7, Number(item?.number || 1))),
+      name: reportText(item?.name, 100),
+      score: Math.max(0, Math.min(100, Number(item?.score || 0))),
+      status: ["pass", "watch", "risk", "incomplete"].includes(item?.status) ? item.status : "incomplete",
+      summary: reportText(item?.summary, 500)
+    })),
+    hardStops: reportList(analysis.hardStops),
+    watchouts: reportList(analysis.watchouts),
+    missingEvidence: reportList(analysis.missingEvidence),
+    nextActions: reportList(analysis.nextActions),
+    context: normalizeReportContext(analysis.context)
+  };
+}
+
+function normalizeUserReports(reports) {
+  const items = Array.isArray(reports?.items)
+    ? reports.items.map((item) => ({
+      id: String(item.id || randomUUID()),
+      subject: reportText(item.subject || "Untitled deal", 160),
+      createdAt: String(item.createdAt || new Date().toISOString()),
+      analysis: normalizeReportAnalysis(item.analysis)
+    })).filter((item) => item.analysis.verdict).slice(0, 200)
+    : [];
+  return { version: 1, items };
+}
+
 function normalizeAuth(auth) {
   const now = Date.now();
   const legacyUsersAreVerified = Number(auth?.version || 1) < 2;
   return {
-    version: 3,
+    version: 4,
     users: Array.isArray(auth?.users)
       ? auth.users.map((user) => ({
         id: String(user.id || ""),
@@ -221,6 +354,8 @@ function normalizeAuth(auth) {
         passwordHash: String(user.passwordHash || ""),
         role: user.role === "admin" ? "admin" : "member",
         memory: normalizeUserMemory(user.memory),
+        billing: normalizeUserBilling(user.billing),
+        reports: normalizeUserReports(user.reports),
         emailVerifiedAt: String(user.emailVerifiedAt || (legacyUsersAreVerified ? user.createdAt || new Date().toISOString() : "")),
         disabledAt: String(user.disabledAt || ""),
         createdAt: String(user.createdAt || new Date().toISOString())
@@ -373,15 +508,131 @@ function publicJarvisSessionSummary(session) {
 }
 
 function publicUser(user) {
+  const billing = publicBillingStatus(user);
   return {
     id: user.id,
     email: user.email,
     displayName: user.displayName,
     role: user.role || "member",
+    plan: billing.plan.id,
+    planStatus: billing.status,
     emailVerified: Boolean(user.emailVerifiedAt),
     disabled: Boolean(user.disabledAt),
     createdAt: user.createdAt
   };
+}
+
+function effectivePlanId(billing) {
+  const normalized = normalizeUserBilling(billing);
+  if (normalized.plan === "free") return "free";
+  return ["active", "trialing"].includes(normalized.status) ? normalized.plan : "free";
+}
+
+function publicPlan(plan) {
+  return {
+    id: plan.id,
+    name: plan.name,
+    priceRm: plan.priceRm,
+    reportLimit: plan.reportLimit,
+    historyLimit: plan.historyLimit,
+    features: plan.features,
+    checkoutAvailable: Boolean(plan.checkoutUrl)
+  };
+}
+
+function publicBillingStatus(user) {
+  const billing = normalizeUserBilling(user?.billing);
+  const plan = BILLING_PLANS[effectivePlanId(billing)];
+  const monthlyRemaining = Math.max(0, plan.reportLimit - billing.usage.count);
+  const reports = normalizeUserReports(user?.reports);
+  return {
+    plan: publicPlan(plan),
+    subscribedPlan: billing.plan,
+    status: billing.status,
+    usage: {
+      period: billing.usage.period,
+      used: billing.usage.count,
+      limit: plan.reportLimit,
+      credits: billing.reportCredits,
+      remaining: monthlyRemaining + billing.reportCredits
+    },
+    history: {
+      saved: reports.items.length,
+      limit: plan.historyLimit
+    },
+    enforcementEnabled: BILLING_ENFORCEMENT
+  };
+}
+
+function canCreateDealReport(user) {
+  if (!user) return !BILLING_ENFORCEMENT;
+  return publicBillingStatus(user).usage.remaining > 0 || !BILLING_ENFORCEMENT;
+}
+
+function consumeDealReport(user) {
+  if (!user) return null;
+  user.billing = normalizeUserBilling(user.billing);
+  const plan = BILLING_PLANS[effectivePlanId(user.billing)];
+  if (user.billing.usage.count < plan.reportLimit || !BILLING_ENFORCEMENT) {
+    user.billing.usage.count += 1;
+  } else if (user.billing.reportCredits > 0) {
+    user.billing.reportCredits -= 1;
+  } else {
+    return null;
+  }
+  user.billing.updatedAt = new Date().toISOString();
+  return publicBillingStatus(user);
+}
+
+function saveDealReport(user, subject, analysis) {
+  if (!user) return null;
+  user.reports = normalizeUserReports(user.reports);
+  const item = {
+    id: randomUUID(),
+    subject: reportText(subject || "Untitled deal", 160),
+    createdAt: new Date().toISOString(),
+    analysis: normalizeReportAnalysis(analysis)
+  };
+  const historyLimit = BILLING_PLANS[effectivePlanId(user.billing)].historyLimit;
+  user.reports.items = [item, ...user.reports.items].slice(0, historyLimit);
+  return item;
+}
+
+function publicReportSummary(item) {
+  return {
+    id: item.id,
+    subject: item.subject,
+    createdAt: item.createdAt,
+    verdict: item.analysis.verdict,
+    averageScore: item.analysis.averageScore,
+    confidence: item.analysis.confidence,
+    weakestDimension: [...item.analysis.dimensions].sort((a, b) => a.score - b.score)[0] || null
+  };
+}
+
+function checkoutUrlFor(planId, user) {
+  const plan = BILLING_PLANS[planId];
+  if (!plan?.checkoutUrl) return "";
+  const replacements = {
+    "{email}": encodeURIComponent(user.email),
+    "{userId}": encodeURIComponent(user.id),
+    "{plan}": encodeURIComponent(planId)
+  };
+  const resolved = Object.entries(replacements).reduce((url, [token, value]) => url.replaceAll(token, value), plan.checkoutUrl);
+  try {
+    const parsed = new URL(resolved);
+    return ["https:", "http:"].includes(parsed.protocol) ? parsed.toString() : "";
+  } catch {
+    return "";
+  }
+}
+
+function billingWebhookAuthorized(req) {
+  if (!BILLING_WEBHOOK_SECRET) return false;
+  const supplied = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
+  const expected = Buffer.from(BILLING_WEBHOOK_SECRET);
+  const actual = Buffer.from(supplied);
+  return expected.length === actual.length && timingSafeEqual(expected, actual);
 }
 
 function publicMemoryItem(item) {
@@ -2076,6 +2327,13 @@ function isPublicApiRoute(method, pathname) {
     || (method === "POST" && pathname === "/api/auth/verify-email")
     || (method === "POST" && pathname === "/api/auth/forgot-password")
     || (method === "POST" && pathname === "/api/auth/reset-password")
+    || (method === "GET" && pathname === "/api/billing/plans")
+    || (method === "GET" && pathname === "/api/billing/status")
+    || (method === "POST" && pathname === "/api/billing/checkout")
+    || (method === "POST" && pathname === "/api/billing/webhook")
+    || (method === "GET" && pathname === "/api/reports")
+    || (method === "GET" && pathname.startsWith("/api/reports/"))
+    || (method === "DELETE" && pathname.startsWith("/api/reports/"))
     || (["GET", "POST"].includes(method) && pathname === "/api/memory")
     || (["PATCH", "DELETE"].includes(method) && pathname.startsWith("/api/memory/"))
     || (method === "GET" && pathname === "/api/jarvis/status")
@@ -2184,6 +2442,8 @@ async function router(req, res) {
       passwordHash: await hashPassword(password),
       role: "member",
       memory: normalizeUserMemory(),
+      billing: normalizeUserBilling(),
+      reports: normalizeUserReports(),
       emailVerifiedAt: "",
       disabledAt: "",
       createdAt: new Date().toISOString()
@@ -2320,6 +2580,88 @@ async function router(req, res) {
     await writeDb(db);
     clearAuthAttempts(req);
     return send(res, 200, { reset: true });
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/billing/plans") {
+    return send(res, 200, {
+      plans: Object.values(BILLING_PLANS).map(publicPlan),
+      enforcementEnabled: BILLING_ENFORCEMENT
+    });
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/billing/status") {
+    if (!actor.user) return send(res, 401, { error: "Sign in to view your plan and report usage." });
+    return send(res, 200, publicBillingStatus(actor.user));
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/billing/checkout") {
+    if (!actor.user) return send(res, 401, { error: "Sign in before upgrading your plan." });
+    const body = await readBody(req);
+    const planId = String(body.plan || "").toLowerCase();
+    if (!["pro", "advisor"].includes(planId)) return send(res, 400, { error: "Choose the Pro or Advisor plan." });
+    const checkoutUrl = checkoutUrlFor(planId, actor.user);
+    if (!checkoutUrl) {
+      return send(res, 503, { error: "Checkout is not connected yet. Configure the checkout URL for this plan first." });
+    }
+    return send(res, 200, { plan: publicPlan(BILLING_PLANS[planId]), checkoutUrl });
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/billing/webhook") {
+    if (!BILLING_WEBHOOK_SECRET) return send(res, 503, { error: "Billing webhook is not configured." });
+    if (!billingWebhookAuthorized(req)) return send(res, 401, { error: "Billing webhook authorization failed." });
+    const body = await readBody(req);
+    const eventId = reportText(body.eventId, 160);
+    const planId = String(body.plan || "").toLowerCase();
+    const status = String(body.status || "active").toLowerCase();
+    if (!eventId) return send(res, 400, { error: "Billing eventId is required for idempotency." });
+    if (!BILLING_PLANS[planId]) return send(res, 400, { error: "Unknown billing plan." });
+    if (!["active", "trialing", "past_due", "canceled"].includes(status)) return send(res, 400, { error: "Unknown billing status." });
+    const user = db.auth.users.find((item) => item.id === String(body.userId || "") || item.email === normalizeEmail(body.email));
+    if (!user) return send(res, 404, { error: "Billing user was not found." });
+    user.billing = normalizeUserBilling(user.billing);
+    if (user.billing.processedEvents.includes(eventId)) {
+      return send(res, 200, { accepted: true, duplicate: true, billing: publicBillingStatus(user) });
+    }
+    user.billing.plan = planId;
+    user.billing.status = status;
+    if (body.externalCustomerId !== undefined) user.billing.externalCustomerId = reportText(body.externalCustomerId, 160);
+    if (body.externalSubscriptionId !== undefined) user.billing.externalSubscriptionId = reportText(body.externalSubscriptionId, 160);
+    const creditsDelta = Math.max(-10000, Math.min(10000, Math.floor(Number(body.creditsDelta || 0))));
+    user.billing.reportCredits = Math.max(0, user.billing.reportCredits + creditsDelta);
+    user.billing.processedEvents.push(eventId);
+    user.billing.processedEvents = user.billing.processedEvents.slice(-100);
+    user.billing.updatedAt = new Date().toISOString();
+    await writeDb(db);
+    return send(res, 200, { accepted: true, duplicate: false, billing: publicBillingStatus(user) });
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/reports") {
+    if (!actor.user) return send(res, 401, { error: "Sign in to view private deal reports." });
+    actor.user.reports = normalizeUserReports(actor.user.reports);
+    return send(res, 200, {
+      reports: actor.user.reports.items.map(publicReportSummary),
+      billing: publicBillingStatus(actor.user)
+    });
+  }
+
+  if (req.method === "GET" && url.pathname.startsWith("/api/reports/")) {
+    if (!actor.user) return send(res, 401, { error: "Sign in to view private deal reports." });
+    const id = url.pathname.split("/").pop();
+    actor.user.reports = normalizeUserReports(actor.user.reports);
+    const report = actor.user.reports.items.find((item) => item.id === id);
+    if (!report) return send(res, 404, { error: "Deal report not found." });
+    return send(res, 200, { report, billing: publicBillingStatus(actor.user) });
+  }
+
+  if (req.method === "DELETE" && url.pathname.startsWith("/api/reports/")) {
+    if (!actor.user) return send(res, 401, { error: "Sign in to manage private deal reports." });
+    const id = url.pathname.split("/").pop();
+    actor.user.reports = normalizeUserReports(actor.user.reports);
+    const nextItems = actor.user.reports.items.filter((item) => item.id !== id);
+    if (nextItems.length === actor.user.reports.items.length) return send(res, 404, { error: "Deal report not found." });
+    actor.user.reports.items = nextItems;
+    await writeDb(db);
+    return send(res, 204, "");
   }
 
   if (req.method === "GET" && url.pathname === "/api/memory") {
@@ -2483,6 +2825,16 @@ async function router(req, res) {
     if (!dealCard.askingPrice || (!dealCard.area && !dealCard.projectName)) {
       return send(res, 400, { error: "Add an asking price and an area or project before running the deal analysis." });
     }
+    if (BILLING_ENFORCEMENT && !actor.user) {
+      return send(res, 401, { code: "SIGN_IN_REQUIRED", error: "Sign in to create and save an Apex Deal Report." });
+    }
+    if (!canCreateDealReport(actor.user)) {
+      return send(res, 402, {
+        code: "REPORT_LIMIT_REACHED",
+        error: "Your monthly deal-report allowance is used. Upgrade your plan or add report credits to continue.",
+        billing: publicBillingStatus(actor.user)
+      });
+    }
 
     const clientId = requestClientId(req, body);
     let session = accessibleJarvisSession(db, body.sessionId, actor, clientId);
@@ -2530,6 +2882,8 @@ async function router(req, res) {
     session.updatedAt = jarvisMessage.createdAt;
     session.messages = session.messages.slice(-80);
     db.jarvis = upsertJarvisSession(db.jarvis, session);
+    const billing = actor.user ? consumeDealReport(actor.user) : null;
+    const savedReport = actor.user ? saveDealReport(actor.user, subject, analysis) : null;
     await writeDb(db);
     return send(res, 200, {
       analysis,
@@ -2537,6 +2891,8 @@ async function router(req, res) {
       mode,
       provider: mode === "llm" ? completion.provider : null,
       model: mode === "llm" ? completion.model : null,
+      billing,
+      savedReport: savedReport ? publicReportSummary(savedReport) : null,
       message: jarvisMessage,
       session: publicJarvisSession(session)
     });
@@ -2640,9 +2996,22 @@ async function router(req, res) {
     if (body.role !== undefined) user.role = body.role === "admin" ? "admin" : "member";
     if (body.disabled !== undefined) user.disabledAt = body.disabled ? new Date().toISOString() : "";
     if (body.emailVerified !== undefined) user.emailVerifiedAt = body.emailVerified ? (user.emailVerifiedAt || new Date().toISOString()) : "";
+    user.billing = normalizeUserBilling(user.billing);
+    if (body.plan !== undefined) {
+      const plan = String(body.plan).toLowerCase();
+      if (!BILLING_PLANS[plan]) return send(res, 400, { error: "Unknown billing plan." });
+      user.billing.plan = plan;
+    }
+    if (body.planStatus !== undefined) {
+      const status = String(body.planStatus).toLowerCase();
+      if (!["active", "trialing", "past_due", "canceled"].includes(status)) return send(res, 400, { error: "Unknown billing status." });
+      user.billing.status = status;
+    }
+    if (body.reportCredits !== undefined) user.billing.reportCredits = Math.max(0, Math.min(10000, Math.floor(Number(body.reportCredits || 0))));
+    user.billing.updatedAt = new Date().toISOString();
     if (user.disabledAt) db.auth.sessions = db.auth.sessions.filter((session) => session.userId !== user.id);
     await writeDb(db);
-    return send(res, 200, { user: publicUser(user) });
+    return send(res, 200, { user: publicUser(user), billing: publicBillingStatus(user) });
   }
 
   if (req.method === "GET" && url.pathname === "/api/properties") {

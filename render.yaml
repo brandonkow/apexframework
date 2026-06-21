@@ -48,6 +48,18 @@ services:
         sync: false
       - key: ESTATELAB_AUTH_DEBUG_TOKENS
         value: false
+      - key: APEX_BILLING_ENFORCEMENT
+        value: false
+      - key: APEX_BILLING_WEBHOOK_SECRET
+        sync: false
+      - key: APEX_PRO_CHECKOUT_URL
+        sync: false
+      - key: APEX_ADVISOR_CHECKOUT_URL
+        sync: false
+      - key: APEX_PRO_PRICE_RM
+        value: 59
+      - key: APEX_ADVISOR_PRICE_RM
+        value: 199
       - key: DATABASE_URL
         sync: false
       - key: ESTATELAB_PG_POOL_MAX

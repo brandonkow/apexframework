@@ -15,6 +15,8 @@ The public user experience is intentionally simple: users interact with one Apex
 - Public request limits for chat, voice, and account endpoints.
 - Seven-stage Deal Analysis using the Deal Card and Financial Profile, with hard-stop precedence, four decision dimensions, evidence grading, downside scenarios, and a counter-thesis.
 - Printable Apex Deal Reports plus a private browser shortlist for comparing up to four analysed properties.
+- Free, Pro, and Advisor entitlements with monthly report metering, configurable checkout handoff, and a signed provider-neutral billing webhook.
+- Private cross-device Deal Report history for signed-in accounts.
 - Node.js backend with a single production database driver dependency (`pg`).
 - Public assistant endpoints for chat, session creation, and knowledge status.
 - Owner-protected APIs for property analysis, RAG querying, beliefs, decisions, and comparable data.
@@ -57,6 +59,12 @@ ESTATELAB_REQUIRE_EMAIL_VERIFICATION=false
 ESTATELAB_EMAIL_WEBHOOK_URL=https://your-email-automation.example/hook
 ESTATELAB_EMAIL_WEBHOOK_SECRET=your-webhook-bearer-secret
 ESTATELAB_AUTH_DEBUG_TOKENS=false
+APEX_BILLING_ENFORCEMENT=false
+APEX_BILLING_WEBHOOK_SECRET=replace-with-a-long-random-secret
+APEX_PRO_CHECKOUT_URL=https://your-checkout.example/pro?email={email}&account={userId}
+APEX_ADVISOR_CHECKOUT_URL=https://your-checkout.example/advisor?email={email}&account={userId}
+APEX_PRO_PRICE_RM=59
+APEX_ADVISOR_PRICE_RM=199
 DATABASE_URL=postgresql://user:password@host:5432/database
 ESTATELAB_PG_POOL_MAX=5
 ```
@@ -76,6 +84,8 @@ Embeddings and server voice use OpenAI-specific endpoints. When OpenRouter handl
 `ESTATELAB_EMAIL_WEBHOOK_URL` is an optional server-to-server delivery hook for verification and reset codes. The hook receives `type`, `to`, `displayName`, `token`, and `expiresAt`; set `ESTATELAB_EMAIL_WEBHOOK_SECRET` to add a bearer credential. Keep `ESTATELAB_AUTH_DEBUG_TOKENS=false` in production. Enable mandatory verification only after delivery is working.
 
 When AI mode is enabled, chat messages, approved private memories, and any Deal Card or Financial Profile context submitted with the message are sent to the configured provider for response generation. Public input is never promoted into Apex Analytic's owner-controlled knowledge base. Long-term memories remain private to the signed-in account, and pending suggestions do not influence responses until the user approves them.
+
+Billing is provider-neutral. Keep `APEX_BILLING_ENFORCEMENT=false` until checkout and payment notifications are verified. Checkout URLs may use `{email}`, `{userId}`, and `{plan}` placeholders. A payment provider or automation must send signed subscription updates to `POST /api/billing/webhook`; see `docs/MONETIZATION.md` for the payload and launch sequence.
 
 Member passwords are scrypt-hashed. Login cookies are opaque, `HttpOnly`, `SameSite=Strict`, and automatically marked `Secure` behind Render HTTPS. Only a hash of each login token is stored. Guest chat access is bound to the originating browser client ID.
 
@@ -119,6 +129,13 @@ Public:
 - `POST /api/memory` (signed-in account)
 - `PATCH /api/memory/:id` (signed-in account)
 - `DELETE /api/memory/:id` (signed-in account)
+- `GET /api/billing/plans`
+- `GET /api/billing/status` (signed-in account)
+- `POST /api/billing/checkout` (signed-in account)
+- `POST /api/billing/webhook` (billing secret)
+- `GET /api/reports` (signed-in account)
+- `GET /api/reports/:id` (signed-in account)
+- `DELETE /api/reports/:id` (signed-in account)
 - `GET /api/jarvis/sessions`
 - `POST /api/jarvis/sessions`
 - `GET /api/jarvis/sessions/:id`

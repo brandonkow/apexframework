@@ -202,6 +202,8 @@ test("production phase keeps evidence owner-only and completes the account lifec
   const member = users.payload.users.find((user) => user.email === "production@example.com");
   assert.ok(member);
   assert.equal("memory" in member, false);
+  assert.equal("reports" in member, false);
+  assert.equal("billing" in member, false);
   const disabled = await request(baseUrl, `/api/admin/users/${member.id}`, {
     method: "PATCH",
     owner: true,

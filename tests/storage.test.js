@@ -70,6 +70,18 @@ function sampleState(revision = 0) {
             reviewedAt: "2026-01-01T00:00:00.000Z"
           }]
         },
+        billing: {
+          version: 1,
+          plan: "pro",
+          status: "active",
+          reportCredits: 2,
+          usage: { period: "2026-06", count: 4 },
+          processedEvents: ["event-1"]
+        },
+        reports: {
+          version: 1,
+          items: [{ id: "report-1", subject: "Test property", createdAt: "2026-01-01T00:00:00.000Z", analysis: { verdict: "SHORTLIST" } }]
+        },
         emailVerifiedAt: "2026-01-01T00:00:00.000Z",
         disabledAt: "",
         createdAt: "2026-01-01T00:00:00.000Z"
@@ -146,6 +158,8 @@ test("PostgreSQL store writes normalized state inside one transaction", async ()
   assert.equal(JSON.parse(coreWrite.params[3]).documents[0].id, "document-1");
   const userWrite = client.calls.find((call) => call.text.includes("INSERT INTO estatelab_users"));
   assert.equal(JSON.parse(userWrite.params[5]).items[0].id, "memory-1");
+  assert.equal(JSON.parse(userWrite.params[6]).plan, "pro");
+  assert.equal(JSON.parse(userWrite.params[7]).items[0].id, "report-1");
   assert.equal(client.released, true);
 });
 
@@ -159,6 +173,8 @@ test("PostgreSQL store creates schema and imports the seed once", async () => {
   assert.equal(client.calls[0].text, "BEGIN");
   assert.ok(client.calls.some((call) => call.text.includes("CREATE TABLE IF NOT EXISTS estatelab_users")));
   assert.ok(client.calls.some((call) => call.text.includes("ADD COLUMN IF NOT EXISTS memory")));
+  assert.ok(client.calls.some((call) => call.text.includes("ADD COLUMN IF NOT EXISTS billing")));
+  assert.ok(client.calls.some((call) => call.text.includes("ADD COLUMN IF NOT EXISTS reports")));
   assert.ok(client.calls.some((call) => call.text.includes("ADD COLUMN IF NOT EXISTS mode")));
   assert.ok(client.calls.some((call) => call.text.includes("INSERT INTO estatelab_core")));
   assert.ok(client.calls.some((call) => call.text.includes("UPDATE estatelab_meta SET revision = 1")));
@@ -183,7 +199,16 @@ test("PostgreSQL store reconstructs users, sessions, and ordered messages", asyn
       return { rows: [{ properties: [{ id: "p" }], comps: [], brain: { beliefs: [] }, knowledge: { documents: [{ id: "d" }] } }] };
     }
     if (text.startsWith("SELECT id, email, display_name")) {
-      return { rows: [{ id: "u", email: "u@example.com", display_name: "User", password_hash: "hash", memory: { version: 1, items: [{ id: "memory", content: "Remember this", status: "approved" }] }, created_at: new Date("2026-01-01T00:00:00.000Z") }] };
+      return { rows: [{
+        id: "u",
+        email: "u@example.com",
+        display_name: "User",
+        password_hash: "hash",
+        memory: { version: 1, items: [{ id: "memory", content: "Remember this", status: "approved" }] },
+        billing: { version: 1, plan: "advisor", status: "active", reportCredits: 1, usage: { period: "2026-06", count: 2 }, processedEvents: [] },
+        reports: { version: 1, items: [{ id: "report", subject: "Saved", analysis: { verdict: "SHORTLIST" } }] },
+        created_at: new Date("2026-01-01T00:00:00.000Z")
+      }] };
     }
     if (text.startsWith("SELECT token_hash, user_id")) {
       if (text.includes("purpose")) return { rows: [{ token_hash: "ot", user_id: "u", purpose: "email-verification", created_at: new Date("2026-01-01T00:00:00.000Z"), expires_at: new Date("2030-01-01T00:00:00.000Z") }] };
@@ -202,6 +227,8 @@ test("PostgreSQL store reconstructs users, sessions, and ordered messages", asyn
   assert.equal(state._storageRevision, 7);
   assert.equal(state.auth.users[0].displayName, "User");
   assert.equal(state.auth.users[0].memory.items[0].content, "Remember this");
+  assert.equal(state.auth.users[0].billing.plan, "advisor");
+  assert.equal(state.auth.users[0].reports.items[0].subject, "Saved");
   assert.equal(state.auth.tokens[0].purpose, "email-verification");
   assert.equal(state.knowledge.documents[0].id, "d");
   assert.equal(state.jarvis.sessions[0].messages[0].content, "Hi");
