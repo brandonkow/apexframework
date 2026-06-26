@@ -618,6 +618,66 @@
     "body": "Own-stay vibe improves when families use the facilities, layouts include both large and small units, residents are respectful and responsible, and the project feels like a community rather than an investor-only product. Arrogant, inconsiderate, or careless resident behaviour weakens confidence. A building can be old but age well if it remains clean, cared for, and orderly; neglected condition, unresolved defects, bad smell, weak lighting, and apathy are aging-badly signals."
   },
   {
+    "id": "execution-management-jmb-arrears-response",
+    "title": "Management office, arrears, and JMB culture",
+    "tags": ["management", "JMB", "arrears", "maintenance fee", "AGM"],
+    "body": "Before buying, ask management about outstanding maintenance and sinking fund owed by the current or previous owner, collection health, lift and security issues, disputes, lawsuits, AGM issues, and planned works. Fast replies and practical solutions build confidence; no reply, vague excuses, or refusal to provide basic information are warning signs. Use the outstanding list to judge collection health by amount, owner count, concentration, trend, and whether repairs are delayed."
+  },
+  {
+    "id": "execution-maintenance-decay-signals",
+    "title": "Normal maintenance versus long-term decay",
+    "tags": ["maintenance", "decay", "lift", "leakage", "common areas"],
+    "body": "Normal maintenance can include ordinary wear, minor defects repaired promptly, scheduled lift servicing, planned repainting, and clean but dated common areas. Long-term decay shows through repeated unresolved leakage, frequent lift breakdowns without repair plan, dirty or unsafe common areas, broken lighting or access control, visible concrete spalling, large arrears, unpaid contractors, poor transparency, and JMB conflict that blocks practical maintenance."
+  },
+  {
+    "id": "execution-project-culture-demographic-risk",
+    "title": "Resident mix, project culture, and demographic-risk refinement",
+    "tags": ["resident mix", "project culture", "tenant heavy", "short stay", "Airbnb"],
+    "body": "The founder likes a mix of university students, white-collar workers, and families because it can support rent and own-stay appeal. Apex should not judge by income level, nationality, race, or background alone. Translate demographic labels into observable risk: overcrowding, turnover, illegal or incompatible use, nuisance, poor upkeep, weak affordability, arrears, and project culture that discourages owner-occupiers. Tenant-heavy projects are acceptable with family layouts and good management, but risky when small layouts concentrate one narrow tenant segment."
+  },
+  {
+    "id": "execution-short-stay-project-wear",
+    "title": "Short-stay traffic and facility decay",
+    "tags": ["Airbnb", "short stay", "facilities", "maintenance", "investor product"],
+    "body": "Airbnb or short-stay use can increase visitor traffic, facility wear, cleaning cost, security burden, lift pressure, and maintenance cost. If maintenance is delayed, project quality can drop quickly. Own-stay buyers may pay more for low density, family-oriented facilities, responsible residents, and peaceful common areas. Future buyers bargain harder when the project feels investment-oriented, short-stay concentrated, or narrow in tenant segment."
+  },
+  {
+    "id": "execution-renovation-budget-and-value",
+    "title": "Renovation budget discipline and value items",
+    "tags": ["renovation", "furnishing", "budget", "resale", "rentability"],
+    "body": "For investment property, renovation and furnishing should normally not exceed 5 percent of purchase price. Own-stay buyers have varied taste, so resale renovation should create a neutral quality base. Tenants often accept minimalist or Muji-style furnishing. Kitchen cabinets, full-height wardrobes, durable fixtures, clean lighting, and practical storage can improve resale; paint, creative fittings, tenant-specific furniture, and study desks can improve rentability. Loose sofa, TV, and bed choices can become emotional spending unless needed for staging or tenant expectations."
+  },
+  {
+    "id": "execution-no-overspend-furnishing-package",
+    "title": "No-overspend rental furnishing package",
+    "tags": ["furnishing package", "Muji", "student rental", "fully furnished", "durability"],
+    "body": "A controlled package should prioritize neutral paint, good lighting, curtains or blinds, durable kitchen cabinet, basic wardrobes, water heater and air conditioning where expected, fridge and washing machine for fully furnished units, study desk and chair for student rooms, simple minimalist styling, professional cleaning, and good listing photos. Prioritize built-ins, durability, cleanliness, and target-market needs over luxury loose furniture."
+  },
+  {
+    "id": "execution-tenant-screening-and-agreement",
+    "title": "Tenant screening and rental agreement protections",
+    "tags": ["tenant screening", "rental agreement", "deposit", "identity", "illegal use"],
+    "body": "Screen tenants by study or work status, identity proof, occupant count, intended use, lease duration, move-in timing, payer, and whether guarantor or company support exists. Red flags include delayed payment history, unit damage, fishy requests, unusually high rent or deposit with unclear use, refusal of ID, unclear occupants, or illegal business risk. Agreements should cover parties, property, term, rent, deposits, inventory, utilities, repairs, permitted occupants and use, illegal activity ban, subletting and short-stay restriction, inspection access, house rules, termination, default, handover, and stamping."
+  },
+  {
+    "id": "execution-tenant-quality-performance",
+    "title": "Tenant quality as investment performance",
+    "tags": ["tenant quality", "cash flow", "vacancy", "family tenant", "monitoring"],
+    "body": "Families often take better care of units, but Apex should judge affordability, documentation, intended use, and conduct rather than income label alone. A tenant with lower income can be safe if background, support, affordability, references, and use are clear. A tenant with strong cash can be risky if the request is unusual or documents are unclear. Lack of monitoring is a major property-management mistake; tenant quality affects cash flow, repair cost, renewal, vacancy risk, and sale condition."
+  },
+  {
+    "id": "execution-exit-resale-psychology",
+    "title": "Exit strategy and resale psychology",
+    "tags": ["exit strategy", "resale", "bank value", "staging", "vacant possession"],
+    "body": "Before selling, the founder checks bank value, but Apex should compare it with completed transactions, active competition, achieved rent, market sentiment, and target buyer pool. Easier-to-sell units have better renovation, floor level, floor-plan placement, and fewer objections near refuse room, lift, or noise. Interior design and furnishing create emotional attachment, while aesthetic internal defects invite negotiation. Staging is very important."
+  },
+  {
+    "id": "execution-vacant-versus-tenanted-exit",
+    "title": "Vacant versus tenanted resale exit",
+    "tags": ["tenant", "resale", "own stay buyer", "investor buyer", "viewing"],
+    "body": "Founder preference is to sell after renovation and preferably vacant because many Malaysian buyers purchase for own stay and need easy viewing plus emotional imagination. Tenanted units can suit investor exits when tenant profile, rent, lease terms, payment record, and unit condition are strong. A tenant hurts saleability when they refuse viewing; a high-quality corporate or expatriate tenancy can help investor buyers. The key protection is to plan exit strategy before purchase."
+  },
+  {
     "id": "framework-seven-stage-canonical-map",
     "title": "Canonical EstateLab seven-stage framework",
     "tags": ["framework", "seven stages", "property selection", "investor suitability", "financing", "holding", "portfolio", "market timing", "decision journal"],
