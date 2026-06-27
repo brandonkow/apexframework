@@ -924,6 +924,10 @@ function analysisExportText(analysis) {
     lines.push("", "Evidence checklist");
     for (const item of analysis.evidenceChecklist) lines.push(`- ${item.label}: ${item.status}. ${item.action}`);
   }
+  if (analysis.learningLoop?.signals?.length) {
+    lines.push("", "Learning loop", analysis.learningLoop.summary || "");
+    for (const item of analysis.learningLoop.signals) lines.push(`- ${item.label}: ${item.body} ${item.action}`);
+  }
   if (analysis.hardStops?.length) lines.push("", "Hard stops", ...analysis.hardStops.map((item) => `- ${item}`));
   if (analysis.recommendationBlockers?.length) lines.push("", "Decision blockers", ...analysis.recommendationBlockers.map((item) => `- ${item}`));
   if (analysis.watchouts?.length) lines.push("", "Watch-outs", ...analysis.watchouts.map((item) => `- ${item}`));
@@ -1064,6 +1068,24 @@ function evidenceChecklistMarkup(items = []) {
   `;
 }
 
+function learningLoopMarkup(loop = {}) {
+  const signals = Array.isArray(loop.signals) ? loop.signals : [];
+  if (!signals.length) return "";
+  return `
+    <section class="analysisLearning">
+      <header><span><small>LEARNING LOOP</small><b>${escapeHtml(loop.summary || "Matched private learning for this report.")}</b></span></header>
+      <div>
+        ${signals.map((item) => `
+          <article class="learningSignal ${escapeHtml(item.type)}">
+            <i>${escapeHtml(item.type)}</i>
+            <span><b>${escapeHtml(item.label)}</b><small>${escapeHtml(item.body)}</small><em>${escapeHtml(item.action)}</em></span>
+          </article>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
 function addDealAnalysis(analysis, sources = [], intelligence = {}) {
   document.body.classList.add("conversationActive");
   const message = document.createElement("article");
@@ -1131,6 +1153,7 @@ function addDealAnalysis(analysis, sources = [], intelligence = {}) {
     </div>
     ${metricMarkup ? `<div class="analysisMetrics">${metricMarkup}</div>` : ""}
     ${evidenceChecklistMarkup(analysis.evidenceChecklist || [])}
+    ${learningLoopMarkup(analysis.learningLoop)}
     ${scenarioMarkup ? `<section class="analysisScenarioSection"><h3>DOWNSIDE SCENARIOS</h3><div class="analysisScenarios">${scenarioMarkup}</div><p>Stress assumptions are decision tests, not forecasts.</p></section>` : ""}
     ${marketIntelligenceMarkup(analysis.marketIntelligence)}
     <ol class="analysisStages">${stageMarkup}</ol>

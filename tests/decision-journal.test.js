@@ -163,6 +163,42 @@ test("decision journal locks pre-purchase reasoning and recalls reviewed lessons
   });
   assert.equal(reviewed.payload.summary.skillSignal, "Disciplined process with supporting outcome");
 
+  const memory = await request(baseUrl, "/api/memory", {
+    method: "POST",
+    cookie,
+    body: { content: "I prefer deals where management response and broad tenant demand are clearly proven before purchase." }
+  });
+  assert.equal(memory.response.status, 201);
+  const approvedMemory = await request(baseUrl, `/api/memory/${memory.payload.item.id}`, {
+    method: "PATCH",
+    cookie,
+    body: { action: "approve" }
+  });
+  assert.equal(approvedMemory.payload.item.status, "approved");
+
+  const learnedReport = await request(baseUrl, "/api/jarvis/analyze-deal", {
+    method: "POST",
+    cookie,
+    body: {
+      sessionId: session.payload.session.id,
+      dealCard: {
+        ...dealCard,
+        projectName: "Journal Test Residence Phase 2",
+        investmentThesis: "Management response and broad tenant demand should support this similar deal.",
+        mainConcern: "Need to compare against the previous lesson on management response."
+      },
+      financialProfile
+    }
+  });
+  assert.equal(learnedReport.response.status, 200);
+  assert.equal(learnedReport.payload.analysis.learningLoop.memoryCount, 1);
+  assert.equal(learnedReport.payload.analysis.learningLoop.journalCount, 1);
+  assert.ok(learnedReport.payload.analysis.learningLoop.signals.some((signal) => signal.type === "memory" && /management response/i.test(signal.body)));
+  assert.ok(learnedReport.payload.analysis.learningLoop.signals.some((signal) => signal.type === "journal" && /Management response/i.test(signal.body)));
+  assert.ok(learnedReport.payload.analysis.nextActions.some((action) => /remembered lesson/i.test(action)));
+  assert.ok(learnedReport.payload.sources.some((source) => source.type === "memory" && source.id === memory.payload.item.id));
+  assert.ok(learnedReport.payload.sources.some((source) => source.type === "journal" && source.id === decisionId));
+
   const collection = await request(baseUrl, "/api/journal", { cookie });
   assert.equal(collection.payload.summary.reviewed, 1);
   assert.equal(collection.payload.summary.averageProcessScore, 82);

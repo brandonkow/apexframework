@@ -54,6 +54,16 @@ The v1.1 report layer makes the engine output easier to act on:
 
 These sections explain the engine. They do not soften hard stops or replace live evidence.
 
+## v1.2 Learning Loop
+
+The v1.2 learning loop lets Apex use private user learning without pretending the model trains itself automatically:
+
+- **Approved memory** may appear in a report when it matches the current deal. Pending or dismissed memory is ignored.
+- **Locked decision-journal entries** may appear when the thesis, counter-thesis, kill rule, result, or lesson matches the current deal.
+- **Reviewed journal lessons** are treated as stronger learning signals than unreviewed locked theses.
+- **Learning signals** may add a next action or sharpen the challenge mode, but they do not change deterministic scores, hard stops, legal boundaries, or required evidence.
+- **Owner knowledge base** remains separate from user memory. Normal users cannot write to the shared Apex framework or owner evidence store.
+
 ## Four Decision Dimensions
 
 - **Property quality**: entry value, rentability, own-stay appeal, management, unit position, tenure, and buyer depth.

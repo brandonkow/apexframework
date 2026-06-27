@@ -389,6 +389,18 @@ function normalizeReportAnalysis(analysis = {}) {
       status: ["done", "warning", "missing", "danger"].includes(item?.status) ? item.status : "missing",
       action: reportText(item?.action, 300)
     })),
+    learningLoop: {
+      summary: reportText(analysis?.learningLoop?.summary, 500),
+      memoryCount: Math.max(0, Number(analysis?.learningLoop?.memoryCount || 0)),
+      journalCount: Math.max(0, Number(analysis?.learningLoop?.journalCount || 0)),
+      signals: objectList(analysis?.learningLoop?.signals, 8, (item) => ({
+        type: ["memory", "journal"].includes(item?.type) ? item.type : "memory",
+        id: reportText(item?.id, 100),
+        label: reportText(item?.label, 120),
+        body: reportText(item?.body, 600),
+        action: reportText(item?.action, 300)
+      }))
+    },
     hardStops: reportList(analysis.hardStops),
     recommendationBlockers: reportList(analysis.recommendationBlockers),
     watchouts: reportList(analysis.watchouts),
@@ -2490,6 +2502,10 @@ function dealAnalysisText(analysis) {
   if (analysis.evidenceChecklist?.length) {
     lines.push("", "Evidence checklist", ...analysis.evidenceChecklist.map((item) => `- ${item.label}: ${item.status}. ${item.action}`));
   }
+  if (analysis.learningLoop?.signals?.length) {
+    lines.push("", "Learning loop", `- ${analysis.learningLoop.summary}`);
+    lines.push(...analysis.learningLoop.signals.map((item) => `- ${item.label}: ${item.body} ${item.action}`));
+  }
   if (analysis.scenarios?.length) {
     lines.push("", "Downside scenarios", ...analysis.scenarios.map((item) => `- ${item.label}: ${item.value} per month. ${item.assumption}.`));
   }
@@ -2719,6 +2735,56 @@ function journalForPrompt(journal = []) {
     `  Kill criterion: ${decision.prePurchase.killCriterion}`,
     decision.outcome.reviewedAt ? `  Outcome: ${decision.outcome.result}. Lesson: ${decision.outcome.lesson}. Skill signal: ${journalSkillSignal(decision)}` : "  Outcome not reviewed yet."
   ].join("\n")).join("\n");
+}
+
+function buildDealLearningLoop(memories = [], journal = []) {
+  const memorySignals = memories.slice(0, 4).map((memory) => ({
+    type: "memory",
+    id: memory.id,
+    label: `Memory: ${memory.category}`,
+    body: memory.content,
+    action: "Use this as a personal constraint or preference, not as market proof."
+  }));
+  const journalSignals = journal.slice(0, 4).map((decision) => {
+    const reviewed = Boolean(decision.outcome?.reviewedAt);
+    const lesson = reviewed && decision.outcome.lesson ? decision.outcome.lesson : decision.prePurchase.counterThesis || decision.prePurchase.killCriterion || decision.prePurchase.thesis;
+    return {
+      type: "journal",
+      id: decision.id,
+      label: reviewed ? `Reviewed lesson: ${decision.subject}` : `Locked thesis: ${decision.subject}`,
+      body: lesson,
+      action: reviewed
+        ? `Skill signal: ${journalSkillSignal(decision)}. Compare this deal against that lesson.`
+        : "Outcome is not reviewed yet; treat this as a prior thesis, not proven skill."
+    };
+  });
+  const signals = [...memorySignals, ...journalSignals].slice(0, 8);
+  return {
+    summary: signals.length
+      ? `${memorySignals.length} approved memor${memorySignals.length === 1 ? "y" : "ies"} and ${journalSignals.length} decision-journal ${journalSignals.length === 1 ? "lesson" : "lessons"} matched this report.`
+      : "No approved memory or locked decision-journal lesson matched this report.",
+    memoryCount: memorySignals.length,
+    journalCount: journalSignals.length,
+    signals
+  };
+}
+
+function applyLearningLoopToAnalysis(analysis, learningLoop) {
+  analysis.learningLoop = learningLoop;
+  if (!learningLoop.signals.length) return analysis;
+  const first = learningLoop.signals[0];
+  const existing = analysis.nextActions || [];
+  analysis.nextActions = uniqueText([
+    `Check remembered lesson: ${first.body}`,
+    ...existing
+  ], 5);
+  if (analysis.challengeMode?.message) {
+    analysis.challengeMode = {
+      ...analysis.challengeMode,
+      message: `${analysis.challengeMode.message} Also compare this against your recorded learning: ${first.body}`
+    };
+  }
+  return analysis;
 }
 
 async function generateJarvisLlmAnswer({
@@ -3746,6 +3812,10 @@ async function router(req, res) {
     const subject = dealCard.projectName || dealCard.area || "property deal";
     if (!session.messages.length || defaultSessionTitle(session.title)) session.title = `Deal analysis: ${subject}`;
     const analysis = analyzeSevenStageDeal(dealCard, financialProfile);
+    const learningQuery = `${subject} ${JSON.stringify(dealCard)} ${JSON.stringify(financialProfile)} ${analysis.counterThesis} ${analysis.challengeMode?.message || ""}`;
+    const dealMemories = selectRelevantUserMemories(approvedUserMemories(actor.user), learningQuery);
+    const dealJournal = selectRelevantUserJournal(lockedUserJournal(actor.user), learningQuery);
+    applyLearningLoopToAnalysis(analysis, buildDealLearningLoop(dealMemories, dealJournal));
     analysis.marketIntelligence = selectMarketIntelligence(`${subject} ${JSON.stringify(dealCard)}`, db.knowledge, 8);
     const marketStage = analysis.stages.find((stage) => stage.number === 6);
     if (marketStage && analysis.marketIntelligence.observations.length) {
@@ -3753,16 +3823,26 @@ async function router(req, res) {
     }
     const sources = [
       ...marketSources(analysis.marketIntelligence),
+      ...dealMemories.map((memory) => ({
+        id: memory.id,
+        title: memory.content,
+        type: "memory",
+        preview: memory.category,
+        score: memory.score
+      })),
+      ...dealJournal.map((decision) => ({
+        id: decision.id,
+        title: decision.subject,
+        type: "journal",
+        preview: conciseText(decision.outcome.lesson || decision.prePurchase.thesis, 160),
+        score: decision.score
+      })),
       ...await dealAnalysisSources()
     ].slice(0, 12);
     let mode = "framework";
     let completion = null;
     if (llmEnabled()) {
       try {
-        const dealMemories = selectRelevantUserMemories(
-          approvedUserMemories(actor.user),
-          `${subject} ${JSON.stringify(dealCard)} ${JSON.stringify(financialProfile)}`
-        );
         completion = await generateDealLlmCommentary(analysis, dealCard, financialProfile, dealMemories);
         analysis.aiCommentary = completion.text;
         analysis.voiceSummary = analysis.aiCommentary;

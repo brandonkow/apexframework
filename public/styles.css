@@ -2363,6 +2363,90 @@ button {
   line-height: 1.35;
 }
 
+.analysisLearning {
+  display: grid;
+  gap: 7px;
+  margin-top: 12px;
+  border: 1px solid rgba(103, 229, 255, 0.12);
+  border-radius: 8px;
+  padding: 9px;
+  background: linear-gradient(135deg, rgba(112, 255, 191, 0.055), transparent 45%), rgba(0, 11, 18, 0.34);
+}
+
+.analysisLearning header span {
+  display: grid;
+  gap: 3px;
+}
+
+.analysisLearning small {
+  color: #67b7c7;
+  font-size: 0.5rem;
+  font-weight: 500;
+  letter-spacing: 0.17em;
+}
+
+.analysisLearning header b {
+  color: #a8d0d8;
+  font-size: 0.62rem;
+  font-weight: 500;
+}
+
+.analysisLearning > div {
+  display: grid;
+  gap: 6px;
+}
+
+.learningSignal {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  border: 1px solid rgba(103, 229, 255, 0.08);
+  border-radius: 8px;
+  padding: 8px;
+  background: rgba(0, 10, 17, 0.28);
+}
+
+.learningSignal i {
+  align-self: start;
+  border: 1px solid rgba(103, 229, 255, 0.16);
+  border-radius: 999px;
+  padding: 3px 6px;
+  color: #7bdca9;
+  font-size: 0.42rem;
+  font-style: normal;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.learningSignal.journal i {
+  color: #d7b970;
+  border-color: rgba(255, 210, 116, 0.26);
+}
+
+.learningSignal span {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.learningSignal b {
+  color: #a8d0d8;
+  font-size: 0.58rem;
+  font-weight: 500;
+}
+
+.learningSignal small,
+.learningSignal em {
+  color: #638f99;
+  font-size: 0.5rem;
+  font-style: normal;
+  line-height: 1.35;
+}
+
+.learningSignal em {
+  color: #7faab3;
+}
+
 .analysisActions {
   display: flex;
   justify-content: flex-end;
@@ -3204,6 +3288,10 @@ button {
   .analysisReadiness ul,
   .evidenceItem b,
   .evidenceItem small,
+  .analysisLearning header b,
+  .learningSignal b,
+  .learningSignal small,
+  .learningSignal em,
   .analysisSection ul,
   .analysisCounter p {
     font-size: 0.72rem;
@@ -3372,6 +3460,10 @@ button {
   body.printMode .analysisReadiness li,
   body.printMode .evidenceItem b,
   body.printMode .evidenceItem small,
+  body.printMode .analysisLearning header b,
+  body.printMode .learningSignal b,
+  body.printMode .learningSignal small,
+  body.printMode .learningSignal em,
   body.printMode .analysisDimension b,
   body.printMode .analysisMetric b,
   body.printMode .analysisStage b,
@@ -3388,6 +3480,8 @@ button {
   body.printMode .analysisReadiness,
   body.printMode .analysisEvidence,
   body.printMode .evidenceItem,
+  body.printMode .analysisLearning,
+  body.printMode .learningSignal,
   body.printMode .analysisSection {
     border-color: #c8d9de;
     background: #f7fafb;
@@ -3399,6 +3493,7 @@ button {
   body.printMode .analysisMarketPulse,
   body.printMode .analysisOverview,
   body.printMode .analysisEvidence,
+  body.printMode .analysisLearning,
   body.printMode .analysisDetails,
   body.printMode .analysisCounter {
     break-inside: avoid;
