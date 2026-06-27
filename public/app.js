@@ -1016,6 +1016,8 @@ function addDealAnalysis(analysis, sources = [], intelligence = {}) {
       </section>
     ` : ""}
     <div class="analysisMeta">
+      <span>ENGINE <b>${escapeHtml(analysis.engineVersion || "Apex v1.0")}</b></span>
+      <span>REASONING <b>${escapeHtml(analysis.reasoningMode || (analysis.aiCommentary ? "Framework + AI" : "Framework only"))}</b></span>
       <span>DECISION SCORE <b>${escapeHtml(analysis.averageScore)}/100</b></span>
       <span>INPUT COMPLETE <b>${escapeHtml(analysis.completeness)}%</b></span>
     </div>
@@ -1025,7 +1027,9 @@ function addDealAnalysis(analysis, sources = [], intelligence = {}) {
     ${marketIntelligenceMarkup(analysis.marketIntelligence)}
     <ol class="analysisStages">${stageMarkup}</ol>
     <div class="analysisDetails">
+      ${analysisSection("Challenge mode", analysis.challengeMode?.message ? [analysis.challengeMode.message] : [], analysis.challengeMode?.level === "hard" ? "danger" : "warning")}
       ${analysisSection("Hard stops", analysis.hardStops, "danger")}
+      ${analysisSection("Decision blockers", analysis.recommendationBlockers, "warning")}
       ${analysisSection("Watch-outs", analysis.watchouts, "warning")}
       ${analysisSection("Missing evidence", analysis.missingEvidence)}
       ${analysisSection("Check next", analysis.nextActions, "actions")}

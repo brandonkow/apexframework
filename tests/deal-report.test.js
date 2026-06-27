@@ -114,6 +114,45 @@ test("deal report separates evidence, suitability, exit risk, and downside scena
   assert.ok(result.payload.analysis.scenarios[3].monthlyCashFlow < result.payload.analysis.scenarios[0].monthlyCashFlow);
   assert.ok(result.payload.analysis.metrics.some((metric) => metric.label === "Operating yield"));
   assert.equal(result.payload.analysis.verdict, "SHORTLIST");
+  assert.equal(result.payload.analysis.engineVersion, "Apex v1.0");
+  assert.equal(result.payload.analysis.reasoningMode, "Framework only");
+  assert.deepEqual(result.payload.analysis.recommendationBlockers, []);
+  assert.equal(result.payload.analysis.challengeMode.label, "Mentor challenge");
+
+  const provisional = await post(baseUrl, "/api/jarvis/analyze-deal", {
+    sessionId: session.payload.session.id,
+    dealCard: { ...dealCard, siteVisit: "Not yet" },
+    financialProfile
+  });
+  assert.equal(provisional.payload.analysis.verdict, "INVESTIGATE");
+  assert.ok(provisional.payload.analysis.confidence <= 64);
+  assert.ok(provisional.payload.analysis.recommendationBlockers.some((message) => /site visit/i.test(message)));
+  assert.equal(provisional.payload.analysis.challengeMode.label, "Evidence blocker");
+
+  const boundaryBreach = await post(baseUrl, "/api/jarvis/analyze-deal", {
+    sessionId: session.payload.session.id,
+    dealCard: {
+      ...dealCard,
+      mainConcern: "Marked-up consideration with cash back through a bulk purchase arrangement."
+    },
+    financialProfile
+  });
+  assert.equal(boundaryBreach.payload.analysis.verdict, "REJECT");
+  assert.ok(boundaryBreach.payload.analysis.hardStops.some((message) => /Marked-up/i.test(message)));
+  assert.ok(boundaryBreach.payload.analysis.hardStops.some((message) => /bulk purchase/i.test(message)));
+  assert.equal(boundaryBreach.payload.analysis.challengeMode.label, "Refuse validation");
+
+  const forcedFinancing = await post(baseUrl, "/api/jarvis/analyze-deal", {
+    sessionId: session.payload.session.id,
+    dealCard,
+    financialProfile: {
+      ...financialProfile,
+      financialConcern: "Loan rejected by many banks and CTOS looks weak."
+    }
+  });
+  assert.equal(forcedFinancing.payload.analysis.verdict, "PAUSE");
+  assert.ok(forcedFinancing.payload.analysis.hardStops.some((message) => /loan rejection/i.test(message)));
+  assert.equal(forcedFinancing.payload.analysis.challengeMode.label, "Profile or holding pause");
 
   const unsafe = await post(baseUrl, "/api/jarvis/analyze-deal", {
     sessionId: session.payload.session.id,

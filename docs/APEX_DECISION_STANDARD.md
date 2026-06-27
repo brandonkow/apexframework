@@ -2,6 +2,12 @@
 
 This document is the product-facing decision contract. It converts the founder framework into a repeatable analysis that can be used by different investor profiles without pretending every founder preference is universal.
 
+## Apex v1.0 Engine
+
+The v1.0 engine is the deterministic decision layer behind Apex Analytic. It converts the framework into executable gates, scores, warnings, and challenge prompts before any language model commentary is added.
+
+Language-model output may humanize the explanation, but it must not change the verdict, score, hard stop, blocker, metric, or scenario produced by the engine. Every report should make the reasoning source visible as either **Framework only** or **Framework + AI**.
+
 ## Decision Order
 
 Every deal is evaluated in this order:
@@ -14,6 +20,27 @@ Every deal is evaluated in this order:
 6. Return a provisional verdict: reject, pause, investigate, or shortlist.
 
 A hard stop cannot be averaged away by attractive features elsewhere.
+
+## Hard Stops, Pauses, And Blockers
+
+The v1.0 engine separates three types of negative findings:
+
+- **Hard rejection**: Apex should not validate the deal structure. Examples include marked-up consideration, cash-back arrangements intended to mislead financing, opaque bulk-purchase structures, title/caveat/seller-authority risk, fully office-commercial title, weak management/build quality, or landed property that violates the freehold mandate.
+- **Pause**: the property may still deserve investigation, but the user profile or holding structure is not ready. Examples include insufficient cash reserve, 80% danger-zone DSR, declared cash unable to cover acquisition outlay, repeated loan rejection, or rental that cannot cover instalment and recurring charges.
+- **Decision blocker**: the deal is not rejected, but Apex cannot shortlist it yet. Examples include missing conservative value proof, missing loan instalment, weak rental evidence, no completed site visit, unclear legal checks, incomplete financial profile, unclear exit buyer pool, or nearby similar new supply without absorption proof.
+
+If decision blockers exist, confidence is capped at 64% and the verdict cannot become **SHORTLIST**.
+
+## Challenge Mode
+
+Each report must challenge the user in a calm mentor-like tone:
+
+- **Refuse validation** when the structure is outside Apex boundaries.
+- **Profile or holding pause** when the investor is not ready.
+- **Evidence blocker** when missing proof blocks a shortlist decision.
+- **Emotional chase warning** when the user can afford the property but the return does not support the investment case.
+- **Supply challenge** when nearby substitute projects could weaken future rent or resale.
+- **Mentor challenge** when the deal is otherwise clean but still needs one strongest proof point.
 
 ## Four Decision Dimensions
 

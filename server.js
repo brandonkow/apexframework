@@ -337,6 +337,8 @@ function normalizeReportMarketIntelligence(market = {}) {
 function normalizeReportAnalysis(analysis = {}) {
   const objectList = (items, limit, mapper) => Array.isArray(items) ? items.slice(0, limit).map(mapper) : [];
   return {
+    engineVersion: reportText(analysis.engineVersion || "Apex v1.0", 40),
+    reasoningMode: reportText(analysis.reasoningMode || "Framework only", 40),
     verdict: reportText(analysis.verdict, 40),
     summary: reportText(analysis.summary, 600),
     confidence: Math.max(0, Math.min(100, Number(analysis.confidence || 0))),
@@ -366,7 +368,13 @@ function normalizeReportAnalysis(analysis = {}) {
       status: ["pass", "watch", "risk", "incomplete"].includes(item?.status) ? item.status : "incomplete",
       summary: reportText(item?.summary, 500)
     })),
+    challengeMode: {
+      level: ["hard", "missing", "soft"].includes(analysis?.challengeMode?.level) ? analysis.challengeMode.level : "soft",
+      label: reportText(analysis?.challengeMode?.label, 80),
+      message: reportText(analysis?.challengeMode?.message, 800)
+    },
     hardStops: reportList(analysis.hardStops),
+    recommendationBlockers: reportList(analysis.recommendationBlockers),
     watchouts: reportList(analysis.watchouts),
     missingEvidence: reportList(analysis.missingEvidence),
     nextActions: reportList(analysis.nextActions),
@@ -1867,6 +1875,19 @@ function hasStatedRisk(value) {
   return !/^(no|none|nil|n\/a|nothing|not currently|no concern|no upcoming)\b/.test(clean);
 }
 
+function signalText(...values) {
+  return values.flat().map((value) => String(value || "").toLowerCase()).join(" ");
+}
+
+function hasSignal(text, patterns) {
+  return patterns.some((pattern) => pattern.test(text));
+}
+
+function pushUnique(list, value) {
+  const clean = String(value || "").trim();
+  if (clean && !list.includes(clean)) list.push(clean);
+}
+
 function formatRinggit(value) {
   if (!Number.isFinite(value)) return "Not available";
   const sign = value < 0 ? "-" : "";
@@ -1902,6 +1923,9 @@ function analyzeSevenStageDeal(rawDealCard = {}, rawFinancialProfile = {}) {
   const propertyType = String(dealCard.propertyType || "").toLowerCase();
   const goal = String(financialProfile.investmentGoal || "").toLowerCase();
   const tenure = String(dealCard.tenure || "").toLowerCase();
+  const dealNarrative = signalText(dealCard.mainConcern, dealCard.investmentThesis, dealCard.nearbySupply, dealCard.killCriterion);
+  const profileNarrative = signalText(financialProfile.financialConcern, financialProfile.nearTermCommitment);
+  const allNarrative = signalText(dealNarrative, profileNarrative, tenure, dealCard.legalCheck);
   const isHighRise = /(condo|apartment|flat|serviced|high.?rise)/.test(propertyType);
   const isLanded = /(landed|terrace|semi|bungalow|townhouse)/.test(propertyType);
   const isAppreciationGoal = goal.includes("appreciation");
@@ -1915,11 +1939,14 @@ function analyzeSevenStageDeal(rawDealCard = {}, rawFinancialProfile = {}) {
   const cashAfterPurchase = cashAvailableProvided && cashOutlayProvided ? cashAvailable - cashOutlay : null;
   const hardStops = [];
   const watchouts = [];
+  const recommendationBlockers = [];
   const missingEvidence = [];
 
   const addHardStop = (stage, message, action = "reject") => {
     if (!hardStops.some((item) => item.message === message)) hardStops.push({ stage, message, action });
   };
+  const addWatchout = (message) => pushUnique(watchouts, message);
+  const addBlocker = (message) => pushUnique(recommendationBlockers, message);
 
   if (!fairValue) missingEvidence.push("Recent completed subsale or auction evidence for conservative value");
   if (!rent) missingEvidence.push("Achieved rent and tenant-demand evidence from active local agents");
@@ -1932,6 +1959,56 @@ function analyzeSevenStageDeal(rawDealCard = {}, rawFinancialProfile = {}) {
   if (dealCard.legalCheck !== "Clear") missingEvidence.push("Clear title, caveat, restriction, and legal checks");
   if (!dealCard.investmentThesis) missingEvidence.push("A written causal investment thesis");
   if (!dealCard.killCriterion) missingEvidence.push("An observable walk-away criterion");
+
+  if (!dealCard.projectName && !dealCard.area) addBlocker("Exact project or micro-area is missing.");
+  if (!fairValue) addBlocker("Conservative value is not supported by completed transaction or auction evidence.");
+  if (!installment) addBlocker("Loan instalment is missing, so holding power cannot be tested.");
+  if (!dealCard.comparableTransactions || dealCard.comparableTransactions === "None") addBlocker("Completed comparable transactions are missing.");
+  if (dealCard.rentEvidence === "None" || dealCard.rentEvidence === "Listing only" || !dealCard.rentEvidence) addBlocker("Rental evidence is not strong enough for a rental-led recommendation.");
+  if (dealCard.siteVisit !== "Completed") addBlocker("Site visit is not completed; Apex can only give a provisional view.");
+  if (dealCard.legalCheck !== "Clear") addBlocker("Title, caveat, restriction, consent, and seller-authority checks are not clear.");
+  if (!income || !financialProfile.cashReserveMonths) addBlocker("Financial profile is incomplete, so investor suitability cannot be trusted.");
+  if (!dealCard.exitBuyerPool || dealCard.exitBuyerPool === "Unclear") addBlocker("Exit buyer pool is unclear.");
+
+  const markedUpRisk = hasSignal(allNarrative, [
+    /marked[-\s]?up/,
+    /mark[-\s]?up/,
+    /cash\s*back/,
+    /artificial consideration/,
+    /undisclosed side/,
+    /mislead(ing)?\s+(the\s+)?lender/,
+    /fake document/,
+    /side letter/
+  ]);
+  const bulkRisk = hasSignal(allNarrative, [/bulk purchase/, /bulk deal/, /bulk buyer/, /bulk group/]);
+  const documentRisk = hasSignal(allNarrative, [
+    /caveat/,
+    /title dispute/,
+    /court order/,
+    /prohibitory order/,
+    /not registered proprietor/,
+    /seller authority/,
+    /probate/,
+    /bankrupt/,
+    /bankruptcy/,
+    /winding[-\s]?up/,
+    /forged/,
+    /direct payment/,
+    /stakeholder/
+  ]);
+  const loanRejectionRisk = hasSignal(profileNarrative, [/loan reject/, /rejected by.*bank/, /many banks/, /bank.*reject/, /ccris/, /ctos/]);
+  const crowdWithoutConversion = hasSignal(dealNarrative, [/sales gallery/, /crowd/, /many viewer/, /many viewing/])
+    && !hasSignal(dealNarrative, [/spa/, /signed/, /loan approval/, /absorption/, /converted/]);
+  const fakeListingSignal = hasSignal(dealNarrative, [/fake listing/, /different price/, /portal.*price/]);
+  const developerDiscountSignal = hasSignal(dealNarrative, [/developer.*discount/, /public discount/, /clear inventory/, /rebate/]);
+
+  if (markedUpRisk) addHardStop(3, "Marked-up consideration, cash-back, or lender-misleading structure is outside Apex-approved deal boundaries.");
+  if (bulkRisk) addHardStop(3, "Opaque bulk purchase structure should not be validated for a normal retail investor.");
+  if (documentRisk) addHardStop(1, "Document, title, caveat, seller-authority, or fund-flow risk must be cleared by the lawyer before commitment.");
+  if (loanRejectionRisk) addHardStop(2, "Repeated loan rejection or weak credit documentation suggests the buyer is forcing the deal.", "pause");
+  if (crowdWithoutConversion) addWatchout("Sales-gallery crowd or viewing interest is not proof of real absorption.");
+  if (fakeListingSignal) addWatchout("Fake or inconsistent portal listings suggest agent desperation or weak information quality.");
+  if (developerDiscountSignal) addWatchout("Public developer discount may signal inventory pressure; verify net effective price and unsold stock.");
 
   let propertyScore = 50;
   if (grossYield !== null) propertyScore += grossYield >= 6 ? 10 : -12;
@@ -1949,12 +2026,12 @@ function analyzeSevenStageDeal(rawDealCard = {}, rawFinancialProfile = {}) {
   }
   if (dealCard.unitPosition === "Unfavourable") {
     propertyScore -= 18;
-    watchouts.push("The unit position may create a permanent rental and resale discount.");
+    addWatchout("The unit position may create a permanent rental and resale discount.");
   }
   if (dealCard.exitBuyerPool === "Own-stay and investor") propertyScore += 10;
   if (dealCard.exitBuyerPool === "Investor mainly" || dealCard.exitBuyerPool === "Unclear") {
     propertyScore -= 12;
-    watchouts.push("The exit buyer pool may be too narrow or investor-dependent.");
+    addWatchout("The exit buyer pool may be too narrow or investor-dependent.");
   }
   if (propertyAge > 10 && isHighRise) {
     propertyScore -= 20;
@@ -1976,7 +2053,7 @@ function analyzeSevenStageDeal(rawDealCard = {}, rawFinancialProfile = {}) {
     addHardStop(1, "A title or legal issue has been identified and must be resolved before proceeding.");
   }
   if (discountToFairValue !== null && discountToFairValue < 0) {
-    watchouts.push("The asking price is above the stated conservative fair value.");
+    addWatchout("The asking price is above the stated conservative fair value.");
   }
   propertyScore = clampScore(propertyScore);
   const propertyCoreComplete = Boolean(dealCard.area && dealCard.propertyType && price);
@@ -1992,7 +2069,7 @@ function analyzeSevenStageDeal(rawDealCard = {}, rawFinancialProfile = {}) {
     if (postDealDsr < 50) suitabilityScore += 20;
     else if (postDealDsr < 80) {
       suitabilityScore -= 10;
-      watchouts.push("Post-deal debt service would consume a large share of declared income.");
+      addWatchout("Post-deal debt service would consume a large share of declared income.");
     } else {
       suitabilityScore -= 35;
       addHardStop(2, "Estimated post-deal DSR is in the 80% danger zone.", "pause");
@@ -2004,7 +2081,7 @@ function analyzeSevenStageDeal(rawDealCard = {}, rawFinancialProfile = {}) {
   }
   if (hasStatedRisk(financialProfile.nearTermCommitment)) {
     suitabilityScore -= 15;
-    watchouts.push("A near-term life commitment may compete with the capital required for this property.");
+    addWatchout("A near-term life commitment may compete with the capital required for this property.");
   }
   suitabilityScore = clampScore(suitabilityScore);
 
@@ -2021,7 +2098,7 @@ function analyzeSevenStageDeal(rawDealCard = {}, rawFinancialProfile = {}) {
     if (holdingCashFlow >= 0) holdingScore += 30;
     else if (isLanded && isAppreciationGoal && Math.abs(holdingCashFlow) <= 450) {
       holdingScore += 5;
-      watchouts.push("The landed appreciation case has tolerable negative carry only if the user can hold it safely.");
+      addWatchout("The landed appreciation case has tolerable negative carry only if the user can hold it safely.");
     } else {
       holdingScore -= 35;
       addHardStop(4, "Rent does not provide acceptable coverage for the instalment and recurring charges.", "pause");
@@ -2036,7 +2113,7 @@ function analyzeSevenStageDeal(rawDealCard = {}, rawFinancialProfile = {}) {
   let portfolioScore = 55;
   if (existingProperties > 5) {
     portfolioScore -= 20;
-    watchouts.push("More than five existing properties requires a concentration and correlated-risk review.");
+    addWatchout("More than five existing properties requires a concentration and correlated-risk review.");
   } else if (financialProfile.existingProperties) {
     portfolioScore += 5;
   }
@@ -2051,7 +2128,10 @@ function analyzeSevenStageDeal(rawDealCard = {}, rawFinancialProfile = {}) {
   if (supplyKnown && !supplyRisk) marketScore += 15;
   if (supplyRisk) {
     marketScore -= 15;
-    watchouts.push("Nearby supply may compete for the same tenant and future buyer pool.");
+    addWatchout("Nearby supply may compete for the same tenant and future buyer pool.");
+    if (hasSignal(dealNarrative, [/new launch/, /newer/, /similar layout/, /same layout/, /same price/, /within 2\.?5/])) {
+      addBlocker("Nearby similar new supply needs absorption proof before shortlist.");
+    }
   }
   if (dealCard.comparableTransactions === "3 or more") marketScore += 10;
   if (dealCard.rentEvidence === "Signed tenancy or achieved rent" || dealCard.rentEvidence === "Agent-confirmed") marketScore += 10;
@@ -2136,13 +2216,14 @@ function analyzeSevenStageDeal(rawDealCard = {}, rawFinancialProfile = {}) {
   const averageScore = clampScore(
     propertyScore * 0.3 + investorSuitabilityScore * 0.3 + evidenceScore * 0.2 + marketExitScore * 0.2
   );
-  const confidence = Math.min(95, Math.round(evidenceScore * 0.82 + completeness * 0.13));
+  let confidence = Math.min(95, Math.round(evidenceScore * 0.82 + completeness * 0.13));
+  if (recommendationBlockers.length) confidence = Math.min(confidence, 64);
   const rejectStops = hardStops.filter((item) => item.action === "reject");
   const pauseStops = hardStops.filter((item) => item.action === "pause");
   let verdict = "INVESTIGATE";
   if (rejectStops.length) verdict = "REJECT";
   else if (pauseStops.length) verdict = "PAUSE";
-  else if (averageScore >= 74 && confidence >= 65 && !stages.some((item) => item.status === "risk")) verdict = "SHORTLIST";
+  else if (averageScore >= 74 && confidence >= 65 && !recommendationBlockers.length && !stages.some((item) => item.status === "risk")) verdict = "SHORTLIST";
 
   let counterThesis = "The property may look affordable or rentable but still fail to attract a broad future buyer pool in a stagnant resale market.";
   if (supplyRisk) counterThesis = "Newer substitute supply may reduce both achieved rent and future resale pricing before this thesis matures.";
@@ -2151,8 +2232,10 @@ function analyzeSevenStageDeal(rawDealCard = {}, rawFinancialProfile = {}) {
 
   const hardStopText = hardStops.map((item) => `Stage ${item.stage}: ${item.message}`);
   const missing = uniqueText(missingEvidence, 7);
+  const blockers = uniqueText(recommendationBlockers, 8);
   const actions = [];
   if (hardStops.length) actions.push("Resolve every hard stop before paying or committing further capital.");
+  if (blockers.length) actions.push(`Clear decision blocker: ${blockers[0]}.`);
   actions.push(...missing.slice(0, 3).map((item) => `Obtain: ${item}.`));
   if (dealCard.unitPosition !== "Good" || !dealCard.managementQuality) actions.push("Complete a site visit focused on unit position, management, residents, noise, and common areas.");
 
@@ -2162,8 +2245,52 @@ function analyzeSevenStageDeal(rawDealCard = {}, rawFinancialProfile = {}) {
       ? "The property may be workable, but the investor or holding structure is not ready."
       : verdict === "SHORTLIST"
         ? "The deal is strong enough for deeper verification, not automatic purchase."
-        : "There is not enough verified evidence for a confident decision yet.";
-  const primaryRisk = hardStopText[0] || watchouts[0] || missing[0] || counterThesis;
+        : blockers.length
+          ? "The deal is not blocked forever, but missing proof could still change the verdict."
+          : "There is not enough verified evidence for a confident decision yet.";
+  const primaryRisk = hardStopText[0] || blockers[0] || watchouts[0] || missing[0] || counterThesis;
+  let challengeMode = {
+    level: "soft",
+    label: "Mentor challenge",
+    message: "Before this becomes a decision, prove why a future tenant or buyer would choose this property over the closest substitute."
+  };
+  if (rejectStops.length) {
+    challengeMode = {
+      level: "hard",
+      label: "Refuse validation",
+      message: "I cannot support this deal as structured. If you proceed, treat it as your own override and get independent legal or financing advice before paying, signing, or committing further."
+    };
+  } else if (pauseStops.length) {
+    challengeMode = {
+      level: "hard",
+      label: "Profile or holding pause",
+      message: "The property may still be interesting, but your financing, reserve, or holding power is not ready enough for Apex to support moving ahead."
+    };
+  } else if (blockers.length) {
+    challengeMode = {
+      level: "missing",
+      label: "Evidence blocker",
+      message: `I will not shortlist this yet. Clear this first: ${blockers[0]}`
+    };
+  } else if (holdingCashFlow !== null && holdingCashFlow < 0 && !isAppreciationGoal) {
+    challengeMode = {
+      level: "hard",
+      label: "Emotional chase warning",
+      message: "The return is not carrying the debt. If you still like it, separate your emotion from the investment case and show the missing upside evidence."
+    };
+  } else if (supplyRisk) {
+    challengeMode = {
+      level: "soft",
+      label: "Can afford, but challenge supply",
+      message: "You may be able to buy this, but nearby substitute supply can still make it a poor purchase. Prove why this unit defends rent and resale against newer options."
+    };
+  } else if (dealCard.siteVisit !== "Completed") {
+    challengeMode = {
+      level: "missing",
+      label: "Quality not verified",
+      message: "The numbers may look fine, but property quality is still only assumed until site visit or post-VP evidence proves the lived experience."
+    };
+  }
   const voiceSummary = `My current verdict is ${verdict.toLowerCase()}. ${verdictSummary} The main issue is ${primaryRisk}`;
 
   const scenarioInputsReady = Boolean(rent && installment);
@@ -2196,6 +2323,8 @@ function analyzeSevenStageDeal(rawDealCard = {}, rawFinancialProfile = {}) {
   })) : [];
 
   return {
+    engineVersion: "Apex v1.0",
+    reasoningMode: "Framework only",
     verdict,
     summary: verdictSummary,
     confidence,
@@ -2214,8 +2343,10 @@ function analyzeSevenStageDeal(rawDealCard = {}, rawFinancialProfile = {}) {
     stages,
     dimensions,
     scenarios,
+    challengeMode,
     hardStops: hardStopText,
-    watchouts: uniqueText(watchouts, 6),
+    recommendationBlockers: blockers,
+    watchouts: uniqueText(watchouts, 8),
     missingEvidence: missing,
     nextActions: uniqueText(actions, 5),
     context: { dealCard, financialProfile }
@@ -2241,7 +2372,9 @@ function dealAnalysisText(analysis) {
     lines.push(`- Freshness: ${analysis.marketIntelligence.summary.warning}`);
   }
   lines.push("", "Seven-stage read", ...analysis.stages.map((item) => `- Stage ${item.number}, ${item.name}: ${item.status.toUpperCase()} (${item.score}/100). ${item.summary}`));
+  if (analysis.challengeMode?.message) lines.push("", `Challenge mode: ${analysis.challengeMode.label || "Mentor challenge"}`, `- ${analysis.challengeMode.message}`);
   if (analysis.hardStops.length) lines.push("", "Hard stops", ...analysis.hardStops.map((item) => `- ${item}`));
+  if (analysis.recommendationBlockers?.length) lines.push("", "Decision blockers", ...analysis.recommendationBlockers.map((item) => `- ${item}`));
   if (analysis.watchouts.length) lines.push("", "Watch-outs", ...analysis.watchouts.map((item) => `- ${item}`));
   lines.push("", "Strongest counter-thesis", `- ${analysis.counterThesis}`);
   if (analysis.missingEvidence.length) lines.push("", "Missing evidence", ...analysis.missingEvidence.map((item) => `- ${item}`));
@@ -2257,7 +2390,12 @@ async function dealAnalysisSources() {
     "holding-shortfall-vacancy-rule",
     "portfolio-next-property-gate",
     "market-crisis-buying-rule",
-    "journal-process-outcome-luck"
+    "journal-process-outcome-luck",
+    "execution-compliance-markup-bulk-boundary",
+    "execution-document-stop-title-risk",
+    "execution-ground-sentiment-absorption",
+    "execution-challenge-mode-hard-warning",
+    "execution-challenge-mode-missing-info-memory"
   ]);
   return corpus
     .filter((item) => ids.has(item.id))
@@ -3505,6 +3643,7 @@ async function router(req, res) {
         console.warn(`Deal analysis LLM fallback: ${error.message}`);
       }
     }
+    analysis.reasoningMode = mode === "llm" ? "Framework + AI" : "Framework only";
     const now = new Date().toISOString();
     session.messages.push({
       id: randomUUID(),
