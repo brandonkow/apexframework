@@ -2541,6 +2541,117 @@ button {
   line-height: 1.35;
 }
 
+.analysisStress {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  border: 1px solid rgba(103, 229, 255, 0.12);
+  border-left: 2px solid #70e6b3;
+  border-radius: 8px;
+  padding: 9px;
+  background: linear-gradient(135deg, rgba(112, 255, 191, 0.055), transparent 48%), rgba(0, 11, 18, 0.34);
+}
+
+.analysisStress.pressure {
+  border-left-color: #d0ad69;
+  background: linear-gradient(135deg, rgba(255, 210, 116, 0.06), transparent 48%), rgba(0, 11, 18, 0.34);
+}
+
+.analysisStress.fragile {
+  border-left-color: #e68e8e;
+  background: linear-gradient(135deg, rgba(255, 126, 126, 0.055), transparent 48%), rgba(0, 11, 18, 0.34);
+}
+
+.analysisStress header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: start;
+}
+
+.analysisStress header span {
+  display: grid;
+  gap: 3px;
+}
+
+.analysisStress small,
+.stressReadings small,
+.stressAssumptions small {
+  color: #67b7c7;
+  font-size: 0.5rem;
+  font-weight: 500;
+  letter-spacing: 0.17em;
+}
+
+.analysisStress header b {
+  color: #a8d0d8;
+  font-size: 0.62rem;
+  font-weight: 500;
+}
+
+.analysisStress header em {
+  border: 1px solid rgba(103, 229, 255, 0.18);
+  border-radius: 999px;
+  padding: 4px 7px;
+  color: #7bdca9;
+  font-size: 0.48rem;
+  font-style: normal;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.analysisStress.pressure header em {
+  color: #d7b970;
+  border-color: rgba(255, 210, 116, 0.26);
+}
+
+.analysisStress.fragile header em {
+  color: #ef9999;
+  border-color: rgba(255, 126, 126, 0.3);
+}
+
+.stressReadings,
+.stressAssumptions {
+  display: grid;
+  gap: 6px;
+}
+
+.stressReadings {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.stressAssumptions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.stressReadings span,
+.stressAssumptions span {
+  display: grid;
+  gap: 3px;
+  border: 1px solid rgba(103, 229, 255, 0.08);
+  border-radius: 8px;
+  padding: 8px;
+  background: rgba(0, 10, 17, 0.28);
+}
+
+.stressReadings b,
+.stressAssumptions b,
+.stressAssumptions em {
+  color: #a8d0d8;
+  font-size: 0.58rem;
+  font-style: normal;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.stressAssumptions em {
+  color: #7faab3;
+}
+
+.stressAssumptions .provided small {
+  color: #7bdca9;
+}
+
 .analysisExecution {
   display: grid;
   gap: 8px;
@@ -3551,6 +3662,8 @@ button {
   .analysisScenarios,
   .analysisEvidence > div,
   .analysisDiligence > div,
+  .stressReadings,
+  .stressAssumptions,
   .executionOffer,
   .executionActions,
   .shortlistList {
@@ -3624,6 +3737,10 @@ button {
   .analysisDiligence header b,
   .diligenceTask b,
   .diligenceTask small,
+  .analysisStress header b,
+  .stressReadings b,
+  .stressAssumptions b,
+  .stressAssumptions em,
   .analysisExecution header b,
   .executionOffer b,
   .executionAction b,
@@ -3803,6 +3920,10 @@ button {
   body.printMode .analysisDiligence header b,
   body.printMode .diligenceTask b,
   body.printMode .diligenceTask small,
+  body.printMode .analysisStress header b,
+  body.printMode .stressReadings b,
+  body.printMode .stressAssumptions b,
+  body.printMode .stressAssumptions em,
   body.printMode .analysisExecution header b,
   body.printMode .executionOffer b,
   body.printMode .executionAction b,
@@ -3829,6 +3950,9 @@ button {
   body.printMode .evidenceItem,
   body.printMode .analysisDiligence,
   body.printMode .diligenceTask,
+  body.printMode .analysisStress,
+  body.printMode .stressReadings span,
+  body.printMode .stressAssumptions span,
   body.printMode .analysisExecution,
   body.printMode .executionOffer span,
   body.printMode .executionAction,
@@ -3846,6 +3970,7 @@ button {
   body.printMode .analysisOverview,
   body.printMode .analysisEvidence,
   body.printMode .analysisDiligence,
+  body.printMode .analysisStress,
   body.printMode .analysisExecution,
   body.printMode .analysisLearning,
   body.printMode .analysisDetails,

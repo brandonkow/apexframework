@@ -95,6 +95,17 @@ The v1.5 execution layer converts the report into practical action guardrails:
 - Test agent, banker, lawyer, site visit, management, renovation, tenant-screening, and exit actions separately.
 - Keep execution calibration subordinate to hard stops and blockers. A strong negotiation plan cannot rescue an unsafe legal, financing, title, management, or transaction structure.
 
+## v1.6 Stress Envelope
+
+The v1.6 stress layer makes holding survival more realistic:
+
+- Separate base monthly holding from **true holding**, which includes instalment, maintenance, assessment, quit rent, insurance, tax, and repair reserve where supplied.
+- Add optional Deal card fields for annual assessment or quit rent, annual insurance or tax, monthly repair reserve, furnishing or renovation budget, and vacancy stress months.
+- Label each stress assumption as user-provided or default so the report does not pretend missing data is verified.
+- Run a stressed case with rent down 10 percent, instalment up 10 percent, and vacancy stress across the year.
+- Estimate cash after stress reserves and how many months the remaining cash can survive the stressed monthly shortfall.
+- Treat the stress envelope as a survival check, not a forecast or guarantee.
+
 ## Four Decision Dimensions
 
 - **Property quality**: entry value, rentability, own-stay appeal, management, unit position, tenure, and buyer depth.
@@ -124,7 +135,7 @@ The report currently tests:
 - Installment rising by 10 percent as a financing-cost proxy.
 - Rent falling by 10 percent, installment rising by 10 percent, and one vacant month per year.
 
-These are decision tests rather than forecasts. A later version should allow users to change the assumptions and add repair, assessment, quit rent, insurance, tax, and furnishing reserves.
+These are decision tests rather than forecasts. The v1.6 stress envelope adds the more realistic survival view by including optional repair, assessment, quit rent, insurance, tax, furnishing, renovation, and vacancy reserve assumptions.
 
 ## Resolved Founder Rules
 

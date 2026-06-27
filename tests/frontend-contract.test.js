@@ -32,6 +32,7 @@ test("frontend selectors and stylesheet structure stay valid", async () => {
   assert.match(html, /<form id="chatForm"[\s\S]*?id="analyzeDealBtn"[\s\S]*?<\/form>/, "Deal analysis must remain visible inside the message bar.");
   assert.equal((html.match(/data-context-reset="(?:deal|profile)"/g) || []).length, 2, "Each context card needs its own reset button.");
   assert.match(html, /id="memoryPanel"[\s\S]*?PRIVATE TO YOUR ACCOUNT[\s\S]*?id="memoryList"/, "Signed-in users need a private memory review screen.");
+  assert.match(html, /data-deal-field="annualAssessmentQuitRent"[\s\S]*?data-deal-field="vacancyStressMonths"/, "Deal card needs optional v1.6 stress assumption fields.");
   assert.match(html, /id="shortlistPanel"[\s\S]*?DEAL SHORTLIST[\s\S]*?id="shortlistList"/, "Analysed properties need an inline comparison shortlist.");
   assert.match(html, /id="shortlistSummary"[\s\S]*?id="shortlistList"/, "The shortlist needs a comparison summary before the deal cards.");
   assert.match(html, /id="billingSummary"[\s\S]*?id="billingPlanName"[\s\S]*?id="billingActions"/, "Signed-in accounts need one compact plan and usage surface.");
@@ -52,6 +53,7 @@ test("frontend selectors and stylesheet structure stay valid", async () => {
   assert.match(app, /readinessMarkup\(analysis\.investorReadiness\)/, "Deal reports need an investor readiness summary.");
   assert.match(app, /evidenceChecklistMarkup\(analysis\.evidenceChecklist/, "Deal reports need an evidence checklist.");
   assert.match(app, /dueDiligenceMarkup\(analysis\.dueDiligencePlan\)/, "Deal reports need a due-diligence task pack.");
+  assert.match(app, /stressEnvelopeMarkup\(analysis\.stressEnvelope\)/, "Deal reports need v1.6 stress envelope.");
   assert.match(app, /executionPlanMarkup\(analysis\.executionPlan\)/, "Deal reports need v1.5 execution calibration.");
   assert.match(app, /learningLoopMarkup\(analysis\.learningLoop\)/, "Deal reports need visible private learning signals when available.");
   assert.match(app, /function shortlistRankScore/, "The shortlist must rank deals using an adjusted comparison score.");
@@ -75,6 +77,7 @@ test("frontend selectors and stylesheet structure stay valid", async () => {
   assert.match(styles, /\.analysisOverview[\s\S]*?grid-template-columns:/, "The v1.1 report needs an organized readiness and scorecard overview.");
   assert.match(styles, /\.analysisEvidence[\s\S]*?\.evidenceItem/, "The v1.1 report needs a styled evidence checklist.");
   assert.match(styles, /\.analysisDiligence[\s\S]*?\.diligenceTask/, "The v1.4 report needs a styled due-diligence task pack.");
+  assert.match(styles, /\.analysisStress[\s\S]*?\.stressAssumptions/, "The v1.6 report needs a styled stress envelope.");
   assert.match(styles, /\.analysisExecution[\s\S]*?\.executionAction/, "The v1.5 report needs a styled execution calibration pack.");
   assert.match(styles, /\.analysisLearning[\s\S]*?\.learningSignal/, "The v1.2 report needs styled memory and journal learning signals.");
   assert.match(styles, /\.shortlistCompare[\s\S]*?adjusted|\.shortlistCompare[\s\S]*?grid-template-columns:/, "The v1.3 shortlist needs a styled comparison summary.");

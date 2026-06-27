@@ -361,6 +361,19 @@ function normalizeReportAnalysis(analysis = {}) {
       value: reportText(item?.value, 80),
       status: ["resilient", "pressure", "risk", "unknown"].includes(item?.status) ? item.status : "unknown"
     })),
+    stressEnvelope: {
+      summary: reportText(analysis?.stressEnvelope?.summary, 700),
+      status: ["resilient", "pressure", "fragile", "unknown"].includes(analysis?.stressEnvelope?.status) ? analysis.stressEnvelope.status : "unknown",
+      baseTrueHolding: reportText(analysis?.stressEnvelope?.baseTrueHolding, 80),
+      stressedTrueHolding: reportText(analysis?.stressEnvelope?.stressedTrueHolding, 80),
+      cashAfterStressReserves: reportText(analysis?.stressEnvelope?.cashAfterStressReserves, 80),
+      reserveSurvivalMonths: analysis?.stressEnvelope?.reserveSurvivalMonths === null ? null : Math.max(0, Number(analysis?.stressEnvelope?.reserveSurvivalMonths || 0)),
+      assumptions: objectList(analysis?.stressEnvelope?.assumptions, 10, (item) => ({
+        label: reportText(item?.label, 120),
+        value: reportText(item?.value, 120),
+        source: ["provided", "default"].includes(item?.source) ? item.source : "default"
+      }))
+    },
     stages: objectList(analysis.stages, 7, (item) => ({
       number: Math.max(1, Math.min(7, Number(item?.number || 1))),
       name: reportText(item?.name, 100),
@@ -1811,6 +1824,11 @@ const dealContextLabels = {
   maintenance: "Maintenance",
   estimatedInstallment: "Estimated installment",
   cashOutlay: "Cash outlay",
+  annualAssessmentQuitRent: "Annual assessment and quit rent",
+  annualInsuranceTax: "Annual insurance and tax",
+  monthlyRepairReserve: "Monthly repair reserve",
+  furnishingBudget: "Furnishing and renovation budget",
+  vacancyStressMonths: "Vacancy stress months",
   tenure: "Tenure",
   unitPosition: "Unit position",
   ownStayAppeal: "Own-stay appeal",
@@ -1963,6 +1981,11 @@ function analyzeSevenStageDeal(rawDealCard = {}, rawFinancialProfile = {}) {
   const maintenance = parseAmount(dealCard.maintenance);
   const installment = parseAmount(dealCard.estimatedInstallment);
   const cashOutlay = parseAmount(dealCard.cashOutlay);
+  const annualAssessmentQuitRent = parseAmount(dealCard.annualAssessmentQuitRent);
+  const annualInsuranceTax = parseAmount(dealCard.annualInsuranceTax);
+  const monthlyRepairReserveInput = parseAmount(dealCard.monthlyRepairReserve);
+  const furnishingBudget = parseAmount(dealCard.furnishingBudget);
+  const vacancyStressMonthsInput = parsePlainNumber(dealCard.vacancyStressMonths);
   const income = parseAmount(financialProfile.monthlyIncome);
   const currentDebt = parseAmount(financialProfile.currentDebt);
   const cashAvailable = parseAmount(financialProfile.cashAvailable);
@@ -2693,6 +2716,82 @@ function analyzeSevenStageDeal(rawDealCard = {}, rawFinancialProfile = {}) {
     value: formatRinggit(item.monthlyCashFlow),
     status: stressStatus(item.monthlyCashFlow)
   })) : [];
+  const assessmentMonthly = annualAssessmentQuitRent ? annualAssessmentQuitRent / 12 : 0;
+  const insuranceTaxMonthly = annualInsuranceTax ? annualInsuranceTax / 12 : 0;
+  const defaultRepairReserve = rent ? Math.max(150, rent * 0.05) : 150;
+  const monthlyRepairReserve = monthlyRepairReserveInput || defaultRepairReserve;
+  const vacancyStressMonths = vacancyStressMonthsInput || 2;
+  const trueMonthlyCost = installment + maintenance + assessmentMonthly + insuranceTaxMonthly + monthlyRepairReserve;
+  const baseTrueHolding = rent ? rent - trueMonthlyCost : null;
+  const stressedTrueHolding = rent && installment
+    ? (((rent * 0.9) * Math.max(0, 12 - vacancyStressMonths)) - ((installment * 1.1) * 12) - ((maintenance + assessmentMonthly + insuranceTaxMonthly + monthlyRepairReserve) * 12)) / 12
+    : null;
+  const cashAfterStressReserves = cashAfterPurchase === null ? null : cashAfterPurchase - furnishingBudget;
+  const reserveSurvivalMonths = cashAfterStressReserves !== null && stressedTrueHolding !== null && stressedTrueHolding < 0
+    ? Math.max(0, Math.floor(cashAfterStressReserves / Math.abs(stressedTrueHolding)))
+    : stressedTrueHolding !== null && stressedTrueHolding >= 0
+      ? null
+      : null;
+  const stressStatusLabel = stressedTrueHolding === null
+    ? "unknown"
+    : stressedTrueHolding >= 0
+      ? "resilient"
+      : reserveSurvivalMonths !== null && reserveSurvivalMonths < 6
+        ? "fragile"
+        : stressedTrueHolding >= -500 || (reserveSurvivalMonths !== null && reserveSurvivalMonths >= 12)
+          ? "pressure"
+          : "fragile";
+  const stressEnvelope = {
+    summary: stressedTrueHolding === null
+      ? "Stress envelope needs rent and instalment before Apex can judge true holding survival."
+      : stressStatusLabel === "resilient"
+        ? "The deal still holds above breakeven under rent, vacancy, operating-cost, and instalment stress."
+        : stressStatusLabel === "pressure"
+          ? "The deal survives only with manageable monthly pressure; keep reserve intact and verify all recurring costs."
+          : "The stressed case can drain cash reserve too quickly; do not treat base-case rent coverage as enough.",
+    status: stressStatusLabel,
+    baseTrueHolding: baseTrueHolding === null ? "Need rent proof" : formatRinggit(baseTrueHolding),
+    stressedTrueHolding: stressedTrueHolding === null ? "Need rent and instalment" : formatRinggit(stressedTrueHolding),
+    cashAfterStressReserves: cashAfterStressReserves === null ? "Need cash and outlay" : formatRinggit(cashAfterStressReserves),
+    reserveSurvivalMonths,
+    assumptions: [
+      {
+        label: "Assessment and quit rent",
+        value: formatRinggit(assessmentMonthly),
+        source: annualAssessmentQuitRent ? "provided" : "default"
+      },
+      {
+        label: "Insurance and tax",
+        value: formatRinggit(insuranceTaxMonthly),
+        source: annualInsuranceTax ? "provided" : "default"
+      },
+      {
+        label: "Repair reserve",
+        value: `${formatRinggit(monthlyRepairReserve)}/mo`,
+        source: monthlyRepairReserveInput ? "provided" : "default"
+      },
+      {
+        label: "Furnishing and renovation reserve",
+        value: furnishingBudget ? formatRinggit(furnishingBudget) : "Not provided",
+        source: furnishingBudget ? "provided" : "default"
+      },
+      {
+        label: "Vacancy stress",
+        value: `${money(vacancyStressMonths)} month${vacancyStressMonths === 1 ? "" : "s"}/year`,
+        source: vacancyStressMonthsInput ? "provided" : "default"
+      },
+      {
+        label: "Rent stress",
+        value: "Rent -10%",
+        source: "default"
+      },
+      {
+        label: "Instalment stress",
+        value: "Instalment +10%",
+        source: "default"
+      }
+    ]
+  };
 
   return {
     engineVersion: "Apex v1.0",
@@ -2715,6 +2814,7 @@ function analyzeSevenStageDeal(rawDealCard = {}, rawFinancialProfile = {}) {
     stages,
     dimensions,
     scenarios,
+    stressEnvelope,
     challengeMode,
     decisionFocus,
     investorReadiness,
@@ -2752,6 +2852,20 @@ function dealAnalysisText(analysis) {
   if (analysis.dueDiligencePlan?.tasks?.length) {
     lines.push("", "Due diligence pack", `- ${analysis.dueDiligencePlan.summary}`);
     lines.push(...analysis.dueDiligencePlan.tasks.map((item) => `- ${item.owner} / ${item.priority} / ${item.status}: ${item.label}. ${item.action}`));
+  }
+  if (analysis.stressEnvelope?.summary) {
+    lines.push(
+      "",
+      "Stress envelope",
+      `- ${analysis.stressEnvelope.summary}`,
+      `- Base true holding: ${analysis.stressEnvelope.baseTrueHolding}.`,
+      `- Stressed true holding: ${analysis.stressEnvelope.stressedTrueHolding}.`,
+      `- Cash after stress reserves: ${analysis.stressEnvelope.cashAfterStressReserves}.`,
+      `- Reserve survival: ${analysis.stressEnvelope.reserveSurvivalMonths === null ? "Not applicable" : `${analysis.stressEnvelope.reserveSurvivalMonths} months`}.`
+    );
+    if (analysis.stressEnvelope.assumptions?.length) {
+      lines.push(...analysis.stressEnvelope.assumptions.map((item) => `- ${item.label}: ${item.value} (${item.source}).`));
+    }
   }
   if (analysis.executionPlan?.actions?.length) {
     lines.push(

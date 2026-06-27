@@ -903,6 +903,7 @@ function saveAnalysisToShortlist(analysis) {
     dimensions: analysis.dimensions || [],
     metrics: analysis.metrics || [],
     scenarios: analysis.scenarios || [],
+    stressEnvelope: analysis.stressEnvelope || null,
     hardStops: analysis.hardStops || [],
     recommendationBlockers: analysis.recommendationBlockers || [],
     decisionFocus: analysis.decisionFocus || null,
@@ -988,6 +989,18 @@ function analysisExportText(analysis) {
   if (analysis.dueDiligencePlan?.tasks?.length) {
     lines.push("", "Due diligence pack", analysis.dueDiligencePlan.summary || "");
     for (const item of analysis.dueDiligencePlan.tasks) lines.push(`- ${item.owner} / ${item.priority} / ${item.status}: ${item.label}. ${item.action}`);
+  }
+  if (analysis.stressEnvelope?.summary) {
+    lines.push(
+      "",
+      "Stress envelope",
+      analysis.stressEnvelope.summary,
+      `Base true holding: ${analysis.stressEnvelope.baseTrueHolding}`,
+      `Stressed true holding: ${analysis.stressEnvelope.stressedTrueHolding}`,
+      `Cash after stress reserves: ${analysis.stressEnvelope.cashAfterStressReserves}`,
+      `Reserve survival: ${analysis.stressEnvelope.reserveSurvivalMonths === null ? "Not applicable" : `${analysis.stressEnvelope.reserveSurvivalMonths} months`}`
+    );
+    for (const item of analysis.stressEnvelope.assumptions || []) lines.push(`- ${item.label}: ${item.value} (${item.source})`);
   }
   if (analysis.executionPlan?.actions?.length) {
     lines.push(
@@ -1164,6 +1177,31 @@ function dueDiligenceMarkup(plan = {}) {
   `;
 }
 
+function stressEnvelopeMarkup(envelope = {}) {
+  if (!envelope.summary) return "";
+  const assumptions = Array.isArray(envelope.assumptions) ? envelope.assumptions : [];
+  return `
+    <section class="analysisStress ${escapeHtml(envelope.status || "unknown")}">
+      <header>
+        <span><small>STRESS ENVELOPE</small><b>${escapeHtml(envelope.summary)}</b></span>
+        <em>${escapeHtml(envelope.status || "unknown")}</em>
+      </header>
+      <div class="stressReadings">
+        <span><small>BASE TRUE HOLDING</small><b>${escapeHtml(envelope.baseTrueHolding || "Need rent proof")}</b></span>
+        <span><small>STRESSED HOLDING</small><b>${escapeHtml(envelope.stressedTrueHolding || "Need rent and instalment")}</b></span>
+        <span><small>RESERVE SURVIVAL</small><b>${escapeHtml(envelope.reserveSurvivalMonths === null ? "Not applicable" : `${envelope.reserveSurvivalMonths} months`)}</b></span>
+      </div>
+      ${assumptions.length ? `
+        <div class="stressAssumptions">
+          ${assumptions.map((item) => `
+            <span class="${escapeHtml(item.source)}"><small>${escapeHtml(item.source)}</small><b>${escapeHtml(item.label)}</b><em>${escapeHtml(item.value)}</em></span>
+          `).join("")}
+        </div>
+      ` : ""}
+    </section>
+  `;
+}
+
 function executionPlanMarkup(plan = {}) {
   const actions = Array.isArray(plan.actions) ? plan.actions : [];
   if (!actions.length) return "";
@@ -1276,6 +1314,7 @@ function addDealAnalysis(analysis, sources = [], intelligence = {}) {
     ${metricMarkup ? `<div class="analysisMetrics">${metricMarkup}</div>` : ""}
     ${evidenceChecklistMarkup(analysis.evidenceChecklist || [])}
     ${dueDiligenceMarkup(analysis.dueDiligencePlan)}
+    ${stressEnvelopeMarkup(analysis.stressEnvelope)}
     ${executionPlanMarkup(analysis.executionPlan)}
     ${learningLoopMarkup(analysis.learningLoop)}
     ${scenarioMarkup ? `<section class="analysisScenarioSection"><h3>DOWNSIDE SCENARIOS</h3><div class="analysisScenarios">${scenarioMarkup}</div><p>Stress assumptions are decision tests, not forecasts.</p></section>` : ""}

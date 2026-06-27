@@ -77,6 +77,11 @@ test("deal report separates evidence, suitability, exit risk, and downside scena
     maintenance: "RM300",
     estimatedInstallment: "RM2,000",
     cashOutlay: "RM80k",
+    annualAssessmentQuitRent: "RM1,200",
+    annualInsuranceTax: "RM600",
+    monthlyRepairReserve: "RM200",
+    furnishingBudget: "RM20k",
+    vacancyStressMonths: "2",
     tenure: "Freehold residential title",
     unitPosition: "Good",
     ownStayAppeal: "Strong",
@@ -112,6 +117,12 @@ test("deal report separates evidence, suitability, exit risk, and downside scena
   assert.equal(result.payload.analysis.scenarios.length, 4);
   assert.equal(result.payload.analysis.scenarios[0].monthlyCashFlow, 700);
   assert.ok(result.payload.analysis.scenarios[3].monthlyCashFlow < result.payload.analysis.scenarios[0].monthlyCashFlow);
+  assert.equal(result.payload.analysis.stressEnvelope.status, "pressure");
+  assert.equal(result.payload.analysis.stressEnvelope.baseTrueHolding, "RM350");
+  assert.equal(result.payload.analysis.stressEnvelope.stressedTrueHolding, "-RM600");
+  assert.equal(result.payload.analysis.stressEnvelope.cashAfterStressReserves, "RM50,000");
+  assert.ok(result.payload.analysis.stressEnvelope.reserveSurvivalMonths >= 80);
+  assert.ok(result.payload.analysis.stressEnvelope.assumptions.some((item) => item.label === "Repair reserve" && item.source === "provided"));
   assert.ok(result.payload.analysis.metrics.some((metric) => metric.label === "Operating yield"));
   assert.equal(result.payload.analysis.verdict, "SHORTLIST");
   assert.equal(result.payload.analysis.engineVersion, "Apex v1.0");
