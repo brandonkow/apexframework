@@ -106,6 +106,17 @@ The v1.6 stress layer makes holding survival more realistic:
 - Estimate cash after stress reserves and how many months the remaining cash can survive the stressed monthly shortfall.
 - Treat the stress envelope as a survival check, not a forecast or guarantee.
 
+## v1.7 Portfolio Expansion Gate
+
+The v1.7 portfolio gate decides whether a user should add this property to a wider portfolio:
+
+- Add optional Profile card fields for portfolio role, existing portfolio health, concentration risk, and reason for the next purchase.
+- Test whether existing properties are stable before adding another asset.
+- Require post-purchase reserve and stress survival before treating a deal as scalable.
+- Flag concentration in the same area, property type, tenant pool, price segment, or refinancing window.
+- Distinguish a written portfolio role from FOMO, loan availability, or excitement after a prior successful deal.
+- Block expansion when the current deal is rejected or paused, existing assets are weak, reserve is insufficient, stress survival is fragile, or the reason for purchase is emotional rather than strategic.
+
 ## Four Decision Dimensions
 
 - **Property quality**: entry value, rentability, own-stay appeal, management, unit position, tenure, and buyer depth.

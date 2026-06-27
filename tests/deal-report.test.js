@@ -102,7 +102,11 @@ test("deal report separates evidence, suitability, exit risk, and downside scena
     currentDebt: "RM1,000",
     investmentGoal: "Balanced rental and resale",
     holdingPeriod: "7",
-    existingProperties: "1"
+    existingProperties: "1",
+    portfolioRole: "Cash-flow base",
+    existingPortfolioHealth: "Stable rent and costs",
+    concentrationRisk: "Low",
+    nextPurchaseReason: "Build a cash-flow base before larger appreciation plays."
   };
 
   const result = await post(baseUrl, "/api/jarvis/analyze-deal", {
@@ -123,6 +127,10 @@ test("deal report separates evidence, suitability, exit risk, and downside scena
   assert.equal(result.payload.analysis.stressEnvelope.cashAfterStressReserves, "RM50,000");
   assert.ok(result.payload.analysis.stressEnvelope.reserveSurvivalMonths >= 80);
   assert.ok(result.payload.analysis.stressEnvelope.assumptions.some((item) => item.label === "Repair reserve" && item.source === "provided"));
+  assert.equal(result.payload.analysis.portfolioGate.status, "review");
+  assert.equal(result.payload.analysis.portfolioGate.checks.length, 6);
+  assert.ok(result.payload.analysis.portfolioGate.checks.some((item) => item.label === "Portfolio role" && item.status === "clear"));
+  assert.ok(result.payload.analysis.portfolioGate.checks.some((item) => item.label === "Combined stress survival" && item.status === "caution"));
   assert.ok(result.payload.analysis.metrics.some((metric) => metric.label === "Operating yield"));
   assert.equal(result.payload.analysis.verdict, "SHORTLIST");
   assert.equal(result.payload.analysis.engineVersion, "Apex v1.0");
@@ -173,6 +181,7 @@ test("deal report separates evidence, suitability, exit risk, and downside scena
   assert.equal(boundaryBreach.payload.analysis.decisionFocus.tone, "danger");
   assert.equal(boundaryBreach.payload.analysis.executionPlan.posture, "No offer");
   assert.ok(boundaryBreach.payload.analysis.executionPlan.walkAway.includes("clean, legally supportable"));
+  assert.equal(boundaryBreach.payload.analysis.portfolioGate.status, "block");
 
   const forcedFinancing = await post(baseUrl, "/api/jarvis/analyze-deal", {
     sessionId: session.payload.session.id,

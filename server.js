@@ -374,6 +374,17 @@ function normalizeReportAnalysis(analysis = {}) {
         source: ["provided", "default"].includes(item?.source) ? item.source : "default"
       }))
     },
+    portfolioGate: {
+      summary: reportText(analysis?.portfolioGate?.summary, 700),
+      status: ["allow", "review", "block", "unknown"].includes(analysis?.portfolioGate?.status) ? analysis.portfolioGate.status : "unknown",
+      score: Math.max(0, Math.min(100, Number(analysis?.portfolioGate?.score || 0))),
+      nextPropertyRule: reportText(analysis?.portfolioGate?.nextPropertyRule, 700),
+      checks: objectList(analysis?.portfolioGate?.checks, 10, (item) => ({
+        label: reportText(item?.label, 140),
+        status: ["clear", "caution", "block"].includes(item?.status) ? item.status : "caution",
+        action: reportText(item?.action, 420)
+      }))
+    },
     stages: objectList(analysis.stages, 7, (item) => ({
       number: Math.max(1, Math.min(7, Number(item?.number || 1))),
       name: reportText(item?.name, 100),
@@ -1854,6 +1865,10 @@ const profileContextLabels = {
   investmentGoal: "Investment goal",
   holdingPeriod: "Holding period",
   existingProperties: "Existing properties",
+  portfolioRole: "Portfolio role",
+  existingPortfolioHealth: "Existing portfolio health",
+  concentrationRisk: "Concentration risk",
+  nextPurchaseReason: "Next purchase reason",
   nearTermCommitment: "Near-term commitment",
   financialConcern: "Financial concern"
 };
@@ -1998,6 +2013,10 @@ function analyzeSevenStageDeal(rawDealCard = {}, rawFinancialProfile = {}) {
   const propertyAge = parsePlainNumber(dealCard.propertyAge);
   const propertyType = String(dealCard.propertyType || "").toLowerCase();
   const goal = String(financialProfile.investmentGoal || "").toLowerCase();
+  const portfolioRole = String(financialProfile.portfolioRole || "").toLowerCase();
+  const existingPortfolioHealth = String(financialProfile.existingPortfolioHealth || "").toLowerCase();
+  const concentrationRiskInput = String(financialProfile.concentrationRisk || "").toLowerCase();
+  const nextPurchaseReason = String(financialProfile.nextPurchaseReason || "").toLowerCase();
   const tenure = String(dealCard.tenure || "").toLowerCase();
   const dealNarrative = signalText(dealCard.mainConcern, dealCard.investmentThesis, dealCard.nearbySupply, dealCard.killCriterion);
   const profileNarrative = signalText(financialProfile.financialConcern, financialProfile.nearTermCommitment);
@@ -2792,6 +2811,92 @@ function analyzeSevenStageDeal(rawDealCard = {}, rawFinancialProfile = {}) {
       }
     ]
   };
+  const hasExistingPropertiesInput = financialProfile.existingProperties !== undefined && financialProfile.existingProperties !== "";
+  const portfolioCheck = (label, status, action) => ({ label, status, action });
+  const fomoSignal = hasSignal(nextPurchaseReason, [/fomo/, /afraid.*miss/, /everyone.*buy/, /hot deal/, /agent.*push/, /limited time/, /rush/, /quick profit/]);
+  const portfolioChecks = [
+    portfolioCheck(
+      "Existing portfolio proof",
+      !hasExistingPropertiesInput
+        ? "caution"
+        : existingProperties === 0 || existingPortfolioHealth.includes("no existing") || existingPortfolioHealth.includes("stable")
+          ? "clear"
+          : existingPortfolioHealth.includes("weak") || existingPortfolioHealth.includes("vacancy")
+            ? "block"
+            : "caution",
+      existingProperties === 0 || existingPortfolioHealth.includes("no existing")
+        ? "Treat this as the first investment asset; the next purchase should wait until this property has operating proof."
+        : existingPortfolioHealth.includes("stable")
+          ? "Existing property performance is stated as stable; verify achieved rent, vacancy, arrears, repairs, and renewal status before scaling."
+          : "Do not add another property until current rent, vacancy, maintenance, repairs, and tenant quality are reviewed."
+    ),
+    portfolioCheck(
+      "Post-purchase reserve",
+      reserveProvided && reserveMonths >= 6 && (cashAfterStressReserves === null || cashAfterStressReserves >= 0)
+        ? "clear"
+        : reserveProvided && reserveMonths < 6 || cashAfterStressReserves !== null && cashAfterStressReserves < 0
+          ? "block"
+          : "caution",
+      "Keep at least six months of reserve after purchase, furnishing, repair allowance, and stress reserves. Loan approval is not portfolio readiness."
+    ),
+    portfolioCheck(
+      "Combined stress survival",
+      stressEnvelope.status === "fragile"
+        ? "block"
+        : stressEnvelope.status === "pressure" || stressEnvelope.status === "unknown"
+          ? "caution"
+          : "clear",
+      "The portfolio should survive lower rent, vacancy, repair cost, and instalment stress without forced refinancing or sale."
+    ),
+    portfolioCheck(
+      "Concentration",
+      existingProperties > 5 && !concentrationRiskInput.includes("low")
+        ? "block"
+        : concentrationRiskInput.includes("same") || concentrationRiskInput.includes("unclear") || (!concentrationRiskInput && existingProperties > 0)
+          ? "caution"
+          : "clear",
+      "Check whether this property relies on the same area, tenant pool, supply cycle, price segment, project quality, or refinancing window as existing holdings."
+    ),
+    portfolioCheck(
+      "Portfolio role",
+      portfolioRole ? "clear" : "caution",
+      portfolioRole
+        ? `This deal is positioned as ${financialProfile.portfolioRole}; make sure the rent, exit, and holding assumptions match that job.`
+        : "Define the job of this property before purchase: cash-flow base, appreciation play, own stay, refinancing capital, or another explicit role."
+    ),
+    portfolioCheck(
+      "Expansion discipline",
+      fomoSignal || verdict === "REJECT" || verdict === "PAUSE"
+        ? "block"
+        : nextPurchaseReason || verdict === "SHORTLIST"
+          ? "clear"
+          : "caution",
+      fomoSignal
+        ? "Do not scale from fear of missing out. Compare substitutes and make the deal pass independently."
+        : "Apex should support the next purchase only when the current deal passes independently and the reason to add it is written before emotion takes over."
+    )
+  ];
+  const portfolioBlockCount = portfolioChecks.filter((item) => item.status === "block").length;
+  const portfolioCautionCount = portfolioChecks.filter((item) => item.status === "caution").length;
+  const portfolioGateStatus = portfolioBlockCount
+    ? "block"
+    : portfolioCautionCount || blockers.length || verdict !== "SHORTLIST"
+      ? "review"
+      : "allow";
+  const portfolioGateScore = clampScore(100 - (portfolioBlockCount * 24) - (portfolioCautionCount * 9) - (verdict === "SHORTLIST" ? 0 : 8));
+  const portfolioGate = {
+    status: portfolioGateStatus,
+    score: portfolioGateScore,
+    summary: portfolioGateStatus === "allow"
+      ? "The portfolio gate is clean enough to consider this deal as part of a controlled portfolio plan."
+      : portfolioGateStatus === "review"
+        ? "This deal may still fit, but portfolio proof is incomplete. Resolve the caution items before treating it as scalable."
+        : "The portfolio gate blocks expansion. Fix existing portfolio, reserve, stress, concentration, or FOMO risk before adding this property.",
+    nextPropertyRule: existingProperties === 0
+      ? "After this first investment asset, do not proceed to the next property until rent, tenant quality, vacancy, repairs, and true holding cost are verified through at least one operating cycle."
+      : "Before adding another property, existing assets must show stable operating evidence, reserve must remain intact, and the combined downside must not require forced refinancing or sale.",
+    checks: portfolioChecks
+  };
 
   return {
     engineVersion: "Apex v1.0",
@@ -2815,6 +2920,7 @@ function analyzeSevenStageDeal(rawDealCard = {}, rawFinancialProfile = {}) {
     dimensions,
     scenarios,
     stressEnvelope,
+    portfolioGate,
     challengeMode,
     decisionFocus,
     investorReadiness,
@@ -2865,6 +2971,17 @@ function dealAnalysisText(analysis) {
     );
     if (analysis.stressEnvelope.assumptions?.length) {
       lines.push(...analysis.stressEnvelope.assumptions.map((item) => `- ${item.label}: ${item.value} (${item.source}).`));
+    }
+  }
+  if (analysis.portfolioGate?.summary) {
+    lines.push(
+      "",
+      "Portfolio expansion gate",
+      `- ${analysis.portfolioGate.status || "review"} (${analysis.portfolioGate.score || 0}/100): ${analysis.portfolioGate.summary}`,
+      `- Next-property rule: ${analysis.portfolioGate.nextPropertyRule || "Do not scale until the current property is proven."}`
+    );
+    if (analysis.portfolioGate.checks?.length) {
+      lines.push(...analysis.portfolioGate.checks.map((item) => `- ${item.label}: ${item.status}. ${item.action}`));
     }
   }
   if (analysis.executionPlan?.actions?.length) {

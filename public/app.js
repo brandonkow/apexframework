@@ -904,6 +904,7 @@ function saveAnalysisToShortlist(analysis) {
     metrics: analysis.metrics || [],
     scenarios: analysis.scenarios || [],
     stressEnvelope: analysis.stressEnvelope || null,
+    portfolioGate: analysis.portfolioGate || null,
     hardStops: analysis.hardStops || [],
     recommendationBlockers: analysis.recommendationBlockers || [],
     decisionFocus: analysis.decisionFocus || null,
@@ -1001,6 +1002,15 @@ function analysisExportText(analysis) {
       `Reserve survival: ${analysis.stressEnvelope.reserveSurvivalMonths === null ? "Not applicable" : `${analysis.stressEnvelope.reserveSurvivalMonths} months`}`
     );
     for (const item of analysis.stressEnvelope.assumptions || []) lines.push(`- ${item.label}: ${item.value} (${item.source})`);
+  }
+  if (analysis.portfolioGate?.summary) {
+    lines.push(
+      "",
+      "Portfolio expansion gate",
+      `${analysis.portfolioGate.status || "review"} (${analysis.portfolioGate.score || 0}/100): ${analysis.portfolioGate.summary}`,
+      `Next-property rule: ${analysis.portfolioGate.nextPropertyRule || "Do not scale until the current property is proven."}`
+    );
+    for (const item of analysis.portfolioGate.checks || []) lines.push(`- ${item.label}: ${item.status}. ${item.action}`);
   }
   if (analysis.executionPlan?.actions?.length) {
     lines.push(
@@ -1202,6 +1212,30 @@ function stressEnvelopeMarkup(envelope = {}) {
   `;
 }
 
+function portfolioGateMarkup(gate = {}) {
+  if (!gate.summary) return "";
+  const checks = Array.isArray(gate.checks) ? gate.checks : [];
+  return `
+    <section class="analysisPortfolioGate ${escapeHtml(gate.status || "unknown")}">
+      <header>
+        <span><small>PORTFOLIO EXPANSION GATE</small><b>${escapeHtml(gate.summary)}</b></span>
+        <em>${escapeHtml(gate.score || 0)}/100</em>
+      </header>
+      <p>${escapeHtml(gate.nextPropertyRule || "Do not scale until the current property is proven.")}</p>
+      ${checks.length ? `
+        <div>
+          ${checks.map((item) => `
+            <article class="portfolioCheck ${escapeHtml(item.status)}">
+              <i>${escapeHtml(item.status)}</i>
+              <span><b>${escapeHtml(item.label)}</b><small>${escapeHtml(item.action)}</small></span>
+            </article>
+          `).join("")}
+        </div>
+      ` : ""}
+    </section>
+  `;
+}
+
 function executionPlanMarkup(plan = {}) {
   const actions = Array.isArray(plan.actions) ? plan.actions : [];
   if (!actions.length) return "";
@@ -1315,6 +1349,7 @@ function addDealAnalysis(analysis, sources = [], intelligence = {}) {
     ${evidenceChecklistMarkup(analysis.evidenceChecklist || [])}
     ${dueDiligenceMarkup(analysis.dueDiligencePlan)}
     ${stressEnvelopeMarkup(analysis.stressEnvelope)}
+    ${portfolioGateMarkup(analysis.portfolioGate)}
     ${executionPlanMarkup(analysis.executionPlan)}
     ${learningLoopMarkup(analysis.learningLoop)}
     ${scenarioMarkup ? `<section class="analysisScenarioSection"><h3>DOWNSIDE SCENARIOS</h3><div class="analysisScenarios">${scenarioMarkup}</div><p>Stress assumptions are decision tests, not forecasts.</p></section>` : ""}
