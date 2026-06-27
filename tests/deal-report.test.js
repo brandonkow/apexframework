@@ -118,6 +118,11 @@ test("deal report separates evidence, suitability, exit risk, and downside scena
   assert.equal(result.payload.analysis.reasoningMode, "Framework only");
   assert.deepEqual(result.payload.analysis.recommendationBlockers, []);
   assert.equal(result.payload.analysis.challengeMode.label, "Mentor challenge");
+  assert.equal(result.payload.analysis.decisionFocus.label, "Shortlist, not buy yet");
+  assert.equal(result.payload.analysis.investorReadiness.label, "Ready");
+  assert.ok(result.payload.analysis.investorReadiness.score >= 80);
+  assert.equal(result.payload.analysis.evidenceChecklist.length, 8);
+  assert.ok(result.payload.analysis.evidenceChecklist.some((item) => item.label === "Completed value evidence" && item.status === "done"));
 
   const provisional = await post(baseUrl, "/api/jarvis/analyze-deal", {
     sessionId: session.payload.session.id,
@@ -128,6 +133,8 @@ test("deal report separates evidence, suitability, exit risk, and downside scena
   assert.ok(provisional.payload.analysis.confidence <= 64);
   assert.ok(provisional.payload.analysis.recommendationBlockers.some((message) => /site visit/i.test(message)));
   assert.equal(provisional.payload.analysis.challengeMode.label, "Evidence blocker");
+  assert.equal(provisional.payload.analysis.decisionFocus.label, "Clear before shortlist");
+  assert.ok(provisional.payload.analysis.evidenceChecklist.some((item) => item.label === "Site visit and project feel" && item.status === "missing"));
 
   const boundaryBreach = await post(baseUrl, "/api/jarvis/analyze-deal", {
     sessionId: session.payload.session.id,
@@ -141,6 +148,7 @@ test("deal report separates evidence, suitability, exit risk, and downside scena
   assert.ok(boundaryBreach.payload.analysis.hardStops.some((message) => /Marked-up/i.test(message)));
   assert.ok(boundaryBreach.payload.analysis.hardStops.some((message) => /bulk purchase/i.test(message)));
   assert.equal(boundaryBreach.payload.analysis.challengeMode.label, "Refuse validation");
+  assert.equal(boundaryBreach.payload.analysis.decisionFocus.tone, "danger");
 
   const forcedFinancing = await post(baseUrl, "/api/jarvis/analyze-deal", {
     sessionId: session.payload.session.id,
@@ -153,6 +161,7 @@ test("deal report separates evidence, suitability, exit risk, and downside scena
   assert.equal(forcedFinancing.payload.analysis.verdict, "PAUSE");
   assert.ok(forcedFinancing.payload.analysis.hardStops.some((message) => /loan rejection/i.test(message)));
   assert.equal(forcedFinancing.payload.analysis.challengeMode.label, "Profile or holding pause");
+  assert.equal(forcedFinancing.payload.analysis.investorReadiness.label, "Not ready");
 
   const unsafe = await post(baseUrl, "/api/jarvis/analyze-deal", {
     sessionId: session.payload.session.id,

@@ -1927,6 +1927,58 @@ button {
   font-size: 0.84rem;
 }
 
+.analysisDecisionFocus {
+  display: grid;
+  gap: 7px;
+  margin-top: 10px;
+  border: 1px solid rgba(103, 229, 255, 0.14);
+  border-left: 2px solid rgba(103, 229, 255, 0.46);
+  border-radius: 10px;
+  padding: 10px;
+  background: linear-gradient(135deg, rgba(69, 199, 225, 0.08), transparent 55%), rgba(0, 11, 18, 0.42);
+}
+
+.analysisDecisionFocus.danger {
+  border-color: rgba(255, 126, 126, 0.22);
+  border-left-color: #e68e8e;
+}
+
+.analysisDecisionFocus.warning {
+  border-color: rgba(255, 210, 116, 0.22);
+  border-left-color: #d0ad69;
+}
+
+.analysisDecisionFocus.ready {
+  border-color: rgba(112, 255, 191, 0.2);
+  border-left-color: #6fd9a0;
+}
+
+.analysisDecisionFocus span {
+  display: grid;
+  gap: 3px;
+}
+
+.analysisDecisionFocus small,
+.analysisReadiness small,
+.analysisEvidence h3 {
+  color: #67b7c7;
+  font-size: 0.5rem;
+  font-weight: 500;
+  letter-spacing: 0.17em;
+}
+
+.analysisDecisionFocus b {
+  color: #c9e6eb;
+  font-size: 0.77rem;
+  font-weight: 500;
+}
+
+.analysisDecisionFocus p {
+  margin: 0;
+  color: #8fb8c1;
+  font-size: 0.63rem;
+}
+
 .analysisJarvisTake {
   margin-top: 9px;
   border-left: 2px solid rgba(103, 229, 255, 0.34);
@@ -1963,9 +2015,20 @@ button {
   font-weight: 500;
 }
 
+.analysisOverview {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.8fr) minmax(0, 1.2fr);
+  gap: 8px;
+  margin-top: 12px;
+}
+
 .analysisDimensionSection,
 .analysisScenarioSection {
   margin-top: 12px;
+}
+
+.analysisOverview .analysisDimensionSection {
+  margin-top: 0;
 }
 
 .analysisDimensionSection > h3,
@@ -1975,6 +2038,54 @@ button {
   font-size: 0.5rem;
   font-weight: 500;
   letter-spacing: 0.17em;
+}
+
+.analysisReadiness {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  border: 1px solid rgba(103, 229, 255, 0.12);
+  border-radius: 8px;
+  padding: 9px;
+  background: rgba(0, 11, 18, 0.38);
+}
+
+.analysisReadiness header {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.analysisReadiness header span {
+  display: grid;
+  gap: 2px;
+}
+
+.analysisReadiness b {
+  color: #add6dd;
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+.analysisReadiness em {
+  color: #d7b970;
+  font-size: 0.64rem;
+  font-style: normal;
+}
+
+.analysisReadiness p {
+  margin: 0;
+  color: #8fb8c1;
+  font-size: 0.6rem;
+}
+
+.analysisReadiness ul {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding-left: 15px;
+  color: #719da6;
+  font-size: 0.54rem;
 }
 
 .analysisDimensions {
@@ -2008,6 +2119,14 @@ button {
   color: #add6dd;
   font-size: 0.7rem;
   font-weight: 500;
+}
+
+.analysisDimension span em {
+  color: #5f8d97;
+  font-size: 0.46rem;
+  font-style: normal;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .analysisDimension > i {
@@ -2179,6 +2298,70 @@ button {
 
 .analysisMarketPulse li em.aging { color: #d7b970; border-color: rgba(255, 210, 116, 0.26); }
 .analysisMarketPulse li em.stale { color: #ef9999; border-color: rgba(255, 126, 126, 0.3); }
+
+.analysisEvidence {
+  display: grid;
+  gap: 7px;
+  margin-top: 12px;
+  border: 1px solid rgba(103, 229, 255, 0.12);
+  border-radius: 8px;
+  padding: 9px;
+  background: rgba(0, 11, 18, 0.32);
+}
+
+.analysisEvidence h3 {
+  margin: 0;
+}
+
+.analysisEvidence > div {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.evidenceItem {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 7px;
+  border: 1px solid rgba(103, 229, 255, 0.08);
+  border-radius: 8px;
+  padding: 7px;
+  background: rgba(0, 10, 17, 0.3);
+}
+
+.evidenceItem i {
+  align-self: start;
+  border: 1px solid rgba(103, 229, 255, 0.16);
+  border-radius: 999px;
+  padding: 3px 6px;
+  color: #8fb8c1;
+  font-size: 0.42rem;
+  font-style: normal;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.evidenceItem.done i { color: #7bdca9; border-color: rgba(112, 255, 191, 0.26); }
+.evidenceItem.warning i { color: #d7b970; border-color: rgba(255, 210, 116, 0.26); }
+.evidenceItem.danger i { color: #ef9999; border-color: rgba(255, 126, 126, 0.3); }
+
+.evidenceItem span {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.evidenceItem b {
+  color: #a8d0d8;
+  font-size: 0.58rem;
+  font-weight: 500;
+}
+
+.evidenceItem small {
+  color: #638f99;
+  font-size: 0.5rem;
+  line-height: 1.35;
+}
 
 .analysisActions {
   display: flex;
@@ -2952,11 +3135,16 @@ button {
     grid-template-columns: 1fr;
   }
 
+  .analysisOverview {
+    grid-template-columns: 1fr;
+  }
+
   .analysisDimensions {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .analysisScenarios,
+  .analysisEvidence > div,
   .shortlistList {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -3010,6 +3198,12 @@ button {
   }
 
   .analysisJarvisTake p,
+  .analysisDecisionFocus b,
+  .analysisDecisionFocus p,
+  .analysisReadiness p,
+  .analysisReadiness ul,
+  .evidenceItem b,
+  .evidenceItem small,
   .analysisSection ul,
   .analysisCounter p {
     font-size: 0.72rem;
@@ -3172,6 +3366,12 @@ button {
   body.printMode .analysisHeader > span > b,
   body.printMode .analysisSummary,
   body.printMode .analysisJarvisTake p,
+  body.printMode .analysisDecisionFocus b,
+  body.printMode .analysisDecisionFocus p,
+  body.printMode .analysisReadiness p,
+  body.printMode .analysisReadiness li,
+  body.printMode .evidenceItem b,
+  body.printMode .evidenceItem small,
   body.printMode .analysisDimension b,
   body.printMode .analysisMetric b,
   body.printMode .analysisStage b,
@@ -3184,6 +3384,10 @@ button {
   body.printMode .analysisMetric,
   body.printMode .analysisScenario,
   body.printMode .analysisMarketPulse,
+  body.printMode .analysisDecisionFocus,
+  body.printMode .analysisReadiness,
+  body.printMode .analysisEvidence,
+  body.printMode .evidenceItem,
   body.printMode .analysisSection {
     border-color: #c8d9de;
     background: #f7fafb;
@@ -3193,6 +3397,8 @@ button {
   body.printMode .analysisStages,
   body.printMode .analysisScenarioSection,
   body.printMode .analysisMarketPulse,
+  body.printMode .analysisOverview,
+  body.printMode .analysisEvidence,
   body.printMode .analysisDetails,
   body.printMode .analysisCounter {
     break-inside: avoid;

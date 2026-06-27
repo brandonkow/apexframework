@@ -42,6 +42,18 @@ Each report must challenge the user in a calm mentor-like tone:
 - **Supply challenge** when nearby substitute projects could weaken future rent or resale.
 - **Mentor challenge** when the deal is otherwise clean but still needs one strongest proof point.
 
+## v1.1 Report Intelligence
+
+The v1.1 report layer makes the engine output easier to act on:
+
+- **Decision focus** states the single most important reason behind the verdict.
+- **Investor readiness** classifies the supplied financial profile as Ready, Balanced, Cautious, Overextended, or Not ready.
+- **Deal scorecard** keeps the four dimensions visible without forcing the user to read every stage first.
+- **Evidence checklist** converts missing proof into action items.
+- **Copy report** gives users a clean text export, while the printable report remains available for formal review.
+
+These sections explain the engine. They do not soften hard stops or replace live evidence.
+
 ## Four Decision Dimensions
 
 - **Property quality**: entry value, rentability, own-stay appeal, management, unit position, tenure, and buyer depth.

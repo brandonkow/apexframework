@@ -845,6 +845,8 @@ function saveAnalysisToShortlist(analysis) {
     metrics: analysis.metrics || [],
     scenarios: analysis.scenarios || [],
     hardStops: analysis.hardStops || [],
+    recommendationBlockers: analysis.recommendationBlockers || [],
+    investorReadiness: analysis.investorReadiness || null,
     counterThesis: analysis.counterThesis,
     context: analysis.context || {}
   };
@@ -896,6 +898,59 @@ function printAnalysis(message) {
   window.print();
 }
 
+function analysisExportText(analysis) {
+  const lines = [
+    "APEX ANALYTIC DEAL REPORT",
+    analysisSubject(analysis),
+    "",
+    `Verdict: ${analysis.verdict || "INVESTIGATE"}`,
+    `Confidence: ${analysis.confidence || 0}%`,
+    `Score: ${analysis.averageScore || 0}/100`,
+    `Reasoning: ${analysis.reasoningMode || "Framework only"}`,
+    "",
+    `Summary: ${analysis.summary || ""}`
+  ];
+  if (analysis.decisionFocus?.body) lines.push("", `${analysis.decisionFocus.label || "Decision focus"}: ${analysis.decisionFocus.body}`);
+  if (analysis.investorReadiness?.label) {
+    lines.push("", `Investor readiness: ${analysis.investorReadiness.label} (${analysis.investorReadiness.score || 0}/100)`);
+    if (analysis.investorReadiness.summary) lines.push(analysis.investorReadiness.summary);
+    for (const flag of analysis.investorReadiness.flags || []) lines.push(`- ${flag}`);
+  }
+  if (analysis.dimensions?.length) {
+    lines.push("", "Scorecard");
+    for (const item of analysis.dimensions) lines.push(`- ${item.label}: ${item.score}/100 (${item.status})`);
+  }
+  if (analysis.evidenceChecklist?.length) {
+    lines.push("", "Evidence checklist");
+    for (const item of analysis.evidenceChecklist) lines.push(`- ${item.label}: ${item.status}. ${item.action}`);
+  }
+  if (analysis.hardStops?.length) lines.push("", "Hard stops", ...analysis.hardStops.map((item) => `- ${item}`));
+  if (analysis.recommendationBlockers?.length) lines.push("", "Decision blockers", ...analysis.recommendationBlockers.map((item) => `- ${item}`));
+  if (analysis.watchouts?.length) lines.push("", "Watch-outs", ...analysis.watchouts.map((item) => `- ${item}`));
+  if (analysis.nextActions?.length) lines.push("", "Check next", ...analysis.nextActions.map((item) => `- ${item}`));
+  if (analysis.counterThesis) lines.push("", `Strongest counter-thesis: ${analysis.counterThesis}`);
+  return lines.join("\n");
+}
+
+async function copyAnalysisReport(button, analysis) {
+  const text = analysisExportText(analysis);
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    const helper = document.createElement("textarea");
+    helper.value = text;
+    helper.setAttribute("readonly", "");
+    helper.style.position = "fixed";
+    helper.style.opacity = "0";
+    document.body.append(helper);
+    helper.select();
+    document.execCommand("copy");
+    helper.remove();
+  }
+  button.textContent = "COPIED";
+  setSystemState("System ready", "Report copied.");
+}
+
 function finishPrinting() {
   printTarget?.classList.remove("printTarget");
   printTarget = null;
@@ -909,6 +964,10 @@ function handleAnalysisAction(button) {
   const action = button.getAttribute("data-analysis-action");
   if (action === "report") {
     printAnalysis(message);
+    return;
+  }
+  if (action === "copy") {
+    void copyAnalysisReport(button, analysis);
     return;
   }
   if (action === "shortlist") {
@@ -961,6 +1020,50 @@ function marketIntelligenceMarkup(market = {}) {
   `;
 }
 
+function decisionFocusMarkup(analysis = {}) {
+  const focus = analysis.decisionFocus || {};
+  const challenge = analysis.challengeMode || {};
+  if (!focus.body && !challenge.message) return "";
+  return `
+    <section class="analysisDecisionFocus ${escapeHtml(focus.tone || "neutral")}">
+      <span><small>${escapeHtml(focus.label || "Decision focus")}</small><b>${escapeHtml(focus.body || analysis.summary || "")}</b></span>
+      ${challenge.message ? `<p>${escapeHtml(challenge.message)}</p>` : ""}
+    </section>
+  `;
+}
+
+function readinessMarkup(readiness = {}) {
+  if (!readiness.label) return "";
+  const flags = Array.isArray(readiness.flags) ? readiness.flags.slice(0, 4) : [];
+  return `
+    <section class="analysisReadiness">
+      <header>
+        <span><small>INVESTOR READINESS</small><b>${escapeHtml(readiness.label)}</b></span>
+        <em>${escapeHtml(readiness.score || 0)}/100</em>
+      </header>
+      ${readiness.summary ? `<p>${escapeHtml(readiness.summary)}</p>` : ""}
+      ${flags.length ? `<ul>${flags.map((flag) => `<li>${escapeHtml(flag)}</li>`).join("")}</ul>` : ""}
+    </section>
+  `;
+}
+
+function evidenceChecklistMarkup(items = []) {
+  if (!items.length) return "";
+  return `
+    <section class="analysisEvidence">
+      <h3>EVIDENCE CHECKLIST</h3>
+      <div>
+        ${items.map((item) => `
+          <article class="evidenceItem ${escapeHtml(item.status)}">
+            <i>${escapeHtml(item.status)}</i>
+            <span><b>${escapeHtml(item.label)}</b><small>${escapeHtml(item.action)}</small></span>
+          </article>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
 function addDealAnalysis(analysis, sources = [], intelligence = {}) {
   document.body.classList.add("conversationActive");
   const message = document.createElement("article");
@@ -986,7 +1089,7 @@ function addDealAnalysis(analysis, sources = [], intelligence = {}) {
   `).join("");
   const dimensionMarkup = (analysis.dimensions || []).map((dimension) => `
     <article class="analysisDimension ${escapeHtml(dimension.status)}">
-      <span><small>${escapeHtml(dimension.label)}</small><b>${escapeHtml(dimension.score)}/100</b></span>
+      <span><small>${escapeHtml(dimension.label)}</small><b>${escapeHtml(dimension.score)}/100</b><em>${escapeHtml(dimension.status)}</em></span>
       <i><em style="width:${Math.max(0, Math.min(100, Number(dimension.score) || 0))}%"></em></i>
     </article>
   `).join("");
@@ -1009,6 +1112,7 @@ function addDealAnalysis(analysis, sources = [], intelligence = {}) {
       <i class="analysisVerdict ${escapeHtml(verdictClass)}">${escapeHtml(analysis.confidence)}% CONFIDENCE</i>
     </div>
     <p class="analysisSummary">${escapeHtml(analysis.summary)}</p>
+    ${decisionFocusMarkup(analysis)}
     ${analysis.aiCommentary ? `
       <section class="analysisJarvisTake">
         <h3>APEX ANALYSIS</h3>
@@ -1021,8 +1125,12 @@ function addDealAnalysis(analysis, sources = [], intelligence = {}) {
       <span>DECISION SCORE <b>${escapeHtml(analysis.averageScore)}/100</b></span>
       <span>INPUT COMPLETE <b>${escapeHtml(analysis.completeness)}%</b></span>
     </div>
-    ${dimensionMarkup ? `<section class="analysisDimensionSection"><h3>FOUR-PART DECISION READ</h3><div class="analysisDimensions">${dimensionMarkup}</div></section>` : ""}
+    <div class="analysisOverview">
+      ${readinessMarkup(analysis.investorReadiness)}
+      ${dimensionMarkup ? `<section class="analysisDimensionSection"><h3>DEAL SCORECARD</h3><div class="analysisDimensions">${dimensionMarkup}</div></section>` : ""}
+    </div>
     ${metricMarkup ? `<div class="analysisMetrics">${metricMarkup}</div>` : ""}
+    ${evidenceChecklistMarkup(analysis.evidenceChecklist || [])}
     ${scenarioMarkup ? `<section class="analysisScenarioSection"><h3>DOWNSIDE SCENARIOS</h3><div class="analysisScenarios">${scenarioMarkup}</div><p>Stress assumptions are decision tests, not forecasts.</p></section>` : ""}
     ${marketIntelligenceMarkup(analysis.marketIntelligence)}
     <ol class="analysisStages">${stageMarkup}</ol>
@@ -1041,7 +1149,8 @@ function addDealAnalysis(analysis, sources = [], intelligence = {}) {
     <div class="analysisActions">
       <button type="button" data-analysis-action="shortlist">SAVE TO SHORTLIST</button>
       ${authenticatedUser && analysis.savedReportId ? '<button type="button" data-analysis-action="journal">RECORD DECISION</button>' : ""}
-      <button type="button" data-analysis-action="report">DEAL REPORT</button>
+      <button type="button" data-analysis-action="copy">COPY REPORT</button>
+      <button type="button" data-analysis-action="report">PRINT REPORT</button>
     </div>
     ${sourcesMarkup(sources)}
   `;

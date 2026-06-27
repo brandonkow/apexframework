@@ -373,6 +373,22 @@ function normalizeReportAnalysis(analysis = {}) {
       label: reportText(analysis?.challengeMode?.label, 80),
       message: reportText(analysis?.challengeMode?.message, 800)
     },
+    decisionFocus: {
+      label: reportText(analysis?.decisionFocus?.label, 80),
+      body: reportText(analysis?.decisionFocus?.body, 900),
+      tone: ["danger", "warning", "ready", "neutral"].includes(analysis?.decisionFocus?.tone) ? analysis.decisionFocus.tone : "neutral"
+    },
+    investorReadiness: {
+      label: reportText(analysis?.investorReadiness?.label, 80),
+      score: Math.max(0, Math.min(100, Number(analysis?.investorReadiness?.score || 0))),
+      summary: reportText(analysis?.investorReadiness?.summary, 800),
+      flags: reportList(analysis?.investorReadiness?.flags, 6)
+    },
+    evidenceChecklist: objectList(analysis.evidenceChecklist, 10, (item) => ({
+      label: reportText(item?.label, 120),
+      status: ["done", "warning", "missing", "danger"].includes(item?.status) ? item.status : "missing",
+      action: reportText(item?.action, 300)
+    })),
     hardStops: reportList(analysis.hardStops),
     recommendationBlockers: reportList(analysis.recommendationBlockers),
     watchouts: reportList(analysis.watchouts),
@@ -2291,6 +2307,105 @@ function analyzeSevenStageDeal(rawDealCard = {}, rawFinancialProfile = {}) {
       message: "The numbers may look fine, but property quality is still only assumed until site visit or post-VP evidence proves the lived experience."
     };
   }
+  const readinessFlags = [];
+  if (!income) readinessFlags.push("Monthly income is missing.");
+  if (!reserveProvided) readinessFlags.push("Cash reserve is missing.");
+  else if (reserveMonths < 6) readinessFlags.push("Cash reserve is below the six-month baseline.");
+  if (postDealDsr !== null && postDealDsr >= 80) readinessFlags.push("Estimated post-deal DSR is in the danger zone.");
+  else if (postDealDsr !== null && postDealDsr >= 50) readinessFlags.push("Post-deal DSR is elevated.");
+  if (cashAfterPurchase !== null && cashAfterPurchase < 0) readinessFlags.push("Declared cash available does not cover the stated outlay.");
+  if (holdingCashFlow !== null && holdingCashFlow < 0) readinessFlags.push("Rental does not fully cover instalment and maintenance.");
+  if (hasStatedRisk(financialProfile.nearTermCommitment)) readinessFlags.push("Near-term life commitment may compete with capital.");
+  if (existingProperties > 5) readinessFlags.push("Portfolio concentration needs review before scaling further.");
+
+  const readinessLabel = pauseStops.length || (reserveProvided && reserveMonths < 6) || (postDealDsr !== null && postDealDsr >= 80) || (cashAfterPurchase !== null && cashAfterPurchase < 0)
+    ? "Not ready"
+    : postDealDsr !== null && postDealDsr >= 70
+      ? "Overextended"
+      : investorSuitabilityScore >= 78 && reserveMonths >= 6 && (!holdingCashFlow || holdingCashFlow >= 0)
+        ? "Ready"
+        : investorSuitabilityScore >= 62 && reserveMonths >= 6
+          ? "Balanced"
+          : "Cautious";
+  const investorReadiness = {
+    label: readinessLabel,
+    score: investorSuitabilityScore,
+    summary: readinessLabel === "Ready"
+      ? "The declared profile can support deeper verification if the deal evidence holds."
+      : readinessLabel === "Balanced"
+        ? "The profile is usable, but Apex should still protect cash reserve and downside holding power."
+        : readinessLabel === "Overextended"
+          ? "The profile may qualify for financing but leaves too little room for stress."
+          : readinessLabel === "Not ready"
+            ? "Apex should pause until affordability, reserve, or holding pressure improves."
+            : "The profile needs more proof before Apex can judge readiness confidently.",
+    flags: uniqueText(readinessFlags, 6)
+  };
+
+  const evidenceChecklist = [
+    {
+      label: "Completed value evidence",
+      status: fairValue && dealCard.comparableTransactions === "3 or more" ? "done" : fairValue ? "warning" : "missing",
+      action: fairValue && dealCard.comparableTransactions === "3 or more"
+        ? "Conservative value is supported by the supplied completed comparables."
+        : "Verify conservative value with recent completed subsale or successful auction evidence."
+    },
+    {
+      label: "Rental demand proof",
+      status: dealCard.rentEvidence === "Signed tenancy or achieved rent" ? "done" : dealCard.rentEvidence === "Agent-confirmed" ? "warning" : "missing",
+      action: dealCard.rentEvidence === "Signed tenancy or achieved rent"
+        ? "Achieved rent is supplied; still verify tenant quality and vacancy risk."
+        : "Ask active rental agents for achieved rent, enquiry urgency, and vacancy trend."
+    },
+    {
+      label: "Loan and holding test",
+      status: installment && holdingCashFlow !== null && holdingCashFlow >= 0 ? "done" : installment ? "warning" : "missing",
+      action: installment
+        ? "Stress-test instalment, maintenance, rent drop, and one-month vacancy."
+        : "Obtain a lender-backed monthly instalment estimate before relying on yield."
+    },
+    {
+      label: "Site visit and project feel",
+      status: dealCard.siteVisit === "Completed" ? "done" : "missing",
+      action: dealCard.siteVisit === "Completed"
+        ? "Site visit is recorded; preserve notes on lobby, lift, car park, residents, noise, and management."
+        : "Complete a site visit before Apex gives a strong recommendation."
+    },
+    {
+      label: "Legal and title check",
+      status: dealCard.legalCheck === "Clear" ? "done" : dealCard.legalCheck === "Pending" ? "warning" : "danger",
+      action: dealCard.legalCheck === "Clear"
+        ? "Legal status is recorded as clear."
+        : "Clear title, caveat, restriction, consent, seller authority, arrears, and fund-flow concerns with the lawyer."
+    },
+    {
+      label: "Substitute supply",
+      status: !supplyKnown ? "missing" : supplyRisk ? "warning" : "done",
+      action: supplyRisk
+        ? "Check absorption, rent pressure, and pricing of nearby newer similar projects within the same tenant or buyer pool."
+        : "Nearby supply has been considered; keep monitoring VP batches and developer inventory."
+    },
+    {
+      label: "Exit buyer pool",
+      status: dealCard.exitBuyerPool === "Own-stay and investor" ? "done" : dealCard.exitBuyerPool && dealCard.exitBuyerPool !== "Unclear" ? "warning" : "missing",
+      action: "Confirm the unit appeals beyond one buyer segment, especially own-stay buyers and investor buyers."
+    },
+    {
+      label: "Decision thesis and kill rule",
+      status: dealCard.investmentThesis && dealCard.killCriterion ? "done" : "missing",
+      action: "Write the thesis and the exact walk-away discovery before committing."
+    }
+  ];
+
+  const decisionFocus = rejectStops.length
+    ? { label: "Do not validate", tone: "danger", body: hardStopText[0] || "A hard rejection rule has been triggered." }
+    : pauseStops.length
+      ? { label: "Pause first", tone: "danger", body: hardStopText[0] || "The investor profile or holding structure is not ready." }
+      : blockers.length
+        ? { label: "Clear before shortlist", tone: "warning", body: blockers[0] }
+        : verdict === "SHORTLIST"
+          ? { label: "Shortlist, not buy yet", tone: "ready", body: "The deal is strong enough for deeper verification, but final commitment still needs live evidence and professional checks." }
+          : { label: "Investigate further", tone: "neutral", body: watchouts[0] || missing[0] || counterThesis };
   const voiceSummary = `My current verdict is ${verdict.toLowerCase()}. ${verdictSummary} The main issue is ${primaryRisk}`;
 
   const scenarioInputsReady = Boolean(rent && installment);
@@ -2344,6 +2459,9 @@ function analyzeSevenStageDeal(rawDealCard = {}, rawFinancialProfile = {}) {
     dimensions,
     scenarios,
     challengeMode,
+    decisionFocus,
+    investorReadiness,
+    evidenceChecklist,
     hardStops: hardStopText,
     recommendationBlockers: blockers,
     watchouts: uniqueText(watchouts, 8),
@@ -2359,8 +2477,18 @@ function dealAnalysisText(analysis) {
     `Confidence ${analysis.confidence}%. Input completeness ${analysis.completeness}%.`
   ];
   if (analysis.aiCommentary) lines.push("", "Apex Analytic commentary", analysis.aiCommentary);
+  if (analysis.decisionFocus?.body) {
+    lines.push("", `Decision focus: ${analysis.decisionFocus.label || "Decision focus"}`, `- ${analysis.decisionFocus.body}`);
+  }
+  if (analysis.investorReadiness?.label) {
+    lines.push("", "Investor readiness", `- ${analysis.investorReadiness.label}: ${analysis.investorReadiness.summary || ""}`);
+    if (analysis.investorReadiness.flags?.length) lines.push(...analysis.investorReadiness.flags.map((item) => `- ${item}`));
+  }
   if (analysis.dimensions?.length) {
     lines.push("", "Four-part decision read", ...analysis.dimensions.map((item) => `- ${item.label}: ${item.score}/100 (${item.status}).`));
+  }
+  if (analysis.evidenceChecklist?.length) {
+    lines.push("", "Evidence checklist", ...analysis.evidenceChecklist.map((item) => `- ${item.label}: ${item.status}. ${item.action}`));
   }
   if (analysis.scenarios?.length) {
     lines.push("", "Downside scenarios", ...analysis.scenarios.map((item) => `- ${item.label}: ${item.value} per month. ${item.assumption}.`));
