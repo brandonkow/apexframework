@@ -207,8 +207,17 @@ test("decision journal locks pre-purchase reasoning and recalls reviewed lessons
   assert.ok(learnedReport.payload.analysis.learningLoop.signals.some((signal) => signal.type === "memory" && /management response/i.test(signal.body)));
   assert.ok(learnedReport.payload.analysis.learningLoop.signals.some((signal) => signal.type === "journal" && /Management response/i.test(signal.body)));
   assert.ok(learnedReport.payload.analysis.nextActions.some((action) => /remembered lesson/i.test(action)));
+  assert.equal(learnedReport.payload.analysis.dealMemoryComparison.status, "matched");
+  assert.ok(learnedReport.payload.analysis.dealMemoryComparison.matches.some((match) => /Journal Test Residence/i.test(match.subject)));
+  assert.ok(learnedReport.payload.analysis.beliefTracker.beliefs.some((belief) => /management response/i.test(belief.label)));
+  assert.ok(learnedReport.payload.analysis.sourceTransparency.sources.some((source) => source.type === "memory" && source.status === "used"));
+  assert.ok(learnedReport.payload.analysis.sourceTransparency.sources.some((source) => source.type === "journal" && source.status === "used"));
+  assert.ok(learnedReport.payload.analysis.sourceTransparency.sources.some((source) => source.type === "saved_deal" && source.status === "used"));
+  assert.ok(["clear", "review"].includes(learnedReport.payload.analysis.memoryConflicts.status));
+  assert.ok(learnedReport.payload.analysis.personalOperatingRules.rules.some((rule) => /Site-visit|Cash-flow|Cheap|memory/i.test(rule.label)));
   assert.ok(learnedReport.payload.sources.some((source) => source.type === "memory" && source.id === memory.payload.item.id));
   assert.ok(learnedReport.payload.sources.some((source) => source.type === "journal" && source.id === decisionId));
+  assert.ok(learnedReport.payload.sources.some((source) => source.type === "saved_report" && source.id === reportId));
 
   const collection = await request(baseUrl, "/api/journal", { cookie });
   assert.equal(collection.payload.summary.reviewed, 1);

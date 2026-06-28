@@ -43,12 +43,12 @@ When input is refined or contested, EstateLab should explain why, preserve the u
 
 ## Ownership Boundary
 
-EstateLab has two different surfaces:
+Apex has two different surfaces:
 
-1. **Public frontend**: normal users interact only with Jarvis. Their chat prompts are used to query the curated backend knowledge, but they are not written into the knowledge base.
+1. **Public frontend**: normal users interact only with Apex. Their chat prompts are used to query the curated backend knowledge, but they are not written into the knowledge base.
 2. **Owner backend**: the knowledge base, belief ledger, decision records, property data, comparable data, and source documents are curated by the owner only.
 
-Public users may create Jarvis chat sessions so the frontend can preserve conversation continuity. Guest sessions are restricted to their originating browser client, while optional member accounts provide authenticated private history and cross-device resume. These sessions are conversation memory only; they must not be promoted into beliefs, framework rules, RAG references, or owner decisions unless the owner deliberately reviews and curates them.
+Public users may create Apex chat sessions so the frontend can preserve conversation continuity. Guest sessions are restricted to their originating browser client, while optional member accounts provide authenticated private history and cross-device resume. These sessions are conversation memory only; they must not be promoted into beliefs, framework rules, RAG references, or owner decisions unless the owner deliberately reviews and curates them.
 
 Long-term user memory is consent-first. Apex can store the memory engine, review screen, and settings before collecting user memory. New accounts start with chat memory capture disabled and approved-memory reasoning disabled. Manual memory entry is allowed because it is an explicit user action, but chat-based memory suggestions and memory-influenced reasoning require separate user opt-in.
 
@@ -56,7 +56,9 @@ Approved memories can be organized into a private investor memory profile: inves
 
 Personalized challenge mode should make Apex feel more like a second brain: it reminds the user when a current deal appears to violate their own remembered standards. The tone should stay calm and mentor-like. It should challenge inconsistency, not shame the user.
 
-Public users must not be able to add, edit, or delete backend knowledge. Backend write APIs require the `x-estatelab-owner-token` header to match the server's `ESTATELAB_OWNER_TOKEN` environment variable. If no owner token is configured, owner APIs are disabled and public Jarvis session routes remain the only unauthenticated write surface.
+Deal memory comparison, belief tracking, source transparency, memory-conflict handling, and personal operating rules complete the V3 memory path. They make Apex compare a new deal against saved reports and approved personal memory while clearly showing which sources were used. They do not train the shared framework automatically.
+
+Public users must not be able to add, edit, or delete backend knowledge. Backend write APIs require the owner-token header to match the server's owner-token environment variable. If no owner token is configured, owner APIs are disabled and public Apex session routes remain the only unauthenticated write surface.
 
 The visible frontend should stay simple and conversational. Knowledge-base development happens through owner-controlled backend files, scripts, or authenticated owner API calls.
 

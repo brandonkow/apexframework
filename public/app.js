@@ -302,6 +302,7 @@ function sourceLabel(type) {
   if (type === "memory") return "MEMORY";
   if (type === "journal") return "JOURNAL";
   if (type === "market") return "MARKET";
+  if (type === "saved_report") return "SAVED DEAL";
   if (type === "belief") return "BELIEF";
   if (type === "decision") return "DECISION";
   if (type === "evidence") return "EVIDENCE";
@@ -312,6 +313,7 @@ function sourceName(source) {
   if (source?.type === "memory") return "your approved memory";
   if (source?.type === "journal") return "your decision journal";
   if (source?.type === "market") return "dated market observation";
+  if (source?.type === "saved_report") return "saved deal history";
   if (source?.type === "evidence") return "owner evidence";
   const title = String(source?.title || "").toLowerCase();
   if (title.includes("rental") || title.includes("installment") || title.includes("tenant")) return "rental rule";
@@ -1033,6 +1035,11 @@ function saveAnalysisToShortlist(analysis) {
     recommendationBlockers: analysis.recommendationBlockers || [],
     decisionFocus: analysis.decisionFocus || null,
     personalizedChallenge: analysis.personalizedChallenge || null,
+    dealMemoryComparison: analysis.dealMemoryComparison || null,
+    beliefTracker: analysis.beliefTracker || null,
+    sourceTransparency: analysis.sourceTransparency || null,
+    memoryConflicts: analysis.memoryConflicts || null,
+    personalOperatingRules: analysis.personalOperatingRules || null,
     investorReadiness: analysis.investorReadiness || null,
     learningLoop: analysis.learningLoop || null,
     counterThesis: analysis.counterThesis,
@@ -1201,6 +1208,26 @@ function analysisExportText(analysis) {
   if (analysis.personalizedChallenge?.message) {
     lines.push("", `V3.3 personalized challenge: ${analysis.personalizedChallenge.label || "Personalized challenge"}`, `- ${analysis.personalizedChallenge.message}`);
     for (const item of analysis.personalizedChallenge.checks || []) lines.push(`- ${item.label}: ${item.status}. ${item.action}`);
+  }
+  if (analysis.dealMemoryComparison?.summary) {
+    lines.push("", "V3.4 deal memory comparison", `${analysis.dealMemoryComparison.status || "none"}: ${analysis.dealMemoryComparison.summary}`);
+    for (const item of analysis.dealMemoryComparison.matches || []) lines.push(`- ${item.subject}: ${item.similarity}% similar, ${item.verdict}. ${item.reason} ${item.action}`);
+  }
+  if (analysis.beliefTracker?.summary) {
+    lines.push("", "V3.5 belief tracker", `${analysis.beliefTracker.status || "inactive"}: ${analysis.beliefTracker.summary}`);
+    for (const item of analysis.beliefTracker.beliefs || []) lines.push(`- ${item.label}: ${item.status}. ${item.action}`);
+  }
+  if (analysis.sourceTransparency?.summary) {
+    lines.push("", "V3.6 source transparency", `${analysis.sourceTransparency.mode || analysis.reasoningMode || "Framework only"}: ${analysis.sourceTransparency.summary}`);
+    for (const item of analysis.sourceTransparency.sources || []) lines.push(`- ${item.label}: ${item.status}. ${item.detail}`);
+  }
+  if (analysis.memoryConflicts?.summary) {
+    lines.push("", "V3.7 memory conflicts", `${analysis.memoryConflicts.status || "inactive"}: ${analysis.memoryConflicts.summary}`);
+    for (const item of analysis.memoryConflicts.conflicts || []) lines.push(`- ${item.label}: ${item.status}. ${item.action}`);
+  }
+  if (analysis.personalOperatingRules?.summary) {
+    lines.push("", "V3.8 personal operating rules", `${analysis.personalOperatingRules.status || "check"}: ${analysis.personalOperatingRules.summary}`);
+    for (const item of analysis.personalOperatingRules.rules || []) lines.push(`- ${item.label}: ${item.status}. ${item.action}`);
   }
   if (analysis.hardStops?.length) lines.push("", "Hard stops", ...analysis.hardStops.map((item) => `- ${item}`));
   if (analysis.recommendationBlockers?.length) lines.push("", "Decision blockers", ...analysis.recommendationBlockers.map((item) => `- ${item}`));
@@ -1554,6 +1581,42 @@ function personalizedChallengeMarkup(challenge = {}) {
   `;
 }
 
+function v3MemoryInsightMarkup(title, section = {}, itemKey = "items") {
+  if (!section.summary) return "";
+  const items = Array.isArray(section[itemKey]) ? section[itemKey] : [];
+  const statusLabel = section.status || section.mode || "check";
+  const status = String(statusLabel).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "check";
+  return `
+    <section class="analysisV3Insight ${escapeHtml(status)}">
+      <header>
+        <span><small>${escapeHtml(title)}</small><b>${escapeHtml(section.summary)}</b></span>
+        <em>${escapeHtml(statusLabel)}</em>
+      </header>
+      ${items.length ? `
+        <div>
+          ${items.map((item) => {
+            const titleText = item.subject || item.label || item.type || "Memory signal";
+            const metaText = item.similarity ? `${item.similarity}% similar / ${item.verdict || "saved"}` : item.status || item.type || "";
+            const detailText = item.reason || item.basis || item.detail || item.memoryA || "";
+            const secondDetail = item.memoryB ? `Conflict: ${item.memoryB}` : "";
+            return `
+              <article class="v3InsightItem ${escapeHtml(item.status || section.status || "check")}">
+                <i>${escapeHtml(metaText)}</i>
+                <span>
+                  <b>${escapeHtml(titleText)}</b>
+                  ${detailText ? `<small>${escapeHtml(detailText)}</small>` : ""}
+                  ${secondDetail ? `<small>${escapeHtml(secondDetail)}</small>` : ""}
+                  ${item.action ? `<em>${escapeHtml(item.action)}</em>` : ""}
+                </span>
+              </article>
+            `;
+          }).join("")}
+        </div>
+      ` : ""}
+    </section>
+  `;
+}
+
 function readinessMarkup(readiness = {}) {
   if (!readiness.label) return "";
   const flags = Array.isArray(readiness.flags) ? readiness.flags.slice(0, 4) : [];
@@ -1846,7 +1909,7 @@ function addDealAnalysis(analysis, sources = [], intelligence = {}) {
       </section>
     ` : ""}
     <div class="analysisMeta">
-      <span>ENGINE <b>${escapeHtml(analysis.engineVersion || "Apex v2.4")}</b></span>
+      <span>ENGINE <b>${escapeHtml(analysis.engineVersion || "Apex v3.8")}</b></span>
       <span>REASONING <b>${escapeHtml(analysis.reasoningMode || (analysis.aiCommentary ? "Framework + AI" : "Framework only"))}</b></span>
       <span>DECISION SCORE <b>${escapeHtml(analysis.averageScore)}/100</b></span>
       <span>INPUT COMPLETE <b>${escapeHtml(analysis.completeness)}%</b></span>
@@ -1869,6 +1932,11 @@ function addDealAnalysis(analysis, sources = [], intelligence = {}) {
     ${v2WorkflowMarkup("V2.4 EXIT STRATEGY", analysis.exitStrategy, "BUYER PSYCHOLOGY", analysis.exitStrategy?.buyerPsychology)}
     ${executionPlanMarkup(analysis.executionPlan)}
     ${learningLoopMarkup(analysis.learningLoop)}
+    ${v3MemoryInsightMarkup("V3.4 DEAL MEMORY COMPARISON", analysis.dealMemoryComparison, "matches")}
+    ${v3MemoryInsightMarkup("V3.5 BELIEF TRACKER", analysis.beliefTracker, "beliefs")}
+    ${v3MemoryInsightMarkup("V3.6 SOURCE TRANSPARENCY", analysis.sourceTransparency, "sources")}
+    ${v3MemoryInsightMarkup("V3.7 MEMORY CONFLICTS", analysis.memoryConflicts, "conflicts")}
+    ${v3MemoryInsightMarkup("V3.8 PERSONAL OPERATING RULES", analysis.personalOperatingRules, "rules")}
     ${scenarioMarkup ? `<section class="analysisScenarioSection"><h3>DOWNSIDE SCENARIOS</h3><div class="analysisScenarios">${scenarioMarkup}</div><p>Stress assumptions are decision tests, not forecasts.</p></section>` : ""}
     ${marketIntelligenceMarkup(analysis.marketIntelligence)}
     <ol class="analysisStages">${stageMarkup}</ol>

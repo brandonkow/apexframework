@@ -112,6 +112,51 @@ Personalized challenge mode uses the approved memory profile to test the current
 - It should ask: "Does this deal still obey your own rule, preference, or past lesson?"
 - If memory reasoning is off, no personalized challenge should be generated from user memory.
 
+## v3.4 Deal Memory Comparison
+
+Deal memory comparison checks the current report against the user's own saved deal reports.
+
+- Compare project, area, property type, verdict, weak dimensions, blockers, watch-outs, missing evidence, and counter-thesis language.
+- Show only reasonably similar prior deals, with a short explanation of the overlap.
+- A prior saved report is a benchmark, not proof. It can challenge consistency but cannot approve the new deal by itself.
+- If a prior deal was rejected or paused for the same reason, Apex should force that reason back into the current decision.
+
+## v3.5 Belief Tracker
+
+The belief tracker separates durable user beliefs from one-off chat context.
+
+- Track approved market beliefs, investment rules, and lessons as confirmed, uncertain, challenged, or retired.
+- Treat beliefs as hypotheses until transaction, rental, management, site, legal, and supply evidence supports them.
+- When a deal exposes a weak point in a belief, label the belief uncertain instead of silently applying it.
+- A belief may inform challenge mode, but it must not replace evidence or override hard stops.
+
+## v3.6 Source Transparency
+
+Every report should show what actually influenced the answer.
+
+- Framework only means deterministic Apex rules generated the report without external AI commentary.
+- Framework + AI means the report used the framework plus an external reasoning model for commentary.
+- Approved memory, decision journal, saved deal history, and owner market observations must be listed separately when used.
+- Pending memory, dismissed memory, and normal user chat should not be shown as decision sources.
+
+## v3.7 Memory Pruning And Conflict Handling
+
+Apex should not let long-term memory become a pile of unchallenged assumptions.
+
+- Detect obvious conflicts such as cash-flow hard rules versus negative-cash-flow exceptions, high-rise leasehold tolerance versus landed freehold requirements, or site-visit rules versus new-launch limitations.
+- Flag stale beliefs when supply, rent, management, or area conditions may have changed.
+- Ask the user to clarify the rule instead of guessing which memory is correct.
+- Conflicts should reduce confidence in personalization, not in the underlying framework score.
+
+## v3.8 Personal Operating Rules
+
+Personal operating rules turn the user's standards into repeatable guardrails.
+
+- Default rules include proving holding power, requiring site evidence before strong confidence, refusing to buy cheap property without real quality, and respecting clean legal or financing boundaries.
+- Approved personal memory can add user-specific rules, but it should not lower the framework standard.
+- A hard operating-rule breach blocks validation until cleared.
+- A warning operating-rule breach allows investigation, but Apex should challenge the user before any shortlist language.
+
 ## v1.3 Deal Comparison
 
 The v1.3 comparison layer turns the device shortlist into a decision aid:

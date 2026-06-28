@@ -78,12 +78,22 @@ test("frontend selectors and stylesheet structure stay valid", async () => {
   assert.match(app, /v2WorkflowMarkup\("V2\.4 EXIT STRATEGY", analysis\.exitStrategy/, "Deal reports need v2.4 exit strategy.");
   assert.match(app, /executionPlanMarkup\(analysis\.executionPlan\)/, "Deal reports need v1.5 execution calibration.");
   assert.match(app, /learningLoopMarkup\(analysis\.learningLoop\)/, "Deal reports need visible private learning signals when available.");
+  assert.match(app, /v3MemoryInsightMarkup\("V3\.4 DEAL MEMORY COMPARISON", analysis\.dealMemoryComparison/, "Deal reports need v3.4 saved deal comparison.");
+  assert.match(app, /v3MemoryInsightMarkup\("V3\.5 BELIEF TRACKER", analysis\.beliefTracker/, "Deal reports need v3.5 belief tracking.");
+  assert.match(app, /v3MemoryInsightMarkup\("V3\.6 SOURCE TRANSPARENCY", analysis\.sourceTransparency/, "Deal reports need v3.6 source transparency.");
+  assert.match(app, /v3MemoryInsightMarkup\("V3\.7 MEMORY CONFLICTS", analysis\.memoryConflicts/, "Deal reports need v3.7 memory conflict handling.");
+  assert.match(app, /v3MemoryInsightMarkup\("V3\.8 PERSONAL OPERATING RULES", analysis\.personalOperatingRules/, "Deal reports need v3.8 operating rules.");
   assert.match(app, /function shortlistRankScore/, "The shortlist must rank deals using an adjusted comparison score.");
   assert.match(app, /shortlistSummaryMarkup\(items\)/, "The shortlist must render a comparison summary.");
   assert.match(app, /recommendationBlockers: analysis\.recommendationBlockers/, "Shortlisted deals must preserve decision blockers for comparison.");
   assert.match(app, /decisionFocus: analysis\.decisionFocus/, "Shortlisted deals must preserve decision focus for comparison.");
   assert.match(app, /personalizedChallenge: analysis\.personalizedChallenge/, "Shortlisted deals must preserve V3.3 personalized challenge context.");
   assert.match(app, /learningLoop: analysis\.learningLoop/, "Shortlisted deals must preserve learning signals for comparison.");
+  assert.match(app, /dealMemoryComparison: analysis\.dealMemoryComparison/, "Shortlisted deals must preserve V3.4 saved deal comparison.");
+  assert.match(app, /beliefTracker: analysis\.beliefTracker/, "Shortlisted deals must preserve V3.5 belief tracking.");
+  assert.match(app, /sourceTransparency: analysis\.sourceTransparency/, "Shortlisted deals must preserve V3.6 source transparency.");
+  assert.match(app, /memoryConflicts: analysis\.memoryConflicts/, "Shortlisted deals must preserve V3.7 memory conflict handling.");
+  assert.match(app, /personalOperatingRules: analysis\.personalOperatingRules/, "Shortlisted deals must preserve V3.8 operating rules.");
   assert.match(app, /analysis\.dimensions/, "Deal results must render separate decision dimensions.");
   assert.match(app, /analysis\.scenarios/, "Deal results must render downside scenarios.");
   assert.match(app, /marketIntelligenceMarkup\(analysis\.marketIntelligence\)/, "Deal results must render matched dated market intelligence.");
@@ -119,6 +129,7 @@ test("frontend selectors and stylesheet structure stay valid", async () => {
   assert.match(styles, /\.analysisV2Workflow[\s\S]*?\.v2WorkflowCheck/, "The v2 workflow report sections need styled checklist cards.");
   assert.match(styles, /\.analysisExecution[\s\S]*?\.executionAction/, "The v1.5 report needs a styled execution calibration pack.");
   assert.match(styles, /\.analysisLearning[\s\S]*?\.learningSignal/, "The v1.2 report needs styled memory and journal learning signals.");
+  assert.match(styles, /\.analysisV3Insight[\s\S]*?\.v3InsightItem/, "The v3 memory-path report sections need styled compact cards.");
   assert.match(styles, /\.shortlistCompare[\s\S]*?adjusted|\.shortlistCompare[\s\S]*?grid-template-columns:/, "The v1.3 shortlist needs a styled comparison summary.");
   assert.match(styles, /\.shortlistItem\.blocked[\s\S]*?border-color/, "Blocked shortlist items need a visible comparison warning state.");
 

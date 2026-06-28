@@ -364,7 +364,7 @@ function normalizeReportMarketIntelligence(market = {}) {
 function normalizeReportAnalysis(analysis = {}) {
   const objectList = (items, limit, mapper) => Array.isArray(items) ? items.slice(0, limit).map(mapper) : [];
   return {
-    engineVersion: reportText(analysis.engineVersion || "Apex v2.4", 40),
+    engineVersion: reportText(analysis.engineVersion || "Apex v3.8", 40),
     reasoningMode: reportText(analysis.reasoningMode || "Framework only", 40),
     verdict: reportText(analysis.verdict, 40),
     summary: reportText(analysis.summary, 600),
@@ -571,6 +571,60 @@ function normalizeReportAnalysis(analysis = {}) {
       checks: objectList(analysis?.personalizedChallenge?.checks, 6, (item) => ({
         label: reportText(item?.label, 140),
         status: ["clear", "check", "warning", "hard"].includes(item?.status) ? item.status : "check",
+        action: reportText(item?.action, 420)
+      }))
+    },
+    dealMemoryComparison: {
+      status: ["none", "matched", "watch"].includes(analysis?.dealMemoryComparison?.status) ? analysis.dealMemoryComparison.status : "none",
+      summary: reportText(analysis?.dealMemoryComparison?.summary, 700),
+      matches: objectList(analysis?.dealMemoryComparison?.matches, 5, (item) => ({
+        id: reportText(item?.id, 100),
+        subject: reportText(item?.subject, 160),
+        verdict: reportText(item?.verdict, 40),
+        savedAt: reportText(item?.savedAt, 40),
+        similarity: Math.max(0, Math.min(100, Number(item?.similarity || 0))),
+        reason: reportText(item?.reason, 420),
+        action: reportText(item?.action, 420)
+      }))
+    },
+    beliefTracker: {
+      status: ["inactive", "tracking", "review"].includes(analysis?.beliefTracker?.status) ? analysis.beliefTracker.status : "inactive",
+      summary: reportText(analysis?.beliefTracker?.summary, 700),
+      beliefs: objectList(analysis?.beliefTracker?.beliefs, 8, (item) => ({
+        label: reportText(item?.label, 160),
+        status: ["confirmed", "uncertain", "challenged", "retired"].includes(item?.status) ? item.status : "uncertain",
+        basis: reportText(item?.basis, 420),
+        action: reportText(item?.action, 420)
+      }))
+    },
+    sourceTransparency: {
+      mode: reportText(analysis?.sourceTransparency?.mode, 80),
+      summary: reportText(analysis?.sourceTransparency?.summary, 700),
+      sources: objectList(analysis?.sourceTransparency?.sources, 8, (item) => ({
+        type: ["framework", "ai", "memory", "journal", "saved_deal", "market"].includes(item?.type) ? item.type : "framework",
+        label: reportText(item?.label, 140),
+        status: ["used", "available", "not_used"].includes(item?.status) ? item.status : "used",
+        detail: reportText(item?.detail, 420)
+      }))
+    },
+    memoryConflicts: {
+      status: ["clear", "review", "inactive"].includes(analysis?.memoryConflicts?.status) ? analysis.memoryConflicts.status : "inactive",
+      summary: reportText(analysis?.memoryConflicts?.summary, 700),
+      conflicts: objectList(analysis?.memoryConflicts?.conflicts, 6, (item) => ({
+        label: reportText(item?.label, 140),
+        status: ["clear", "review", "stale"].includes(item?.status) ? item.status : "review",
+        memoryA: reportText(item?.memoryA, 420),
+        memoryB: reportText(item?.memoryB, 420),
+        action: reportText(item?.action, 420)
+      }))
+    },
+    personalOperatingRules: {
+      status: ["clear", "check", "warning", "hard"].includes(analysis?.personalOperatingRules?.status) ? analysis.personalOperatingRules.status : "check",
+      summary: reportText(analysis?.personalOperatingRules?.summary, 700),
+      rules: objectList(analysis?.personalOperatingRules?.rules, 8, (item) => ({
+        label: reportText(item?.label, 160),
+        status: ["clear", "check", "warning", "hard"].includes(item?.status) ? item.status : "check",
+        basis: reportText(item?.basis, 420),
         action: reportText(item?.action, 420)
       }))
     },
@@ -3609,7 +3663,7 @@ function analyzeSevenStageDeal(rawDealCard = {}, rawFinancialProfile = {}) {
   };
 
   return {
-    engineVersion: "Apex v2.4",
+    engineVersion: "Apex v3.8",
     reasoningMode: "Framework only",
     verdict,
     summary: verdictSummary,
@@ -3802,6 +3856,26 @@ function dealAnalysisText(analysis) {
   if (analysis.personalizedChallenge?.message) {
     lines.push("", `V3.3 personalized challenge: ${analysis.personalizedChallenge.label || "Personalized challenge"}`, `- ${analysis.personalizedChallenge.message}`);
     lines.push(...(analysis.personalizedChallenge.checks || []).map((item) => `- ${item.label}: ${item.status}. ${item.action}`));
+  }
+  if (analysis.dealMemoryComparison?.summary) {
+    lines.push("", "V3.4 deal memory comparison", `- ${analysis.dealMemoryComparison.summary}`);
+    lines.push(...(analysis.dealMemoryComparison.matches || []).map((item) => `- ${item.subject}: ${item.similarity}% similar, ${item.verdict}. ${item.reason} ${item.action}`));
+  }
+  if (analysis.beliefTracker?.summary) {
+    lines.push("", "V3.5 belief tracker", `- ${analysis.beliefTracker.summary}`);
+    lines.push(...(analysis.beliefTracker.beliefs || []).map((item) => `- ${item.label}: ${item.status}. ${item.action}`));
+  }
+  if (analysis.sourceTransparency?.summary) {
+    lines.push("", "V3.6 source transparency", `- ${analysis.sourceTransparency.summary}`);
+    lines.push(...(analysis.sourceTransparency.sources || []).map((item) => `- ${item.label}: ${item.status}. ${item.detail}`));
+  }
+  if (analysis.memoryConflicts?.summary) {
+    lines.push("", "V3.7 memory conflicts", `- ${analysis.memoryConflicts.summary}`);
+    lines.push(...(analysis.memoryConflicts.conflicts || []).map((item) => `- ${item.label}: ${item.status}. ${item.action}`));
+  }
+  if (analysis.personalOperatingRules?.summary) {
+    lines.push("", "V3.8 personal operating rules", `- ${analysis.personalOperatingRules.summary}`);
+    lines.push(...(analysis.personalOperatingRules.rules || []).map((item) => `- ${item.label}: ${item.status}. ${item.action}`));
   }
   if (analysis.scenarios?.length) {
     lines.push("", "Downside scenarios", ...analysis.scenarios.map((item) => `- ${item.label}: ${item.value} per month. ${item.assumption}.`));
@@ -4196,6 +4270,337 @@ function applyLearningLoopToAnalysis(analysis, learningLoop) {
     };
   }
   return analysis;
+}
+
+function textTokenSet(value) {
+  return new Set(String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .split(/\s+/)
+    .filter((word) => word.length >= 4 && !["with", "that", "this", "from", "have", "will", "need", "needs", "property", "project", "deal"].includes(word)));
+}
+
+function tokenOverlapScore(a, b) {
+  const left = textTokenSet(a);
+  const right = textTokenSet(b);
+  if (!left.size || !right.size) return 0;
+  let overlap = 0;
+  for (const token of left) {
+    if (right.has(token)) overlap += 1;
+  }
+  return overlap / Math.min(left.size, right.size);
+}
+
+function analysisWeakSignalText(analysis = {}) {
+  const weakDimensions = (analysis.dimensions || [])
+    .filter((item) => item.status === "weak" || Number(item.score || 0) < 60)
+    .map((item) => item.label);
+  const weakStages = (analysis.stages || [])
+    .filter((item) => item.status === "risk" || item.status === "incomplete" || Number(item.score || 0) < 60)
+    .map((item) => `${item.name} ${item.summary}`);
+  return [
+    analysis.verdict,
+    analysis.summary,
+    analysis.counterThesis,
+    ...(analysis.hardStops || []),
+    ...(analysis.recommendationBlockers || []),
+    ...(analysis.watchouts || []),
+    ...(analysis.missingEvidence || []),
+    ...weakDimensions,
+    ...weakStages,
+    JSON.stringify(analysis.context?.dealCard || {})
+  ].join(" ");
+}
+
+function reportSimilarityScore(currentAnalysis = {}, savedReport = {}) {
+  const savedAnalysis = savedReport.analysis || {};
+  const currentDeal = currentAnalysis.context?.dealCard || {};
+  const savedDeal = savedAnalysis.context?.dealCard || {};
+  let score = tokenOverlapScore(
+    `${currentDeal.projectName || ""} ${currentDeal.area || ""} ${currentDeal.propertyType || ""} ${currentDeal.nearbySupply || ""}`,
+    `${savedReport.subject || ""} ${savedDeal.projectName || ""} ${savedDeal.area || ""} ${savedDeal.propertyType || ""} ${savedDeal.nearbySupply || ""}`
+  ) * 45;
+  score += tokenOverlapScore(analysisWeakSignalText(currentAnalysis), analysisWeakSignalText(savedAnalysis)) * 45;
+  if (currentAnalysis.verdict && savedAnalysis.verdict && currentAnalysis.verdict === savedAnalysis.verdict) score += 10;
+  return Math.round(Math.max(0, Math.min(100, score)));
+}
+
+function buildDealComparisonReason(currentAnalysis = {}, savedAnalysis = {}) {
+  const currentText = analysisWeakSignalText(currentAnalysis).toLowerCase();
+  const savedText = analysisWeakSignalText(savedAnalysis).toLowerCase();
+  const reasons = [];
+  const checks = [
+    ["management", /management|jmb|resident|maintenance/],
+    ["cash-flow", /cash.?flow|rent|rental|installment|instalment|yield/],
+    ["supply", /supply|competition|newer|substitute|density/],
+    ["saleability", /saleability|exit|buyer|resale|liquidity/],
+    ["legal or financing", /legal|title|caveat|loan|valuation|financing/],
+    ["site-visit", /site visit|vibe|guard|lobby|lift|corridor/]
+  ];
+  for (const [label, pattern] of checks) {
+    if (pattern.test(currentText) && pattern.test(savedText)) reasons.push(label);
+  }
+  if (!reasons.length) return "Similar deal shape, score profile, or unresolved evidence pattern.";
+  return `Similar ${reasons.slice(0, 3).join(", ")} pattern.`;
+}
+
+function buildDealMemoryComparison(analysis, user) {
+  const reports = normalizeUserReports(user?.reports).items
+    .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
+    .slice(0, 30);
+  if (!reports.length) {
+    return {
+      status: "none",
+      summary: "No prior saved deal report is available for comparison.",
+      matches: []
+    };
+  }
+  const matches = reports
+    .map((report) => {
+      const similarity = reportSimilarityScore(analysis, report);
+      return {
+        id: report.id,
+        subject: report.subject,
+        verdict: report.analysis.verdict,
+        savedAt: report.createdAt,
+        similarity,
+        reason: buildDealComparisonReason(analysis, report.analysis),
+        action: report.analysis.verdict === "REJECT"
+          ? "Re-check why the earlier deal was rejected before treating this one as different."
+          : report.analysis.verdict === "PAUSE" || report.analysis.verdict === "INVESTIGATE"
+            ? "Clear the same missing proof before confidence rises."
+            : "Use the earlier shortlisted report as a benchmark, not automatic approval."
+      };
+    })
+    .filter((item) => item.similarity >= 18)
+    .sort((a, b) => b.similarity - a.similarity)
+    .slice(0, 3);
+  return {
+    status: matches.length ? "matched" : "none",
+    summary: matches.length
+      ? `${matches.length} prior saved deal${matches.length === 1 ? "" : "s"} look comparable enough to challenge this report.`
+      : "Prior saved reports exist, but none are close enough to influence this deal.",
+    matches
+  };
+}
+
+function beliefStatusForDeal(belief, analysis = {}) {
+  const text = String(belief || "").toLowerCase();
+  const issueText = analysisWeakSignalText(analysis).toLowerCase();
+  if (analysis.hardStops?.length) return "challenged";
+  if (/saleability|sell|exit|buyer|liquidity/.test(text)) {
+    return /saleability|exit|buyer|liquidity|resale/.test(issueText) ? "uncertain" : "confirmed";
+  }
+  if (/management|jmb|resident|maintenance/.test(text)) {
+    return /management|jmb|resident|maintenance|site visit/.test(issueText) ? "uncertain" : "confirmed";
+  }
+  if (/rent|rental|cash.?flow|installment|instalment|yield/.test(text)) {
+    return /rent|rental|cash.?flow|installment|instalment|yield/.test(issueText) ? "uncertain" : "confirmed";
+  }
+  if (/supply|competition|newer|substitute/.test(text)) {
+    return /supply|competition|newer|substitute/.test(issueText) ? "uncertain" : "confirmed";
+  }
+  return "uncertain";
+}
+
+function buildBeliefTracker(analysis, profile = {}) {
+  const sourceBeliefs = uniqueText([
+    ...(profile.marketBeliefs || []),
+    ...(profile.investmentRules || []),
+    ...(profile.lessons || []),
+    ...((analysis.learningLoop?.signals || []).map((signal) => signal.body))
+  ], 8);
+  if (!sourceBeliefs.length) {
+    return {
+      status: "inactive",
+      summary: "No approved belief or lesson is available yet. Apex will track beliefs only after the user approves memory.",
+      beliefs: []
+    };
+  }
+  const beliefs = sourceBeliefs.map((belief) => {
+    const status = beliefStatusForDeal(belief, analysis);
+    return {
+      label: conciseText(belief, 150),
+      status,
+      basis: status === "confirmed"
+        ? "The current report does not expose a direct contradiction, but live evidence is still required."
+        : status === "challenged"
+          ? "A hard stop or serious contradiction means this belief cannot support the current deal."
+          : "The current report touches this belief, but proof is still thin or mixed.",
+      action: status === "confirmed"
+        ? "Keep the belief, but do not treat it as property-specific proof."
+        : "Ask for transaction, rent, management, site, or supply evidence before using this belief in the decision."
+    };
+  });
+  return {
+    status: beliefs.some((item) => item.status === "challenged" || item.status === "uncertain") ? "review" : "tracking",
+    summary: `${beliefs.length} approved belief${beliefs.length === 1 ? "" : "s"} or lesson${beliefs.length === 1 ? "" : "s"} checked against this deal.`,
+    beliefs
+  };
+}
+
+function buildMemoryConflicts(profile = {}) {
+  const items = [
+    profile.cashFlowRule,
+    ...(profile.preferredAssets || []),
+    ...(profile.avoidedRisks || []),
+    ...(profile.personalWarnings || []),
+    ...(profile.investmentRules || []),
+    ...(profile.marketBeliefs || []),
+    ...(profile.lessons || [])
+  ].filter(Boolean);
+  if (!items.length) {
+    return {
+      status: "inactive",
+      summary: "No approved memory is available to prune or compare yet.",
+      conflicts: []
+    };
+  }
+  const joined = items.join(" ").toLowerCase();
+  const conflicts = [];
+  const addConflict = (label, leftPattern, rightPattern, action) => {
+    const left = items.find((item) => leftPattern.test(String(item).toLowerCase()));
+    const right = items.find((item) => rightPattern.test(String(item).toLowerCase()) && item !== left);
+    if (left && right) {
+      conflicts.push({
+        label,
+        status: "review",
+        memoryA: left,
+        memoryB: right,
+        action
+      });
+    }
+  };
+  addConflict(
+    "Cash-flow tolerance conflict",
+    /must|always|cover|breakeven|installment|instalment/,
+    /negative cash flow|shortfall|tolerate|landed appreciation/,
+    "Clarify whether this is a hard rental-property rule or only an exception for landed appreciation plays."
+  );
+  addConflict(
+    "Tenure preference conflict",
+    /freehold.*must|must.*freehold|avoid leasehold|reject leasehold/,
+    /leasehold.*acceptable|freehold.*does not matter|freehold.*not matter/,
+    "Separate high-rise tenure tolerance from landed freehold requirements."
+  );
+  addConflict(
+    "Site-visit confidence conflict",
+    /site visit.*must|must.*site visit|vibe|trust your instinct/,
+    /no site visit|cannot visit|virtual|new project/,
+    "Keep site visit as compulsory for completed projects, and label new launches as evidence-incomplete."
+  );
+  if (/old|older/.test(joined) && /newer|new supply/.test(joined) && /still defend|acceptable/.test(joined)) {
+    conflicts.push({
+      label: "Older-project rule needs dating",
+      status: "stale",
+      memoryA: items.find((item) => /old|older/i.test(item)) || "",
+      memoryB: items.find((item) => /newer|new supply|still defend/i.test(item)) || "",
+      action: "Revalidate this belief when nearby VP supply changes the rent and resale comparison."
+    });
+  }
+  return {
+    status: conflicts.length ? "review" : "clear",
+    summary: conflicts.length
+      ? `${conflicts.length} approved memor${conflicts.length === 1 ? "y needs" : "ies need"} clarification before being treated as a hard rule.`
+      : "No obvious conflict was detected in the approved memory used for this report.",
+    conflicts: conflicts.slice(0, 6)
+  };
+}
+
+function buildPersonalOperatingRules(analysis, profile = {}) {
+  const issueText = analysisWeakSignalText(analysis).toLowerCase();
+  const hasHardStop = Boolean(analysis.hardStops?.length);
+  const rules = [
+    {
+      label: "Cash-flow floor",
+      status: /rent|rental|cash.?flow|installment|instalment|yield|negative/.test(issueText) ? "warning" : "clear",
+      basis: profile.cashFlowRule && !/^not enough/i.test(profile.cashFlowRule) ? profile.cashFlowRule : "Default Apex rule: prove holding power before treating a deal as investable.",
+      action: "If this is a normal rental property, rent must support instalment and recurring charges before shortlist confidence rises."
+    },
+    {
+      label: "Site-visit gate",
+      status: /site visit|vibe|management|resident|guard|lobby|lift/.test(issueText) ? "warning" : "clear",
+      basis: "Site feeling, management response, resident behaviour, and building condition cannot be fully proven by numbers.",
+      action: "Do not move from investigate to strong recommendation until physical site evidence is recorded, except for new launches where uncertainty must remain visible."
+    },
+    {
+      label: "Cheap is not enough",
+      status: /cheap|discount|below market|poor|weak|management|quality|layout/.test(issueText) ? "warning" : "check",
+      basis: "Apex should protect users from buying cheap property instead of valuable property.",
+      action: "Treat price as only the transaction medium. Quality, exit buyer pool, management, layout, and supply defense must still pass."
+    },
+    {
+      label: "Clean transaction boundary",
+      status: hasHardStop || /marked.?up|bulk purchase|caveat|legal|title|loan rejection|unsafe/.test(issueText) ? "hard" : "clear",
+      basis: "Apex does not validate serious legal, title, financing, or compliance shortcuts.",
+      action: hasHardStop ? "Stop validation until the hard stop is removed or independently cleared." : "Keep legal, title, seller, banker, and lawyer checks explicit."
+    }
+  ];
+  if (profile.approvedCount) {
+    rules.push({
+      label: "Respect approved personal memory",
+      status: analysis.personalizedChallenge?.status === "hard" ? "hard" : analysis.personalizedChallenge?.status === "challenge" ? "warning" : "check",
+      basis: `${profile.investorType || "Profile building"} / ${profile.riskStyle || "Needs more approved memory"}`,
+      action: "If the current deal conflicts with approved personal memory, the user must explain why this is a justified exception."
+    });
+  }
+  const status = rules.some((item) => item.status === "hard") ? "hard" : rules.some((item) => item.status === "warning") ? "warning" : rules.some((item) => item.status === "check") ? "check" : "clear";
+  return {
+    status,
+    summary: status === "hard"
+      ? "A personal operating rule blocks approval until cleared."
+      : status === "warning"
+        ? "Personal operating rules allow investigation, but they are not clean enough for blind confidence."
+        : "Personal operating rules are not blocking this report.",
+    rules
+  };
+}
+
+function buildSourceTransparency({ mode = "framework", sources = [], analysis = {} } = {}) {
+  const sourceList = [
+    {
+      type: "framework",
+      label: "Apex framework",
+      status: "used",
+      detail: "The deterministic scorecard, blockers, stress tests, and operating rules were applied."
+    },
+    {
+      type: "ai",
+      label: "External reasoning model",
+      status: mode === "llm" ? "used" : "not_used",
+      detail: mode === "llm" ? "AI generated the commentary layer; framework rules still control the verdict." : "No external model generated this report."
+    },
+    {
+      type: "memory",
+      label: "Approved user memory",
+      status: analysis.learningLoop?.memoryCount ? "used" : "not_used",
+      detail: analysis.learningLoop?.memoryCount ? `${analysis.learningLoop.memoryCount} approved memor${analysis.learningLoop.memoryCount === 1 ? "y" : "ies"} influenced challenge mode.` : "No approved memory matched or memory reasoning was off."
+    },
+    {
+      type: "journal",
+      label: "Decision journal",
+      status: analysis.learningLoop?.journalCount ? "used" : "not_used",
+      detail: analysis.learningLoop?.journalCount ? `${analysis.learningLoop.journalCount} locked journal entr${analysis.learningLoop.journalCount === 1 ? "y" : "ies"} matched this report.` : "No locked journal lesson matched this report."
+    },
+    {
+      type: "saved_deal",
+      label: "Saved deal history",
+      status: analysis.dealMemoryComparison?.matches?.length ? "used" : "not_used",
+      detail: analysis.dealMemoryComparison?.matches?.length ? `${analysis.dealMemoryComparison.matches.length} prior saved deal${analysis.dealMemoryComparison.matches.length === 1 ? "" : "s"} compared.` : "No comparable saved deal was found."
+    },
+    {
+      type: "market",
+      label: "Owner market observations",
+      status: analysis.marketIntelligence?.summary?.matched ? "used" : "not_used",
+      detail: analysis.marketIntelligence?.summary?.matched ? `${analysis.marketIntelligence.summary.matched} dated owner observation${analysis.marketIntelligence.summary.matched === 1 ? "" : "s"} matched.` : "No dated owner market observation matched this report."
+    }
+  ];
+  const used = sourceList.filter((source) => source.status === "used").map((source) => source.label);
+  return {
+    mode: mode === "llm" ? "Framework + AI" : "Framework only",
+    summary: used.length ? `Used: ${used.join(", ")}.` : "Used framework rules only.",
+    sources: sourceList
+  };
 }
 
 async function generateJarvisLlmAnswer({
@@ -5291,6 +5696,10 @@ async function router(req, res) {
     const dealMemories = selectRelevantUserMemories(approvedUserMemories(actor.user), learningQuery);
     const dealJournal = selectRelevantUserJournal(lockedUserJournal(actor.user), learningQuery);
     applyLearningLoopToAnalysis(analysis, buildDealLearningLoop(dealMemories, dealJournal));
+    analysis.dealMemoryComparison = buildDealMemoryComparison(analysis, actor.user);
+    analysis.beliefTracker = buildBeliefTracker(analysis, analysis.learningLoop?.profile || {});
+    analysis.memoryConflicts = buildMemoryConflicts(analysis.learningLoop?.profile || {});
+    analysis.personalOperatingRules = buildPersonalOperatingRules(analysis, analysis.learningLoop?.profile || {});
     analysis.marketIntelligence = selectMarketIntelligence(`${subject} ${JSON.stringify(dealCard)}`, db.knowledge, 8);
     const marketStage = analysis.stages.find((stage) => stage.number === 6);
     if (marketStage && analysis.marketIntelligence.observations.length) {
@@ -5312,6 +5721,13 @@ async function router(req, res) {
         preview: conciseText(decision.outcome.lesson || decision.prePurchase.thesis, 160),
         score: decision.score
       })),
+      ...(analysis.dealMemoryComparison?.matches || []).map((match) => ({
+        id: match.id,
+        title: match.subject,
+        type: "saved_report",
+        preview: match.reason,
+        score: match.similarity
+      })),
       ...await dealAnalysisSources()
     ].slice(0, 12);
     let mode = "framework";
@@ -5327,6 +5743,7 @@ async function router(req, res) {
       }
     }
     analysis.reasoningMode = mode === "llm" ? "Framework + AI" : "Framework only";
+    analysis.sourceTransparency = buildSourceTransparency({ mode, sources, analysis });
     const now = new Date().toISOString();
     session.messages.push({
       id: randomUUID(),

@@ -3943,6 +3943,145 @@ button {
   color: #7faab3;
 }
 
+.analysisV3Insight {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  border: 1px solid rgba(103, 229, 255, 0.12);
+  border-left: 2px solid rgba(103, 229, 255, 0.62);
+  border-radius: 8px;
+  padding: 9px;
+  background: linear-gradient(135deg, rgba(103, 229, 255, 0.045), transparent 52%), rgba(0, 11, 18, 0.34);
+  overflow-wrap: anywhere;
+}
+
+.analysisV3Insight.review,
+.analysisV3Insight.warning {
+  border-left-color: #d0ad69;
+  background: linear-gradient(135deg, rgba(255, 210, 116, 0.05), transparent 52%), rgba(0, 11, 18, 0.34);
+}
+
+.analysisV3Insight.hard {
+  border-left-color: #e68e8e;
+  background: linear-gradient(135deg, rgba(255, 126, 126, 0.055), transparent 52%), rgba(0, 11, 18, 0.34);
+}
+
+.analysisV3Insight.clear,
+.analysisV3Insight.tracking,
+.analysisV3Insight.matched {
+  border-left-color: #70e6b3;
+}
+
+.analysisV3Insight header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: start;
+}
+
+.analysisV3Insight header span {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.analysisV3Insight small {
+  color: #67b7c7;
+  font-size: 0.5rem;
+  font-weight: 500;
+  letter-spacing: 0.17em;
+}
+
+.analysisV3Insight header b {
+  color: #a8d0d8;
+  font-size: 0.62rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.analysisV3Insight header em {
+  border: 1px solid rgba(103, 229, 255, 0.18);
+  border-radius: 999px;
+  padding: 4px 7px;
+  color: #8fdde8;
+  font-size: 0.48rem;
+  font-style: normal;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.analysisV3Insight > div {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.v3InsightItem {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  border: 1px solid rgba(103, 229, 255, 0.08);
+  border-left: 2px solid rgba(103, 229, 255, 0.42);
+  border-radius: 8px;
+  padding: 8px;
+  background: rgba(0, 10, 17, 0.28);
+}
+
+.v3InsightItem.warning,
+.v3InsightItem.uncertain,
+.v3InsightItem.review,
+.v3InsightItem.stale {
+  border-left-color: #d0ad69;
+}
+
+.v3InsightItem.hard,
+.v3InsightItem.challenged {
+  border-left-color: #e68e8e;
+}
+
+.v3InsightItem.clear,
+.v3InsightItem.confirmed,
+.v3InsightItem.used {
+  border-left-color: #70e6b3;
+}
+
+.v3InsightItem i {
+  align-self: start;
+  border: 1px solid rgba(103, 229, 255, 0.16);
+  border-radius: 999px;
+  padding: 3px 6px;
+  color: #8fdde8;
+  font-size: 0.42rem;
+  font-style: normal;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.v3InsightItem span {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.v3InsightItem b,
+.v3InsightItem small,
+.v3InsightItem em {
+  color: #a8d0d8;
+  font-size: 0.58rem;
+  font-style: normal;
+  font-weight: 500;
+  letter-spacing: normal;
+  line-height: 1.35;
+}
+
+.v3InsightItem small {
+  color: #638f99;
+}
+
+.v3InsightItem em {
+  color: #7faab3;
+}
+
 .analysisActions {
   display: flex;
   justify-content: flex-end;
@@ -4785,6 +4924,7 @@ button {
   .analysisHoldExit > div,
   .analysisDecisionSeal > div,
   .analysisV2Workflow > div,
+  .analysisV3Insight > div,
   .executionOffer,
   .executionActions,
   .shortlistList {
