@@ -580,6 +580,75 @@ button {
   gap: 8px;
 }
 
+.contextReadiness {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: min(620px, 100%);
+  margin: -2px auto 0;
+  gap: 6px;
+}
+
+.contextReadiness button {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+  border: 1px solid rgba(103, 229, 255, 0.12);
+  border-radius: 999px;
+  padding: 6px 9px;
+  cursor: pointer;
+  background: rgba(2, 13, 21, 0.45);
+  text-align: left;
+}
+
+.contextReadiness button:hover,
+.contextReadiness button:focus-visible {
+  border-color: rgba(103, 229, 255, 0.4);
+  background: rgba(41, 158, 181, 0.1);
+}
+
+.contextReadiness button.ready {
+  border-color: rgba(112, 230, 179, 0.28);
+}
+
+.contextReadiness button.watch {
+  border-color: rgba(208, 173, 105, 0.26);
+}
+
+.contextReadiness button.missing {
+  border-color: rgba(230, 142, 142, 0.22);
+}
+
+.contextReadiness span {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.contextReadiness small {
+  color: var(--cyan);
+  font-size: 0.48rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.contextReadiness b {
+  color: #9cd0da;
+  font-size: 0.54rem;
+  font-weight: 500;
+}
+
+.contextReadiness em {
+  overflow: hidden;
+  color: #638e98;
+  font-size: 0.47rem;
+  font-style: normal;
+  letter-spacing: 0.06em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .authPanel,
 .memoryPanel {
   width: min(620px, 100%);
@@ -607,6 +676,7 @@ button {
 
 .accountOpen .transcript,
 .accountOpen .contextDeck,
+.accountOpen .contextReadiness,
 .accountOpen .aiDisclosure,
 .accountOpen .commandBar,
 .accountOpen .utilityBar {
@@ -615,6 +685,7 @@ button {
 
 .memoryOpen .transcript,
 .memoryOpen .contextDeck,
+.memoryOpen .contextReadiness,
 .memoryOpen .aiDisclosure,
 .memoryOpen .commandBar,
 .memoryOpen .utilityBar {
@@ -1196,6 +1267,7 @@ button {
 
 .reportsOpen .transcript,
 .reportsOpen .contextDeck,
+.reportsOpen .contextReadiness,
 .reportsOpen .aiDisclosure,
 .reportsOpen .commandBar,
 .reportsOpen .utilityBar {
@@ -1337,6 +1409,7 @@ button {
 
 .journalOpen .transcript,
 .journalOpen .contextDeck,
+.journalOpen .contextReadiness,
 .journalOpen .aiDisclosure,
 .journalOpen .commandBar,
 .journalOpen .utilityBar {
@@ -1584,6 +1657,7 @@ button {
 
 .ownerMarketOpen .transcript,
 .ownerMarketOpen .contextDeck,
+.ownerMarketOpen .contextReadiness,
 .ownerMarketOpen .aiDisclosure,
 .ownerMarketOpen .commandBar,
 .ownerMarketOpen .utilityBar {
@@ -1862,6 +1936,7 @@ button {
 
 .shortlistOpen .transcript,
 .shortlistOpen .contextDeck,
+.shortlistOpen .contextReadiness,
 .shortlistOpen .aiDisclosure,
 .shortlistOpen .commandBar,
 .shortlistOpen .utilityBar {
@@ -5038,6 +5113,19 @@ button {
     gap: 6px;
   }
 
+  .contextReadiness {
+    width: 100%;
+    gap: 5px;
+  }
+
+  .contextReadiness button {
+    padding: 6px 8px;
+  }
+
+  .contextReadiness em {
+    display: none;
+  }
+
   .authPanel,
   .memoryPanel,
   .reportsPanel,
@@ -5577,6 +5665,7 @@ button {
   body.printMode .systemBar,
   body.printMode .assistantStage,
   body.printMode .contextDeck,
+  body.printMode .contextReadiness,
   body.printMode .aiDisclosure,
   body.printMode .commandBar,
   body.printMode .utilityBar,

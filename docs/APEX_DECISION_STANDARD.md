@@ -432,6 +432,16 @@ The v5.2 layer makes Apex proactive after ordinary chat replies:
 - Persist the coach with chat messages so a refreshed session still shows the same next steps.
 - Keep prompts as user assistance only. They must not alter evidence standards, scoring, legal boundaries, or investment conclusions.
 
+## v5.3 Context Readiness Strip
+
+The v5.3 layer gives users a quiet readiness signal before they ask or analyse:
+
+- Show compact Deal, Profile, and Guidance readiness percentages near the input box.
+- Calculate readiness from key fields rather than raw form completion. Deal readiness needs area/project, price, rent, comps, site proof, and title/legal context. Profile readiness needs income, reserves, debt, goal, holding period, and concern. Guidance readiness needs experience, mode, intent, output, and confidence comfort.
+- Clicking a readiness chip opens the relevant card and focuses the first missing field.
+- Keep the strip hidden when account, memory, report, journal, market, shortlist, or print views replace the chat workspace.
+- Treat readiness as workflow guidance only. It must not approve a deal or weaken the evidence engine.
+
 ## Four Decision Dimensions
 
 - **Property quality**: entry value, rentability, own-stay appeal, management, unit position, tenure, and buyer depth.

@@ -30,6 +30,7 @@ test("frontend selectors and stylesheet structure stay valid", async () => {
   assert.match(html, /class="orbCore"><b>A<\/b>/, "The orb must use only the Apex A mark.");
   assert.doesNotMatch(html, /<h1>APEX<\/h1>|class="productSuffix"/, "The central Apex Analytic wordmark must stay removed.");
   assert.match(html, /<form id="chatForm"[\s\S]*?id="analyzeDealBtn"[\s\S]*?<\/form>/, "Deal analysis must remain visible inside the message bar.");
+  assert.match(html, /id="contextReadiness"[\s\S]*?aria-label="Context readiness"/, "V5.3 needs a compact context-readiness strip near the input box.");
   assert.equal((html.match(/data-context-reset="(?:deal|profile|guidance)"/g) || []).length, 3, "Each context card needs its own reset button.");
   assert.match(html, /id="memoryPanel"[\s\S]*?PRIVATE TO YOUR ACCOUNT[\s\S]*?id="memoryList"/, "Signed-in users need a private memory review screen.");
   assert.match(html, /id="memoryCaptureEnabled"[\s\S]*?id="memoryReasoningEnabled"[\s\S]*?id="memoryModeNotice"/, "V3 memory must expose opt-in capture and reasoning controls.");
@@ -62,6 +63,8 @@ test("frontend selectors and stylesheet structure stay valid", async () => {
   assert.match(app, /result\.memoryCandidate/, "The chat must surface memory candidates for review.");
   assert.match(app, /contextCoachMarkup\(intelligence\.contextCoach\)/, "Chat replies need the v5.2 next-move coach.");
   assert.match(app, /data-coach-prompt/, "V5.2 next-move prompts must be clickable from chat.");
+  assert.match(app, /function renderContextReadiness[\s\S]*?data-readiness-panel/, "V5.3 must render clickable Deal, Profile, and Guidance readiness chips.");
+  assert.match(app, /focusFirstMissingContextField\(panelName\)/, "V5.3 readiness chips must open the right card and focus missing context.");
   assert.match(app, /\/api\/memory\/settings/, "Memory collection and reasoning must be controlled through explicit settings.");
   assert.match(app, /captureEnabled:\s*memoryCaptureEnabled\.checked/, "Memory capture must be opt-in from the UI.");
   assert.match(app, /reasoningEnabled:\s*memoryReasoningEnabled\.checked/, "Using approved memory in reasoning must be opt-in from the UI.");
@@ -160,6 +163,8 @@ test("frontend selectors and stylesheet structure stay valid", async () => {
   assert.match(styles, /\.analysisV3Insight[\s\S]*?\.v3InsightItem/, "The v3 memory-path report sections need styled compact cards.");
   assert.match(styles, /\.analysisProductExperience[\s\S]*?\.productExperienceCheck/, "The v5 product-experience report section needs styled compact cards.");
   assert.match(styles, /\.contextCoach[\s\S]*?data-coach-prompt|\.contextCoach[\s\S]*?\.contextCoach button/, "The v5.2 next-move coach needs styled prompt buttons.");
+  assert.match(styles, /\.contextReadiness[\s\S]*?\.contextReadiness button/, "The v5.3 context-readiness strip needs styled clickable chips.");
+  assert.match(styles, /\.accountOpen \.contextReadiness[\s\S]*?display:\s*none;/, "Context readiness must hide when workspace panels replace chat.");
   assert.match(styles, /\.shortlistCompare[\s\S]*?adjusted|\.shortlistCompare[\s\S]*?grid-template-columns:/, "The v1.3 shortlist needs a styled comparison summary.");
   assert.match(styles, /\.shortlistItem\.blocked[\s\S]*?border-color/, "Blocked shortlist items need a visible comparison warning state.");
 

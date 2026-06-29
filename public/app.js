@@ -10,6 +10,7 @@ const stopVoiceBtn = document.querySelector("#stopVoiceBtn");
 const resetChatBtn = document.querySelector("#resetChatBtn");
 const analyzeDealBtn = document.querySelector("#analyzeDealBtn");
 const aiDisclosure = document.querySelector("#aiDisclosure");
+const contextReadiness = document.querySelector("#contextReadiness");
 const accountToggle = document.querySelector("#accountToggle");
 const accountLabel = document.querySelector("#accountLabel");
 const authPanel = document.querySelector("#authPanel");
@@ -2345,9 +2346,91 @@ function collectFinancialProfile() {
   return collectContext(profileFields, "data-profile-field");
 }
 
+function contextFieldsForPanel(panelName) {
+  return Array.from(document.querySelectorAll(`[data-context-body="${panelName}"] [data-deal-field], [data-context-body="${panelName}"] [data-profile-field]`));
+}
+
+function contextGroupValue(context, keys = []) {
+  return keys.some((key) => String(context[key] || "").trim());
+}
+
+function contextReadinessGroups(panelName) {
+  if (panelName === "deal") {
+    return [
+      { label: "Area/project", keys: ["area", "projectName"] },
+      { label: "Price", keys: ["askingPrice"] },
+      { label: "Rent", keys: ["expectedRent"] },
+      { label: "Comps", keys: ["comparableTransactions", "comparableSource", "conservativeFairValue"] },
+      { label: "Site proof", keys: ["siteVisitEvidence", "siteVisitNotes"] },
+      { label: "Title/legal", keys: ["legalTitleType", "legalCheck"] }
+    ];
+  }
+  if (panelName === "profile") {
+    return [
+      { label: "Income", keys: ["monthlyIncome"] },
+      { label: "Reserve", keys: ["cashReserveMonths", "cashAvailable"] },
+      { label: "Debt", keys: ["currentDebt"] },
+      { label: "Goal", keys: ["investmentGoal", "portfolioRole"] },
+      { label: "Holding", keys: ["holdingPeriod"] },
+      { label: "Concern", keys: ["financialConcern", "nearTermCommitment"] }
+    ];
+  }
+  return [
+    { label: "Experience", keys: ["experienceLevel"] },
+    { label: "Mode", keys: ["guidanceMode"] },
+    { label: "Intent", keys: ["decisionIntent"] },
+    { label: "Output", keys: ["preferredOutput"] },
+    { label: "Confidence", keys: ["confidenceComfort"] }
+  ];
+}
+
+function contextPanelReadiness(panelName) {
+  const fields = contextFieldsForPanel(panelName);
+  const attributeName = panelName === "deal" ? "data-deal-field" : "data-profile-field";
+  const context = collectContext(fields, attributeName);
+  const groups = contextReadinessGroups(panelName);
+  const missing = groups.filter((item) => !contextGroupValue(context, item.keys)).map((item) => item.label);
+  const complete = groups.length - missing.length;
+  const percent = Math.round((complete / groups.length) * 100);
+  const status = percent >= 80 ? "ready" : percent >= 40 ? "watch" : "missing";
+  return { panelName, context, fields, groups, missing, percent, status };
+}
+
+function renderContextReadiness() {
+  if (!contextReadiness) return;
+  const panels = [
+    { panelName: "deal", label: "Deal" },
+    { panelName: "profile", label: "Profile" },
+    { panelName: "guidance", label: "Guidance" }
+  ].map((item) => ({ ...item, ...contextPanelReadiness(item.panelName) }));
+  contextReadiness.innerHTML = panels.map((item) => {
+    const summary = item.missing.length ? `Missing ${item.missing.slice(0, 2).join(", ")}` : "Ready enough";
+    return `
+      <button class="${escapeHtml(item.status)}" type="button" data-readiness-panel="${escapeHtml(item.panelName)}" aria-label="Open ${escapeHtml(item.label)} context card">
+        <span><small>${escapeHtml(item.label)}</small><b>${escapeHtml(item.percent)}%</b></span>
+        <em>${escapeHtml(summary)}</em>
+      </button>
+    `;
+  }).join("");
+}
+
+function focusFirstMissingContextField(panelName) {
+  const readiness = contextPanelReadiness(panelName);
+  const firstMissing = readiness.missing[0];
+  if (!firstMissing) {
+    readiness.fields[0]?.focus();
+    return;
+  }
+  const group = readiness.groups.find((item) => item.label === firstMissing);
+  const selector = panelName === "deal" ? "data-deal-field" : "data-profile-field";
+  const field = readiness.fields.find((item) => group?.keys.includes(item.getAttribute(selector)));
+  field?.focus();
+}
+
 function saveContext(fields, attributeName, storageKey) {
   const context = collectContext(fields, attributeName);
   window.localStorage.setItem(storageKey, JSON.stringify(context));
+  renderContextReadiness();
 }
 
 function restoreContext(fields, attributeName, storageKey) {
@@ -2377,6 +2460,7 @@ function resetContextCard(panelName) {
     window.localStorage.removeItem(storageKey);
   }
   const label = panelName === "guidance" ? "Guidance" : isDeal ? "Deal" : "Profile";
+  renderContextReadiness();
   setSystemState("System ready", `${label} details cleared.`);
 }
 
@@ -3070,6 +3154,14 @@ shortlistList.addEventListener("click", (event) => {
   const button = event.target.closest("[data-shortlist-action]");
   if (button) handleShortlistAction(button);
 });
+contextReadiness?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-readiness-panel]");
+  if (!button) return;
+  const panelName = button.getAttribute("data-readiness-panel");
+  const toggle = contextToggles.find((item) => item.getAttribute("data-context-toggle") === panelName);
+  if (toggle) setContextPanelState(toggle, true);
+  focusFirstMissingContextField(panelName);
+});
 authClose.addEventListener("click", closeAuthPanel);
 authModeToggle.addEventListener("click", () => setAuthMode(authMode === "login" ? "register" : "login"));
 authRecoveryToggle.addEventListener("click", () => showAuthRecovery(true));
@@ -3105,15 +3197,18 @@ soundToggle.addEventListener("click", () => {
 
 for (const field of dealFields) {
   field.addEventListener("input", () => saveContext(dealFields, "data-deal-field", dealContextKey));
+  field.addEventListener("change", () => saveContext(dealFields, "data-deal-field", dealContextKey));
 }
 
 for (const field of profileFields) {
   field.addEventListener("input", () => saveContext(profileFields, "data-profile-field", profileContextKey));
+  field.addEventListener("change", () => saveContext(profileFields, "data-profile-field", profileContextKey));
 }
 
 async function bootJarvis() {
   restoreContext(dealFields, "data-deal-field", dealContextKey);
   restoreContext(profileFields, "data-profile-field", profileContextKey);
+  renderContextReadiness();
   renderShortlist();
   bootContextPanels();
   setAuthMode("login");
