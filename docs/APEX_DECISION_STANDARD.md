@@ -496,6 +496,15 @@ The v5.9 layer makes the current conversation portable:
 - Keep the brief as a handoff note, not a final recommendation.
 - Remind users to re-check live transaction, rental, financing, legal, supply, and site evidence before deciding.
 
+## v5.10 Product Experience Lock
+
+The v5.10 layer closes the V5 path by making the experience state visible and coherent:
+
+- Show one compact experience-lock strip that summarizes mode, context readiness, voice state, and answer-style tuning.
+- Derive the lock from existing controls rather than asking users to manage another card.
+- Hide the lock when account, memory, report, journal, market, shortlist, print, or expanded context views replace the chat workspace.
+- Treat the lock as product-state feedback only. It must not approve a deal, change scoring, lower evidence gates, or replace the decision engine.
+
 ## Four Decision Dimensions
 
 - **Property quality**: entry value, rentability, own-stay appeal, management, unit position, tenure, and buyer depth.

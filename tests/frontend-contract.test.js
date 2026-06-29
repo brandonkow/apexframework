@@ -35,6 +35,7 @@ test("frontend selectors and stylesheet structure stay valid", async () => {
   assert.match(html, /id="sessionBriefBtn"[\s\S]*?>BRIEF<\/button>/, "V5.9 needs a compact session-brief export action.");
   assert.match(html, /id="inputModeHint"[\s\S]*?class="inputModeHint"/, "V5.4 needs a compact smart-input mode chip in the command bar.");
   assert.match(html, /id="contextReadiness"[\s\S]*?aria-label="Context readiness"/, "V5.3 needs a compact context-readiness strip near the input box.");
+  assert.match(html, /id="experienceLock"[\s\S]*?aria-label="Product experience lock"/, "V5.10 needs one compact product-experience lock surface.");
   assert.equal((html.match(/data-context-reset="(?:deal|profile|guidance)"/g) || []).length, 3, "Each context card needs its own reset button.");
   assert.match(html, /id="memoryPanel"[\s\S]*?PRIVATE TO YOUR ACCOUNT[\s\S]*?id="memoryList"/, "Signed-in users need a private memory review screen.");
   assert.match(html, /id="memoryCaptureEnabled"[\s\S]*?id="memoryReasoningEnabled"[\s\S]*?id="memoryModeNotice"/, "V3 memory must expose opt-in capture and reasoning controls.");
@@ -89,6 +90,10 @@ test("frontend selectors and stylesheet structure stay valid", async () => {
   assert.match(app, /function sessionBriefText[\s\S]*?APEX ANALYTIC SESSION BRIEF[\s\S]*?latestApexBriefLines/, "V5.9 must build a portable session brief from current context and latest Apex direction.");
   assert.match(app, /function copySessionBrief[\s\S]*?writeClipboardText\(text\)/, "V5.9 session brief must use the shared clipboard fallback.");
   assert.match(app, /sessionBriefBtn\.addEventListener\("click"/, "V5.9 BRIEF action must be wired in the utility bar.");
+  assert.match(app, /function renderExperienceLock[\s\S]*?V5 LOCK/, "V5.10 must render the product-experience lock surface.");
+  assert.match(app, /function renderExperienceLock[\s\S]*?voiceResponsesEnabled/, "V5.10 lock must summarize voice state.");
+  assert.match(app, /function renderExperienceLock[\s\S]*?readResponseFeedback/, "V5.10 lock must summarize answer-style tuning.");
+  assert.match(app, /renderContextReadiness[\s\S]*?renderExperienceLock\(\)/, "V5.10 experience lock must refresh with context readiness.");
   assert.match(app, /\/api\/memory\/settings/, "Memory collection and reasoning must be controlled through explicit settings.");
   assert.match(app, /captureEnabled:\s*memoryCaptureEnabled\.checked/, "Memory capture must be opt-in from the UI.");
   assert.match(app, /reasoningEnabled:\s*memoryReasoningEnabled\.checked/, "Using approved memory in reasoning must be opt-in from the UI.");
@@ -189,6 +194,8 @@ test("frontend selectors and stylesheet structure stay valid", async () => {
   assert.match(styles, /\.contextCoach[\s\S]*?data-coach-prompt|\.contextCoach[\s\S]*?\.contextCoach button/, "The v5.2 next-move coach needs styled prompt buttons.");
   assert.match(styles, /\.contextReadiness[\s\S]*?\.contextReadiness button/, "The v5.3 context-readiness strip needs styled clickable chips.");
   assert.match(styles, /\.accountOpen \.contextReadiness[\s\S]*?display:\s*none;/, "Context readiness must hide when workspace panels replace chat.");
+  assert.match(styles, /\.experienceLock[\s\S]*?\.experienceLock\.thin span/, "V5.10 experience lock needs compact state styling.");
+  assert.match(styles, /\.accountOpen \.experienceLock[\s\S]*?\.shortlistOpen \.experienceLock[\s\S]*?display:\s*none;/, "V5.10 experience lock must hide when workspace panels replace chat.");
   assert.match(styles, /\.inputModeHint[\s\S]*?\.commandBar\[data-input-mode="voice"\]/, "V5.4 smart input mode needs styled command-bar states.");
   assert.match(styles, /\.voiceMuted[\s\S]*?#soundToggle/, "V5.5 needs a visible muted-voice state.");
   assert.match(styles, /\.responseFeedback[\s\S]*?button\.active/, "V5.6 response feedback controls need compact active-state styling.");

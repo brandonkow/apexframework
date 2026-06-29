@@ -649,6 +649,51 @@ button {
   white-space: nowrap;
 }
 
+.experienceLock {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  width: min(720px, 100%);
+  margin: -3px auto 0;
+  gap: 5px;
+}
+
+.experienceLock span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid rgba(103, 229, 255, 0.1);
+  border-radius: 999px;
+  padding: 4px 7px;
+  color: #668c95;
+  background: rgba(2, 13, 21, 0.36);
+  font-size: 0.45rem;
+  letter-spacing: 0.11em;
+}
+
+.experienceLock b {
+  color: var(--cyan);
+  font-weight: 500;
+}
+
+.experienceLock small {
+  color: #8ab8c2;
+  font-size: inherit;
+}
+
+.experienceLock.ready span {
+  border-color: rgba(112, 230, 179, 0.18);
+}
+
+.experienceLock.building span {
+  border-color: rgba(208, 173, 105, 0.16);
+}
+
+.experienceLock.thin span {
+  border-color: rgba(230, 142, 142, 0.14);
+}
+
 .authPanel,
 .memoryPanel {
   width: min(620px, 100%);
@@ -677,6 +722,7 @@ button {
 .accountOpen .transcript,
 .accountOpen .contextDeck,
 .accountOpen .contextReadiness,
+.accountOpen .experienceLock,
 .accountOpen .aiDisclosure,
 .accountOpen .commandBar,
 .accountOpen .utilityBar {
@@ -686,6 +732,7 @@ button {
 .memoryOpen .transcript,
 .memoryOpen .contextDeck,
 .memoryOpen .contextReadiness,
+.memoryOpen .experienceLock,
 .memoryOpen .aiDisclosure,
 .memoryOpen .commandBar,
 .memoryOpen .utilityBar {
@@ -1268,6 +1315,7 @@ button {
 .reportsOpen .transcript,
 .reportsOpen .contextDeck,
 .reportsOpen .contextReadiness,
+.reportsOpen .experienceLock,
 .reportsOpen .aiDisclosure,
 .reportsOpen .commandBar,
 .reportsOpen .utilityBar {
@@ -1410,6 +1458,7 @@ button {
 .journalOpen .transcript,
 .journalOpen .contextDeck,
 .journalOpen .contextReadiness,
+.journalOpen .experienceLock,
 .journalOpen .aiDisclosure,
 .journalOpen .commandBar,
 .journalOpen .utilityBar {
@@ -1658,6 +1707,7 @@ button {
 .ownerMarketOpen .transcript,
 .ownerMarketOpen .contextDeck,
 .ownerMarketOpen .contextReadiness,
+.ownerMarketOpen .experienceLock,
 .ownerMarketOpen .aiDisclosure,
 .ownerMarketOpen .commandBar,
 .ownerMarketOpen .utilityBar {
@@ -1937,6 +1987,7 @@ button {
 .shortlistOpen .transcript,
 .shortlistOpen .contextDeck,
 .shortlistOpen .contextReadiness,
+.shortlistOpen .experienceLock,
 .shortlistOpen .aiDisclosure,
 .shortlistOpen .commandBar,
 .shortlistOpen .utilityBar {
@@ -2170,6 +2221,7 @@ button {
 }
 
 .conversation:has(.contextPanel.expanded) .transcript,
+.conversation:has(.contextPanel.expanded) .experienceLock,
 .conversation:has(.contextPanel.expanded) .aiDisclosure {
   display: none;
 }
@@ -5216,6 +5268,18 @@ button {
     display: none;
   }
 
+  .experienceLock {
+    width: 100%;
+    justify-content: center;
+    gap: 4px;
+  }
+
+  .experienceLock span {
+    padding: 4px 6px;
+    font-size: 0.42rem;
+    letter-spacing: 0.08em;
+  }
+
   .authPanel,
   .memoryPanel,
   .reportsPanel,
@@ -5762,6 +5826,7 @@ button {
   body.printMode .assistantStage,
   body.printMode .contextDeck,
   body.printMode .contextReadiness,
+  body.printMode .experienceLock,
   body.printMode .aiDisclosure,
   body.printMode .commandBar,
   body.printMode .utilityBar,
