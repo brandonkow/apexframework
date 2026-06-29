@@ -487,6 +487,15 @@ The v5.8 layer turns feedback into immediate user control:
 - Refinement may change format, tone, and evidence organization only.
 - It must preserve the previous investment judgment unless the user provides new facts or evidence.
 
+## v5.9 Session Brief Export
+
+The v5.9 layer makes the current conversation portable:
+
+- Provide one compact utility action to copy a session brief.
+- Include latest user question, Deal/Profile/Guidance readiness, supplied context fields, and the latest Apex direction.
+- Keep the brief as a handoff note, not a final recommendation.
+- Remind users to re-check live transaction, rental, financing, legal, supply, and site evidence before deciding.
+
 ## Four Decision Dimensions
 
 - **Property quality**: entry value, rentability, own-stay appeal, management, unit position, tenure, and buyer depth.

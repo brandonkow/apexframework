@@ -9,6 +9,7 @@ const sessionStatus = document.querySelector("#sessionStatus");
 const soundToggle = document.querySelector("#soundToggle");
 const stopVoiceBtn = document.querySelector("#stopVoiceBtn");
 const resetChatBtn = document.querySelector("#resetChatBtn");
+const sessionBriefBtn = document.querySelector("#sessionBriefBtn");
 const analyzeDealBtn = document.querySelector("#analyzeDealBtn");
 const aiDisclosure = document.querySelector("#aiDisclosure");
 const contextReadiness = document.querySelector("#contextReadiness");
@@ -1568,8 +1569,7 @@ function analysisExportText(analysis) {
   return brandVisibleText(lines.join("\n"));
 }
 
-async function copyAnalysisReport(button, analysis) {
-  const text = analysisExportText(analysis);
+async function writeClipboardText(text) {
   try {
     await navigator.clipboard.writeText(text);
   } catch {
@@ -1583,6 +1583,100 @@ async function copyAnalysisReport(button, analysis) {
     document.execCommand("copy");
     helper.remove();
   }
+}
+
+function titleCaseKey(key) {
+  return String(key || "")
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function contextBriefLines(title, context = {}, limit = 10) {
+  const entries = Object.entries(context)
+    .filter(([, value]) => String(value || "").trim())
+    .slice(0, limit);
+  if (!entries.length) return [`${title}: not supplied`];
+  return [
+    `${title}:`,
+    ...entries.map(([key, value]) => `- ${titleCaseKey(key)}: ${String(value).trim()}`)
+  ];
+}
+
+function readinessBriefLines() {
+  return ["Readiness:", ...[
+    { panelName: "deal", label: "Deal" },
+    { panelName: "profile", label: "Profile" },
+    { panelName: "guidance", label: "Guidance" }
+  ].map((item) => {
+    const readiness = contextPanelReadiness(item.panelName);
+    return `- ${item.label}: ${readiness.percent}%${readiness.missing.length ? `, missing ${readiness.missing.slice(0, 3).join(", ")}` : ", ready enough"}`;
+  })];
+}
+
+function latestTranscriptText(selector) {
+  const item = Array.from(transcript.querySelectorAll(selector)).pop();
+  return brandVisibleText(item?.textContent || "").replace(/\s+/g, " ").trim();
+}
+
+function latestApexBriefLines() {
+  const analysisMessage = Array.from(transcript.querySelectorAll(".analysisMessage")).pop();
+  const analysis = analysisRegistry.get(analysisMessage?.dataset.analysisId);
+  if (analysis) {
+    return [
+      "Latest Apex direction:",
+      `- Subject: ${analysisSubject(analysis)}`,
+      `- Verdict: ${analysis.verdict || "INVESTIGATE"} (${analysis.confidence || 0}% confidence, ${analysis.averageScore || 0}/100 score)`,
+      analysis.summary ? `- Summary: ${analysis.summary}` : "",
+      analysis.counterThesis ? `- Counter-thesis: ${analysis.counterThesis}` : "",
+      ...(analysis.nextActions || []).slice(0, 3).map((item) => `- Next: ${item}`)
+    ].filter(Boolean);
+  }
+  const latest = latestTranscriptText(".message.jarvis .messageText");
+  return latest
+    ? ["Latest Apex direction:", `- ${latest.slice(0, 700)}`]
+    : ["Latest Apex direction: no Apex answer yet"];
+}
+
+function sessionBriefText() {
+  const deal = collectDealCard();
+  const profile = collectFinancialProfile();
+  const latestUser = latestTranscriptText(".message.user .messageText");
+  const lines = [
+    "APEX ANALYTIC SESSION BRIEF",
+    new Intl.DateTimeFormat("en-MY", { dateStyle: "medium", timeStyle: "short" }).format(new Date()),
+    "",
+    latestUser ? `Latest user question: ${latestUser.slice(0, 500)}` : "Latest user question: not supplied",
+    "",
+    ...readinessBriefLines(),
+    "",
+    ...contextBriefLines("Deal context", deal, 12),
+    "",
+    ...contextBriefLines("Profile and guidance context", profile, 12),
+    "",
+    ...latestApexBriefLines(),
+    "",
+    "Use this brief as context only. Re-check live transaction, rental, financing, legal, supply, and site evidence before deciding."
+  ];
+  return brandVisibleText(lines.filter((line) => line !== undefined).join("\n"));
+}
+
+async function copySessionBrief(button = sessionBriefBtn) {
+  const text = sessionBriefText();
+  await writeClipboardText(text);
+  if (button) {
+    const original = button.textContent;
+    button.textContent = "COPIED";
+    window.setTimeout(() => {
+      button.textContent = original || "BRIEF";
+    }, 1200);
+  }
+  setSystemState("System ready", "Session brief copied.");
+}
+
+async function copyAnalysisReport(button, analysis) {
+  const text = analysisExportText(analysis);
+  await writeClipboardText(text);
   button.textContent = "COPIED";
   setSystemState("System ready", "Report copied.");
 }
@@ -3249,6 +3343,7 @@ chatForm.addEventListener("submit", (event) => {
 jarvisOrb.addEventListener("click", startListening);
 stopVoiceBtn.addEventListener("click", () => stopSpeaking("Voice stopped."));
 resetChatBtn.addEventListener("click", resetChat);
+sessionBriefBtn.addEventListener("click", () => void copySessionBrief(sessionBriefBtn));
 analyzeDealBtn.addEventListener("click", runDealAnalysis);
 accountToggle.addEventListener("click", () => {
   if (authPanel.hidden) openAuthPanel();

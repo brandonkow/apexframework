@@ -32,6 +32,7 @@ test("frontend selectors and stylesheet structure stay valid", async () => {
   assert.match(html, /class="orbCore"><b>A<\/b>/, "The orb must use only the Apex A mark.");
   assert.doesNotMatch(html, /<h1>APEX<\/h1>|class="productSuffix"/, "The central Apex Analytic wordmark must stay removed.");
   assert.match(html, /<form id="chatForm"[\s\S]*?id="analyzeDealBtn"[\s\S]*?<\/form>/, "Deal analysis must remain visible inside the message bar.");
+  assert.match(html, /id="sessionBriefBtn"[\s\S]*?>BRIEF<\/button>/, "V5.9 needs a compact session-brief export action.");
   assert.match(html, /id="inputModeHint"[\s\S]*?class="inputModeHint"/, "V5.4 needs a compact smart-input mode chip in the command bar.");
   assert.match(html, /id="contextReadiness"[\s\S]*?aria-label="Context readiness"/, "V5.3 needs a compact context-readiness strip near the input box.");
   assert.equal((html.match(/data-context-reset="(?:deal|profile|guidance)"/g) || []).length, 3, "Each context card needs its own reset button.");
@@ -85,6 +86,9 @@ test("frontend selectors and stylesheet structure stay valid", async () => {
   assert.match(app, /data-response-refine/, "V5.8 needs an inline answer refinement action.");
   assert.match(app, /function responseRefinementPrompt[\s\S]*?Keep the same investment judgment[\s\S]*?Do not change the verdict/, "V5.8 refinement prompts must preserve the original investment judgment.");
   assert.match(app, /function handleResponseRefine[\s\S]*?submitQuestion\(prompt\)/, "V5.8 refinement actions must send a prepared follow-up prompt.");
+  assert.match(app, /function sessionBriefText[\s\S]*?APEX ANALYTIC SESSION BRIEF[\s\S]*?latestApexBriefLines/, "V5.9 must build a portable session brief from current context and latest Apex direction.");
+  assert.match(app, /function copySessionBrief[\s\S]*?writeClipboardText\(text\)/, "V5.9 session brief must use the shared clipboard fallback.");
+  assert.match(app, /sessionBriefBtn\.addEventListener\("click"/, "V5.9 BRIEF action must be wired in the utility bar.");
   assert.match(app, /\/api\/memory\/settings/, "Memory collection and reasoning must be controlled through explicit settings.");
   assert.match(app, /captureEnabled:\s*memoryCaptureEnabled\.checked/, "Memory capture must be opt-in from the UI.");
   assert.match(app, /reasoningEnabled:\s*memoryReasoningEnabled\.checked/, "Using approved memory in reasoning must be opt-in from the UI.");
