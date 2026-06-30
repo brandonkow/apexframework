@@ -126,6 +126,13 @@ test("frontend selectors and stylesheet structure stay valid", async () => {
   assert.match(app, /function developmentProfileText[\s\S]*?Development intelligence profile/, "Copied deal reports must include V7.0 development intelligence text.");
   assert.match(app, /analysisExportText[\s\S]*?\.\.\.commercialGuardrailText\(analysis\)[\s\S]*?\.\.\.developmentProfileText\(analysis\)/, "Copied deal reports must carry V7.0 after the public confidence guardrail.");
   assert.match(app, /commercialGuardrailMarkup\(analysis\)[\s\S]*?developmentProfileMarkup\(analysis\)[\s\S]*?<div class="analysisOverview">/, "On-screen deal reports must show V7.0 before detailed scoring.");
+  assert.match(server, /function buildDevelopmentIntelligence[\s\S]*?V7\.1[\s\S]*?V7\.10/, "V7.1-V7.10 must be derived by the backend development intelligence engine.");
+  assert.match(server, /analysis\.developmentIntelligence = buildDevelopmentIntelligence\(analysis\)/, "Formal deal reports must attach the V7 development intelligence stack after owner market matching.");
+  assert.match(server, /developmentIntelligence: normalizeReportDevelopmentIntelligence\(analysis\.developmentIntelligence\)/, "Saved private reports must preserve the V7 stack.");
+  assert.match(server, /engineVersion:\s*"Apex v7\.10"/, "New formal analyses must expose the V7.10 engine label.");
+  assert.match(app, /function developmentIntelligenceMarkup[\s\S]*?V7\.1 - V7\.10 DEVELOPMENT INTELLIGENCE[\s\S]*?developmentActionQueue/, "V7.1-V7.10 must render as one compact report stack.");
+  assert.match(app, /function developmentIntelligenceText[\s\S]*?V7 development intelligence stack/, "Copied reports must include the V7.1-V7.10 stack.");
+  assert.match(app, /developmentProfileMarkup\(analysis\)[\s\S]*?developmentIntelligenceMarkup\(analysis\.developmentIntelligence\)[\s\S]*?<div class="analysisOverview">/, "On-screen reports must show the V7 stack before detailed scorecard sections.");
   assert.match(app, /billingGuardrail\.textContent[\s\S]*?never changes scores, hard stops, or recommendations/, "Account billing must state that payment cannot change decisions.");
   assert.match(app, /\/api\/memory\/settings/, "Memory collection and reasoning must be controlled through explicit settings.");
   assert.match(app, /captureEnabled:\s*memoryCaptureEnabled\.checked/, "Memory capture must be opt-in from the UI.");
@@ -179,6 +186,7 @@ test("frontend selectors and stylesheet structure stay valid", async () => {
   assert.match(app, /supplyAbsorptionEvidence: analysis\.supplyAbsorptionEvidence/, "Shortlisted deals must preserve V4.4 supply and absorption evidence.");
   assert.match(app, /siteManagementEvidence: analysis\.siteManagementEvidence/, "Shortlisted deals must preserve V4.5 site and management evidence.");
   assert.match(app, /legalTransactionEvidence: analysis\.legalTransactionEvidence/, "Shortlisted deals must preserve V4.6 legal and transaction evidence.");
+  assert.match(app, /developmentIntelligence: analysis\.developmentIntelligence/, "Shortlisted deals must preserve the V7 development intelligence stack.");
   assert.match(app, /marketIntelligence: analysis\.marketIntelligence/, "Shortlisted deals must preserve matched owner market intelligence for later comparison.");
   assert.match(app, /dealMemoryComparison: analysis\.dealMemoryComparison/, "Shortlisted deals must preserve V3.4 saved deal comparison.");
   assert.match(app, /beliefTracker: analysis\.beliefTracker/, "Shortlisted deals must preserve V3.5 belief tracking.");
@@ -243,6 +251,9 @@ test("frontend selectors and stylesheet structure stay valid", async () => {
   assert.match(styles, /\.analysisDevelopmentProfile[\s\S]*?\.developmentIdentity[\s\S]*?\.developmentProfileSignal/, "V7.0 development profile needs styled project identity and signal cards.");
   assert.match(styles, /\.developmentIdentity,[\s\S]*?\.developmentProfileSignals,[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\);/, "V7.0 development profile must stack cleanly on mobile.");
   assert.match(styles, /body\.printMode \.analysisDevelopmentProfile[\s\S]*?body\.printMode \.developmentProfileSignal/, "V7.0 development profile must stay readable in print.");
+  assert.match(styles, /\.analysisDevelopmentStack[\s\S]*?\.developmentStackLanes[\s\S]*?\.developmentActionQueue/, "V7.1-V7.10 development intelligence stack needs compact lane and action queue styling.");
+  assert.match(styles, /\.developmentStackMeta,[\s\S]*?\.developmentStackLanes,[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\);/, "V7.1-V7.10 stack must collapse cleanly on mobile.");
+  assert.match(styles, /body\.printMode \.analysisDevelopmentStack[\s\S]*?body\.printMode \.developmentStackLane/, "V7.1-V7.10 stack must stay readable in print.");
   assert.match(styles, /\.inputModeHint[\s\S]*?\.commandBar\[data-input-mode="voice"\]/, "V5.4 smart input mode needs styled command-bar states.");
   assert.match(styles, /\.voiceMuted[\s\S]*?#soundToggle/, "V5.5 needs a visible muted-voice state.");
   assert.match(styles, /\.responseFeedback[\s\S]*?button\.active/, "V5.6 response feedback controls need compact active-state styling.");

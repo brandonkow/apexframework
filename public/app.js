@@ -1035,6 +1035,66 @@ function developmentProfileText(analysis = {}) {
   ];
 }
 
+function developmentIntelligenceMarkup(section = {}) {
+  if (!section.summary) return "";
+  const lanes = Array.isArray(section.lanes) ? section.lanes : [];
+  const actions = Array.isArray(section.actionQueue) ? section.actionQueue : [];
+  const health = section.observationHealth || {};
+  return `
+    <section class="analysisDevelopmentStack ${escapeHtml(section.status || "thin")}" aria-label="V7 development intelligence stack">
+      <header>
+        <span><small>V7.1 - V7.10 DEVELOPMENT INTELLIGENCE</small><b>${escapeHtml(section.summary)}</b></span>
+        <em>${escapeHtml(section.score || 0)}/100</em>
+      </header>
+      <div class="developmentStackMeta">
+        <span><small>POSTURE</small><b>${escapeHtml(section.posture || "Build evidence first")}</b></span>
+        <span><small>OWNER OBSERVATIONS</small><b>${escapeHtml(health.matched || 0)} matched / ${escapeHtml(health.fresh || 0)} fresh</b></span>
+        <span><small>STALE</small><b>${escapeHtml(health.stale || 0)} stale</b></span>
+      </div>
+      ${lanes.length ? `
+        <div class="developmentStackLanes">
+          ${lanes.map((item) => `
+            <article class="developmentStackLane ${escapeHtml(item.status || "watch")}">
+              <i>${escapeHtml(item.version || "V7")}</i>
+              <span>
+                <b>${escapeHtml(item.label)} <small>${escapeHtml(item.score || 0)}/100</small></b>
+                <small>${escapeHtml(item.reading)}</small>
+                <em>${escapeHtml(item.action)}</em>
+              </span>
+            </article>
+          `).join("")}
+        </div>
+      ` : ""}
+      ${actions.length ? `
+        <div class="developmentActionQueue">
+          <h3>V7 ACTION QUEUE</h3>
+          ${actions.map((item) => `
+            <p><b>${escapeHtml(item.version)} ${escapeHtml(item.label)}</b><span>${escapeHtml(item.action)}</span></p>
+          `).join("")}
+        </div>
+      ` : ""}
+    </section>
+  `;
+}
+
+function developmentIntelligenceText(section = {}) {
+  if (!section.summary) return [];
+  const lines = [
+    "V7 development intelligence stack:",
+    `- ${section.status || "thin"} (${section.score || 0}/100): ${section.summary}`,
+    `- Posture: ${section.posture || "Build evidence first"}.`,
+    `- Owner observations: ${section.observationHealth?.matched || 0} matched, ${section.observationHealth?.fresh || 0} fresh, ${section.observationHealth?.aging || 0} aging, ${section.observationHealth?.stale || 0} stale.`
+  ];
+  for (const item of section.lanes || []) {
+    lines.push(`- ${item.version} ${item.label}: ${item.status}, ${item.score}/100. ${item.reading} Action: ${item.action}`);
+  }
+  if (section.actionQueue?.length) {
+    lines.push("V7 action queue:");
+    for (const item of section.actionQueue) lines.push(`- ${item.version} ${item.label}: ${item.action}`);
+  }
+  return lines;
+}
+
 function sourceLabel(type) {
   if (type === "memory") return "MEMORY";
   if (type === "journal") return "JOURNAL";
@@ -1827,6 +1887,7 @@ function saveAnalysisToShortlist(analysis) {
     supplyAbsorptionEvidence: analysis.supplyAbsorptionEvidence || null,
     siteManagementEvidence: analysis.siteManagementEvidence || null,
     legalTransactionEvidence: analysis.legalTransactionEvidence || null,
+    developmentIntelligence: analysis.developmentIntelligence || null,
     marketIntelligence: analysis.marketIntelligence || null,
     counterThesis: analysis.counterThesis,
     context: analysis.context || {}
@@ -1898,6 +1959,8 @@ function analysisExportText(analysis) {
     ...commercialGuardrailText(analysis),
     "",
     ...developmentProfileText(analysis),
+    "",
+    ...developmentIntelligenceText(analysis.developmentIntelligence),
     "",
     `Summary: ${analysis.summary || ""}`
   ];
@@ -2355,7 +2418,7 @@ async function loadOwnerMarket() {
   if (!ownerMarketTokenValue()) {
     ownerProjectList.innerHTML = '<p class="ownerMarketEmpty">Owner token required before loading market evidence.</p>';
     ownerObservationList.innerHTML = '<p class="ownerMarketEmpty">Paste your owner token above, then press SAVE.</p>';
-    setOwnerMarketMessage(ownerMarketEnabled ? "Owner API is enabled. Token required." : "Owner API may be disabled. Set ESTATELAB_OWNER_TOKEN on Render if this fails.", "warning");
+    setOwnerMarketMessage(ownerMarketEnabled ? "Owner API is enabled. Token required." : "Owner API may be disabled. Set the owner token on Render if this fails.", "warning");
     return null;
   }
   setOwnerMarketMessage("Loading owner market intelligence...");
@@ -3108,7 +3171,7 @@ function addDealAnalysis(analysis, sources = [], intelligence = {}) {
       </section>
     ` : ""}
     <div class="analysisMeta">
-      <span>ENGINE <b>${escapeHtml(analysis.engineVersion || "Apex v5.0")}</b></span>
+      <span>ENGINE <b>${escapeHtml(analysis.engineVersion || "Apex v7.10")}</b></span>
       <span>REASONING <b>${escapeHtml(analysis.reasoningMode || (analysis.aiCommentary ? "Framework + AI" : "Framework only"))}</b></span>
       <span>DECISION SCORE <b>${escapeHtml(analysis.averageScore)}/100</b></span>
       <span>INPUT COMPLETE <b>${escapeHtml(analysis.completeness)}%</b></span>
@@ -3118,6 +3181,7 @@ function addDealAnalysis(analysis, sources = [], intelligence = {}) {
     ${professionalReviewMarkup(analysis)}
     ${commercialGuardrailMarkup(analysis)}
     ${developmentProfileMarkup(analysis)}
+    ${developmentIntelligenceMarkup(analysis.developmentIntelligence)}
     <div class="analysisOverview">
       ${readinessMarkup(analysis.investorReadiness)}
       ${dimensionMarkup ? `<section class="analysisDimensionSection"><h3>DEAL SCORECARD</h3><div class="analysisDimensions">${dimensionMarkup}</div></section>` : ""}

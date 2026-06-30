@@ -3819,6 +3819,189 @@ button {
   color: #7faeb8;
 }
 
+.analysisDevelopmentStack {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  border: 1px solid rgba(103, 229, 255, 0.12);
+  border-left: 2px solid rgba(103, 229, 255, 0.58);
+  border-radius: 8px;
+  padding: 9px;
+  background: linear-gradient(135deg, rgba(103, 229, 255, 0.05), transparent 48%), rgba(0, 11, 18, 0.36);
+  overflow-wrap: anywhere;
+}
+
+.analysisDevelopmentStack.tracked {
+  border-left-color: #6fd9a0;
+}
+
+.analysisDevelopmentStack.risk {
+  border-left-color: #e68e8e;
+}
+
+.analysisDevelopmentStack.thin,
+.analysisDevelopmentStack.partial,
+.analysisDevelopmentStack.watch {
+  border-left-color: #d0ad69;
+}
+
+.analysisDevelopmentStack header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+}
+
+.analysisDevelopmentStack header span {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.analysisDevelopmentStack small {
+  color: #67b7c7;
+  font-size: 0.5rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.analysisDevelopmentStack header b {
+  color: #d8fbff;
+  font-size: 0.68rem;
+  font-weight: 500;
+}
+
+.analysisDevelopmentStack header em {
+  border: 1px solid rgba(103, 229, 255, 0.16);
+  border-radius: 999px;
+  padding: 4px 7px;
+  color: #8fdde8;
+  font-size: 0.46rem;
+  font-style: normal;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.developmentStackMeta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.developmentStackMeta span,
+.developmentStackLane,
+.developmentActionQueue {
+  border: 1px solid rgba(103, 229, 255, 0.08);
+  border-radius: 8px;
+  padding: 7px;
+  background: rgba(0, 10, 17, 0.28);
+}
+
+.developmentStackMeta span {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.developmentStackMeta b {
+  color: #a8d0d8;
+  font-size: 0.58rem;
+  font-weight: 500;
+}
+
+.developmentStackLanes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.developmentStackLane {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 7px;
+}
+
+.developmentStackLane i {
+  align-self: start;
+  border: 1px solid rgba(103, 229, 255, 0.16);
+  border-radius: 999px;
+  padding: 3px 6px;
+  color: #8fb8c1;
+  font-size: 0.42rem;
+  font-style: normal;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.developmentStackLane.clear i,
+.developmentStackLane.tracked i { color: #7bdca9; border-color: rgba(112, 255, 191, 0.26); }
+.developmentStackLane.watch i,
+.developmentStackLane.partial i,
+.developmentStackLane.thin i,
+.developmentStackLane.missing i { color: #d7b970; border-color: rgba(255, 210, 116, 0.26); }
+.developmentStackLane.risk i,
+.developmentStackLane.action i { color: #ef9999; border-color: rgba(255, 126, 126, 0.3); }
+
+.developmentStackLane span {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.developmentStackLane b {
+  color: #a8d0d8;
+  font-size: 0.59rem;
+  font-weight: 500;
+}
+
+.developmentStackLane b small {
+  color: #6f9ca6;
+  font-size: 0.46rem;
+  letter-spacing: 0.08em;
+}
+
+.developmentStackLane span > small,
+.developmentStackLane em,
+.developmentActionQueue span {
+  color: #638f99;
+  font-size: 0.49rem;
+  font-style: normal;
+  line-height: 1.35;
+}
+
+.developmentStackLane em {
+  color: #7faeb8;
+}
+
+.developmentActionQueue {
+  display: grid;
+  gap: 5px;
+}
+
+.developmentActionQueue h3 {
+  margin: 0;
+  color: #67b7c7;
+  font-size: 0.5rem;
+  font-weight: 500;
+  letter-spacing: 0.17em;
+}
+
+.developmentActionQueue p {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.38fr) minmax(0, 1fr);
+  gap: 7px;
+  margin: 0;
+  border-top: 1px solid rgba(103, 229, 255, 0.07);
+  padding-top: 5px;
+}
+
+.developmentActionQueue b {
+  color: #a8d0d8;
+  font-size: 0.56rem;
+  font-weight: 500;
+}
+
 .analysisMarketPulse {
   display: grid;
   gap: 7px;
@@ -6319,6 +6502,8 @@ button {
   .productExperienceChecks,
   .developmentIdentity,
   .developmentProfileSignals,
+  .developmentStackMeta,
+  .developmentStackLanes,
   .executionOffer,
   .executionActions,
   .shortlistList {
@@ -6349,29 +6534,42 @@ button {
 
   .analysisMarketPulse header,
   .analysisDevelopmentProfile header,
+  .analysisDevelopmentStack header,
   .analysisMarketPulse li {
     align-items: flex-start;
   }
 
+  .analysisDevelopmentStack header,
   .analysisDevelopmentProfile header {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .analysisDevelopmentStack header em,
   .analysisDevelopmentProfile header em {
     justify-self: start;
   }
 
+  .analysisDevelopmentStack header b,
+  .developmentStackMeta b,
+  .developmentStackLane b,
   .analysisDevelopmentProfile header b,
   .developmentIdentity b,
   .developmentProfileSignal b {
     font-size: 0.68rem;
   }
 
+  .developmentStackLane span > small,
+  .developmentStackLane em,
+  .developmentActionQueue span,
   .analysisDevelopmentProfile p,
   .developmentProfileSignal small,
   .developmentProfileSignal em {
     font-size: 0.62rem;
     line-height: 1.4;
+  }
+
+  .developmentActionQueue p {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .analysisMarketPulse li {
@@ -6642,7 +6840,8 @@ button {
 
   body.printMode .analysisComplianceRefusal,
   body.printMode .analysisCommercialGuardrail,
-  body.printMode .analysisDevelopmentProfile {
+  body.printMode .analysisDevelopmentProfile,
+  body.printMode .analysisDevelopmentStack {
     border-color: #d7e4e8;
     border-left-color: #2b8fa3;
     background: #f8fcfd;
@@ -6651,7 +6850,10 @@ button {
   body.printMode .complianceFlag,
   body.printMode .commercialGuardrailItem,
   body.printMode .developmentIdentity span,
-  body.printMode .developmentProfileSignal {
+  body.printMode .developmentProfileSignal,
+  body.printMode .developmentStackMeta span,
+  body.printMode .developmentStackLane,
+  body.printMode .developmentActionQueue {
     border-color: #d6e3e7;
     background: #fff;
   }
@@ -6673,6 +6875,13 @@ button {
   body.printMode .developmentProfileSignal b,
   body.printMode .developmentProfileSignal small,
   body.printMode .developmentProfileSignal em,
+  body.printMode .analysisDevelopmentStack header b,
+  body.printMode .developmentStackMeta b,
+  body.printMode .developmentStackLane b,
+  body.printMode .developmentStackLane span > small,
+  body.printMode .developmentStackLane em,
+  body.printMode .developmentActionQueue b,
+  body.printMode .developmentActionQueue span,
   body.printMode .analysisReadiness p,
   body.printMode .analysisReadiness li,
   body.printMode .evidenceItem b,
@@ -6726,6 +6935,7 @@ button {
   body.printMode .analysisScenario,
   body.printMode .analysisMarketPulse,
   body.printMode .analysisDevelopmentProfile,
+  body.printMode .analysisDevelopmentStack,
   body.printMode .analysisDecisionFocus,
   body.printMode .analysisPersonalChallenge,
   body.printMode .personalChallengeCheck,
@@ -6764,6 +6974,7 @@ button {
   body.printMode .analysisScenarioSection,
   body.printMode .analysisMarketPulse,
   body.printMode .analysisDevelopmentProfile,
+  body.printMode .analysisDevelopmentStack,
   body.printMode .analysisOverview,
   body.printMode .analysisEvidence,
   body.printMode .analysisPersonalChallenge,

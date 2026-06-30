@@ -576,6 +576,23 @@ The v7.0 layer begins the market-and-development intelligence path by treating e
 - Preserve matched owner market intelligence when a report is saved to the shortlist.
 - Keep project intelligence separate from investment approval. A strong development profile still requires current transaction, rental, financing, legal, supply, and site evidence.
 
+## v7.1 - v7.10 Market And Development Intelligence Stack
+
+The rest of the V7 path turns the development profile into a compact market intelligence stack:
+
+- **v7.1 Project identity spine**: Apex must know the project, area, product segment, tenure/title, asking price, and value basis before treating a development as trackable.
+- **v7.2 Substitute supply radar**: Apex checks future supply, closest substitutes within 2.5km, layout overlap, VP timing, unsold stock, absorption, and lift-density pressure.
+- **v7.3 Rental direction watch**: Apex tracks achieved rent, enquiry urgency, vacancy, occupancy, tenant demand, incentives, and rental-trend deterioration.
+- **v7.4 Liquidity and auction watch**: Apex separates normal owner distress from project-level auction pressure, weak transactions, buyer financing friction, and thin resale liquidity.
+- **v7.5 Absorption and launch-sales pulse**: Apex watches sales rate, loan-approved conversion, developer discounting, bulk-buyer activity, and whether sales-gallery crowd becomes real absorption.
+- **v7.6 Management and resident culture**: Apex treats JMB response, arrears, sinking fund, defects, resident behaviour, complaint culture, security, lifts, and cleanliness as long-term value signals.
+- **v7.7 Scarcity and moat score**: Apex distinguishes real scarcity from branding: land scarcity, freehold relevance, view/layout uniqueness, density, access, and master-developer control.
+- **v7.8 Micro-area cycle fit**: Apex classifies the micro-area as early growth, mature, weak sentiment, saturation, or hype before relying on appreciation.
+- **v7.9 Owner observation health**: Apex shows whether owner market observations are fresh, aging, stale, or missing, and refuses to treat stale evidence as current.
+- **v7.10 Market intelligence seal**: Apex summarizes the weakest V7 lane and produces an action queue before negotiation, booking, refinancing, or exit planning.
+
+V7 improves the market read, but it does not override V6 trust boundaries or V4 evidence gates. A project can be attractive and still fail because of financing, legal title, poor management, weak rent, or the user's financial profile.
+
 ## Four Decision Dimensions
 
 - **Property quality**: entry value, rentability, own-stay appeal, management, unit position, tenure, and buyer depth.

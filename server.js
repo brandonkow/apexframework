@@ -394,10 +394,43 @@ function normalizeReportMarketIntelligence(market = {}) {
   };
 }
 
+function normalizeReportDevelopmentIntelligence(section = {}) {
+  const safeStatus = (value, fallback = "watch") => ["tracked", "partial", "thin", "watch", "risk", "clear", "missing", "action"].includes(value) ? value : fallback;
+  const lanes = Array.isArray(section.lanes) ? section.lanes.slice(0, 12).map((item) => ({
+    version: reportText(item?.version, 20),
+    label: reportText(item?.label, 160),
+    status: safeStatus(item?.status),
+    score: Math.max(0, Math.min(100, Number(item?.score || 0))),
+    reading: reportText(item?.reading, 700),
+    action: reportText(item?.action, 500)
+  })).filter((item) => item.version && item.label) : [];
+  return {
+    version: reportText(section.version || "v7", 20),
+    status: safeStatus(section.status, "thin"),
+    score: Math.max(0, Math.min(100, Number(section.score || 0))),
+    summary: reportText(section.summary, 900),
+    posture: reportText(section.posture, 200),
+    observationHealth: {
+      matched: Math.max(0, Number(section?.observationHealth?.matched || 0)),
+      fresh: Math.max(0, Number(section?.observationHealth?.fresh || 0)),
+      aging: Math.max(0, Number(section?.observationHealth?.aging || 0)),
+      stale: Math.max(0, Number(section?.observationHealth?.stale || 0)),
+      latestObservedAt: reportText(section?.observationHealth?.latestObservedAt, 40)
+    },
+    lanes,
+    actionQueue: Array.isArray(section.actionQueue) ? section.actionQueue.slice(0, 8).map((item) => ({
+      version: reportText(item?.version, 20),
+      label: reportText(item?.label, 160),
+      status: safeStatus(item?.status),
+      action: reportText(item?.action, 500)
+    })).filter((item) => item.version && item.label) : []
+  };
+}
+
 function normalizeReportAnalysis(analysis = {}) {
   const objectList = (items, limit, mapper) => Array.isArray(items) ? items.slice(0, limit).map(mapper) : [];
   return {
-    engineVersion: reportText(analysis.engineVersion || "Apex v5.0", 40),
+    engineVersion: reportText(analysis.engineVersion || "Apex v7.10", 40),
     reasoningMode: reportText(analysis.reasoningMode || "Framework only", 40),
     verdict: reportText(analysis.verdict, 40),
     summary: reportText(analysis.summary, 600),
@@ -776,6 +809,7 @@ function normalizeReportAnalysis(analysis = {}) {
     watchouts: reportList(analysis.watchouts),
     missingEvidence: reportList(analysis.missingEvidence),
     nextActions: reportList(analysis.nextActions),
+    developmentIntelligence: normalizeReportDevelopmentIntelligence(analysis.developmentIntelligence),
     marketIntelligence: normalizeReportMarketIntelligence(analysis.marketIntelligence),
     context: normalizeReportContext(analysis.context)
   };
@@ -2203,6 +2237,249 @@ function marketSources(marketIntelligence) {
     freshness: observation.freshness.status,
     metricType: observation.metricType
   }));
+}
+
+function developmentIntelligenceStatus(score, missingCount, riskCount, observationCount) {
+  if (riskCount >= 2) return "risk";
+  if (score >= 78 && observationCount) return "tracked";
+  if (score >= 62) return missingCount ? "partial" : "tracked";
+  if (score >= 42) return "thin";
+  return "risk";
+}
+
+function laneStatusScore(status) {
+  return {
+    clear: 90,
+    tracked: 88,
+    partial: 66,
+    watch: 58,
+    thin: 42,
+    missing: 24,
+    risk: 12,
+    action: 46
+  }[status] ?? 50;
+}
+
+function evidenceStatusToDevelopmentStatus(status) {
+  if (["strong", "ready", "proven", "clear", "usable"].includes(status)) return "clear";
+  if (["thin", "conditional", "review", "watch", "partial", "unknown"].includes(status)) return "watch";
+  if (["unsafe", "blocked", "fail", "risk"].includes(status)) return "risk";
+  return "missing";
+}
+
+function observationMetricCount(observations = [], metricType) {
+  return observations.filter((item) => item.metricType === metricType).length;
+}
+
+function observationTextForMetrics(observations = [], metricTypes = []) {
+  return observations
+    .filter((item) => metricTypes.includes(item.metricType))
+    .map((item) => `${item.title}: ${item.notes || item.body || "Observation recorded"}`)
+    .join(" ")
+    .toLowerCase();
+}
+
+function trendDirectionFor(trends = [], metricTypes = []) {
+  const matched = trends.filter((trend) => metricTypes.includes(trend.metricType));
+  if (matched.some((trend) => trend.direction === "down")) return "down";
+  if (matched.some((trend) => trend.direction === "up")) return "up";
+  if (matched.some((trend) => trend.direction === "stable")) return "stable";
+  return "";
+}
+
+function buildDevelopmentIntelligence(analysis = {}) {
+  const deal = analysis.context?.dealCard || {};
+  const market = analysis.marketIntelligence || {};
+  const observations = Array.isArray(market.observations) ? market.observations : [];
+  const trends = Array.isArray(market.trends) ? market.trends : [];
+  const summary = market.summary || {};
+  const subject = deal.projectName || deal.area || "this development";
+  const fieldText = signalText(
+    deal.projectName,
+    deal.area,
+    deal.propertyType,
+    deal.tenure,
+    deal.legalTitleType,
+    deal.supplyRadius,
+    deal.substituteCount,
+    deal.substituteThreat,
+    deal.futureSupplyTiming,
+    deal.absorptionEvidence,
+    deal.unsoldStockSignal,
+    deal.densityLiftStress,
+    deal.supplyNotes,
+    deal.nearbySupply,
+    deal.managementQuality,
+    deal.managementResponseSignal,
+    deal.arrearsJmbSignal,
+    deal.residentBehaviourSignal,
+    deal.siteManagementNotes,
+    deal.comparableTransactions,
+    deal.comparableSource,
+    deal.comparableRecency,
+    deal.rentEvidence,
+    deal.rentalSource,
+    deal.tenantUrgency,
+    deal.vacancySignal,
+    deal.rentalSustainability,
+    deal.exitBuyerPool,
+    deal.ownStayAppeal,
+    deal.resalePreparation,
+    deal.investmentThesis,
+    deal.mainConcern
+  );
+  const supplyText = `${fieldText} ${observationTextForMetrics(observations, ["supply", "unsold_stock", "launch_sales"])}`;
+  const rentText = `${fieldText} ${observationTextForMetrics(observations, ["rent", "rental_enquiry", "occupancy"])}`;
+  const liquidityText = `${fieldText} ${observationTextForMetrics(observations, ["transaction", "auction", "buyer_sentiment", "financing"])}`;
+  const managementText = `${fieldText} ${observationTextForMetrics(observations, ["management"])}`;
+  const catalystText = `${fieldText} ${observationTextForMetrics(observations, ["catalyst", "launch_sales", "buyer_sentiment"])}`;
+  const supplyRisk = hasSignal(supplyText, [/high threat/, /oversupply/, /many/, /5 or more/, /unsold/, /vp/, /vacant possession/, /similar layout/, /lift.*wait/, /dense/, /1\.5k/]);
+  const rentRisk = hasSignal(rentText, [/rent.*drop/, /rental.*drop/, /no enquiry/, /no inquiry/, /vacancy/, /slow enquiry/, /incentive/, /temporary/, /weak/]) || trendDirectionFor(trends, ["rent", "rental_enquiry", "occupancy"]) === "down";
+  const liquidityRisk = hasSignal(liquidityText, [/hard to sell/, /weak resale/, /auction/, /distress/, /financing concern/, /low transaction/, /thin liquidity/, /buyer.*unable/]);
+  const managementRisk = hasSignal(managementText, [/weak/, /poor/, /no reply/, /arrears/, /dispute/, /complaint/, /leak/, /defect/, /irresponsible/, /bad/]);
+  const catalystRisk = hasSignal(catalystText, [/delayed/, /slow sales/, /weak absorption/, /discount/, /bulk purchase/, /clear inventory/, /speculative/]);
+  const hasCoreIdentity = Boolean(deal.projectName && deal.area && deal.propertyType);
+  const hasPriceValue = Boolean(deal.askingPrice && (deal.conservativeFairValue || analysis.transactionComparableEvidence?.status === "strong"));
+  const ownerObservationStatus = observations.length >= 3 && !summary.stale
+    ? "clear"
+    : observations.length
+      ? summary.stale ? "watch" : "partial"
+      : "missing";
+  const lanes = [
+    {
+      version: "V7.1",
+      label: "Project identity spine",
+      status: hasCoreIdentity && hasPriceValue ? "clear" : hasCoreIdentity ? "watch" : "missing",
+      reading: hasCoreIdentity
+        ? `${subject} has enough identity to be tracked as a development profile.`
+        : "Project, area, and product segment are not complete enough for project-level memory.",
+      action: "Record project name, area, product type, tenure/title, asking price, and conservative value before comparing developments."
+    },
+    {
+      version: "V7.2",
+      label: "Substitute supply radar",
+      status: supplyRisk ? "risk" : evidenceStatusToDevelopmentStatus(analysis.supplyAbsorptionEvidence?.status),
+      reading: supplyRisk
+        ? "Nearby supply, unsold stock, VP timing, density, or similar-layout competition may pressure this project."
+        : analysis.supplyAbsorptionEvidence?.competitionPosition || "Supply evidence is not yet deep enough for a confident radar.",
+      action: "Track direct substitutes within 2.5km, layout overlap, pricing, VP batches, unsold stock, occupancy, and lift-density pressure."
+    },
+    {
+      version: "V7.3",
+      label: "Rental direction watch",
+      status: rentRisk ? "risk" : evidenceStatusToDevelopmentStatus(analysis.achievedRentalEvidence?.status),
+      reading: rentRisk
+        ? "Rental direction has pressure signals from enquiries, vacancy, incentives, or matched rent trends."
+        : analysis.achievedRentalEvidence?.coveragePosition || "Rental direction needs achieved rent, enquiry urgency, vacancy, and sustainability proof.",
+      action: "Monitor achieved rent, agent enquiry volume, tenant urgency, occupancy, vacancy speed, and new supply impact before relying on yield."
+    },
+    {
+      version: "V7.4",
+      label: "Liquidity and auction watch",
+      status: liquidityRisk ? "risk" : evidenceStatusToDevelopmentStatus(analysis.transactionComparableEvidence?.status),
+      reading: liquidityRisk
+        ? "Liquidity, auction, buyer-financing, or resale weakness needs attention before exit confidence."
+        : analysis.transactionComparableEvidence?.valuePosition || "Liquidity proof needs completed transactions and auction context.",
+      action: "Track completed subsale, successful auction bids, failed auctions, buyer financing friction, and time-to-sell signals by project."
+    },
+    {
+      version: "V7.5",
+      label: "Absorption and launch-sales pulse",
+      status: catalystRisk ? "watch" : observationMetricCount(observations, "launch_sales") || observationMetricCount(observations, "buyer_sentiment") ? "partial" : "missing",
+      reading: catalystRisk
+        ? "Launch-sales or developer behaviour may be showing slower absorption, discounting, or inventory pressure."
+        : observationMetricCount(observations, "launch_sales") ? "Launch-sales observations exist, but conversion quality still matters." : "No launch-sales or absorption observation is matched yet.",
+      action: "Record sales rate, unsold units, discount behaviour, bulk-buyer activity, and whether crowds convert into loan-approved transactions."
+    },
+    {
+      version: "V7.6",
+      label: "Management and resident culture",
+      status: managementRisk ? "risk" : evidenceStatusToDevelopmentStatus(analysis.siteManagementEvidence?.status),
+      reading: managementRisk
+        ? "Management, arrears, resident behaviour, defects, or complaint culture may weaken long-term project value."
+        : analysis.siteManagementEvidence?.livedQualityPosition || "Management culture needs site and JMB evidence.",
+      action: "Track JMB response, arrears list, sinking fund, defect handling, lift/security/cleanliness, resident complaints, and AGM culture."
+    },
+    {
+      version: "V7.7",
+      label: "Scarcity and moat score",
+      status: hasSignal(fieldText, [/freehold/, /prime/, /land scarcity/, /rare view/, /low density/, /master developer/]) && !supplyRisk ? "clear" : supplyRisk ? "risk" : "watch",
+      reading: supplyRisk
+        ? "Scarcity is not proven while similar future supply can dilute the project."
+        : "Scarcity must come from land, title, layout, view, density, access, or masterplan advantage, not marketing language alone.",
+      action: "Separate real scarcity from branding: land scarcity, freehold relevance, unique layout/view, low-density advantage, school/transport access, or master-developer control."
+    },
+    {
+      version: "V7.8",
+      label: "Micro-area cycle fit",
+      status: analysis.marketPulse?.status === "risk" ? "risk" : analysis.marketPulse?.status === "opportunity" ? "clear" : "watch",
+      reading: analysis.marketPulse?.summary || "Market cycle evidence is not decisive yet.",
+      action: "Classify the micro-area as early growth, mature, weak sentiment, saturation, or hype before treating price movement as appreciation potential."
+    },
+    {
+      version: "V7.9",
+      label: "Owner observation health",
+      status: ownerObservationStatus,
+      reading: observations.length
+        ? `${observations.length} owner observation${observations.length === 1 ? "" : "s"} matched: ${summary.warning || "freshness not stated."}`
+        : "No owner market observation matched this project or area.",
+      action: "Keep project memory dated. Refresh stale rent, transaction, auction, supply, management, and buyer-sentiment observations before strong recommendations."
+    },
+    {
+      version: "V7.10",
+      label: "Market intelligence seal",
+      status: "watch",
+      reading: "Apex can screen the development, but the seal depends on the weakest V7 lane and live evidence freshness.",
+      action: "Use the weakest lane as the next research task before negotiation, booking, refinancing, or exit planning."
+    }
+  ].map((lane) => ({
+    ...lane,
+    score: laneStatusScore(lane.status)
+  }));
+  const missingCount = lanes.filter((lane) => lane.status === "missing").length;
+  const riskCount = lanes.filter((lane) => lane.status === "risk").length;
+  let score = clampScore(lanes.reduce((sum, lane) => sum + lane.score, 0) / lanes.length);
+  let status = developmentIntelligenceStatus(score, missingCount, riskCount, observations.length);
+  const weakest = lanes.slice().sort((left, right) => left.score - right.score)[0];
+  const actionQueue = lanes
+    .filter((lane) => lane.status !== "clear" && lane.version !== "V7.10")
+    .sort((left, right) => laneStatusScore(left.status) - laneStatusScore(right.status))
+    .slice(0, 5)
+    .map((lane) => ({ version: lane.version, label: lane.label, status: lane.status, action: lane.action }));
+  lanes[lanes.length - 1] = {
+    ...lanes[lanes.length - 1],
+    status: riskCount ? "risk" : missingCount >= 3 ? "thin" : status === "tracked" ? "clear" : "watch",
+    score: riskCount ? 25 : missingCount >= 3 ? 42 : status === "tracked" ? 90 : 62,
+    reading: riskCount
+      ? "The V7 seal is not ready because at least one market-development lane is risk-level."
+      : missingCount >= 3
+        ? "The V7 seal is thin because too many project-intelligence lanes are missing."
+        : status === "tracked"
+          ? "The V7 seal is usable for project-level comparison, subject to live professional and evidence checks."
+          : "The V7 seal is conditional; clear the weakest lane before relying on development-level confidence."
+  };
+  score = clampScore(lanes.reduce((sum, lane) => sum + lane.score, 0) / lanes.length);
+  status = developmentIntelligenceStatus(score, missingCount, riskCount, observations.length);
+  return {
+    version: "v7",
+    status,
+    score,
+    summary: riskCount
+      ? `${subject} has project-intelligence risk. Weakest lane: ${weakest.label}.`
+      : missingCount
+        ? `${subject} has a partial market read. Build the missing V7 lanes before treating the project as known.`
+        : `${subject} has a usable development intelligence profile, subject to live evidence refresh.`,
+    posture: status === "tracked" ? "Track and compare" : status === "risk" ? "Watchlist before commitment" : "Build evidence first",
+    observationHealth: {
+      matched: observations.length,
+      fresh: Number(summary.fresh || 0),
+      aging: Number(summary.aging || 0),
+      stale: Number(summary.stale || 0),
+      latestObservedAt: summary.latestObservedAt || ""
+    },
+    lanes,
+    actionQueue
+  };
 }
 
 function marketInputError(message, statusCode = 400) {
@@ -5667,7 +5944,7 @@ function analyzeSevenStageDeal(rawDealCard = {}, rawFinancialProfile = {}) {
   };
 
   return {
-    engineVersion: "Apex v5.0",
+    engineVersion: "Apex v7.10",
     reasoningMode: "Framework only",
     verdict,
     summary: verdictSummary,
@@ -5850,6 +6127,18 @@ function dealAnalysisText(analysis) {
     );
     if (analysis.marketPulse.checks?.length) {
       lines.push(...analysis.marketPulse.checks.map((item) => `- ${item.label}: ${item.status}. ${item.action}`));
+    }
+  }
+  if (analysis.developmentIntelligence?.summary) {
+    lines.push(
+      "",
+      "V7 development intelligence stack",
+      `- ${analysis.developmentIntelligence.status || "thin"} (${analysis.developmentIntelligence.score || 0}/100): ${analysis.developmentIntelligence.summary}`,
+      `- Posture: ${analysis.developmentIntelligence.posture || "Build evidence first"}.`
+    );
+    lines.push(...(analysis.developmentIntelligence.lanes || []).map((item) => `- ${item.version} ${item.label}: ${item.status}, ${item.score}/100. ${item.reading} Action: ${item.action}`));
+    if (analysis.developmentIntelligence.actionQueue?.length) {
+      lines.push("V7 action queue", ...analysis.developmentIntelligence.actionQueue.map((item) => `- ${item.version} ${item.label}: ${item.action}`));
     }
   }
   if (analysis.holdExitPlan?.summary) {
@@ -7176,7 +7465,7 @@ async function router(req, res) {
     return send(res, 403, {
       error: OWNER_TOKEN
         ? "Owner API access requires x-estatelab-owner-token."
-        : "Owner API is disabled until ESTATELAB_OWNER_TOKEN is set on the server."
+        : "Owner API is disabled until the owner token is set on the server."
     });
   }
 
@@ -7850,6 +8139,7 @@ async function router(req, res) {
     if (marketStage && analysis.marketIntelligence.observations.length) {
       marketStage.summary = `${analysis.marketIntelligence.summary.matched} owner market observation${analysis.marketIntelligence.summary.matched === 1 ? " matches" : "s match"} this deal. ${analysis.marketIntelligence.summary.warning}`;
     }
+    analysis.developmentIntelligence = buildDevelopmentIntelligence(analysis);
     const sources = [
       ...marketSources(analysis.marketIntelligence),
       ...dealMemories.map((memory) => ({
