@@ -565,6 +565,17 @@ The v6.5 layer closes the V6 trust path by separating confidence from monetizati
 - Prevent public users from treating Apex output as guaranteed return, valuation, legal clearance, loan approval, or licensed financial advice.
 - Keep monetization subordinate to the decision engine. Upgrades must never change verdicts, scores, hard stops, refusal mode, or required evidence.
 
+## v7.0 Development Intelligence Profile
+
+The v7.0 layer begins the market-and-development intelligence path by treating each project as a trackable asset profile:
+
+- Convert existing Deal card fields into a compact development profile inside every formal report.
+- Identify the project, area, segment, tenure/title, and price/value basis before discussing the scorecard.
+- Compare six development lanes: owner observations, supply moat, management culture, buyer depth, liquidity proof, and rental defence.
+- Label the profile as tracked, partial, thin, or watch so Apex does not pretend to know a project when project-level evidence is missing.
+- Preserve matched owner market intelligence when a report is saved to the shortlist.
+- Keep project intelligence separate from investment approval. A strong development profile still requires current transaction, rental, financing, legal, supply, and site evidence.
+
 ## Four Decision Dimensions
 
 - **Property quality**: entry value, rentability, own-stay appeal, management, unit position, tenure, and buyer depth.

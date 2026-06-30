@@ -904,6 +904,137 @@ function commercialGuardrailText(analysis = {}) {
   ];
 }
 
+function developmentEvidenceStatus(values = [], riskPattern = /reject|weak|poor|high threat|serious|many|stale|delay|dispute|bad|none|not done|not supplied/i) {
+  const supplied = values.filter((value) => String(value || "").trim());
+  if (!supplied.length) return "missing";
+  return supplied.some((value) => riskPattern.test(String(value))) ? "watch" : "ready";
+}
+
+function compactValueList(values = [], fallback = "Not supplied") {
+  const supplied = values.filter((value) => String(value || "").trim());
+  return supplied.length ? supplied.join(" / ") : fallback;
+}
+
+function developmentProfile(analysis = {}) {
+  const deal = analysis.context?.dealCard || {};
+  const market = analysis.marketIntelligence || {};
+  const observations = Array.isArray(market.observations) ? market.observations : [];
+  const trends = Array.isArray(market.trends) ? market.trends : [];
+  const summary = market.summary || {};
+  const identity = {
+    project: deal.projectName || "Project not specified",
+    area: deal.area || "Area not specified",
+    segment: compactValueList([deal.propertyType, deal.propertyAge ? `${deal.propertyAge} years` : ""], "Segment not supplied"),
+    tenure: compactValueList([deal.tenure, deal.legalTitleType], "Tenure/title not supplied"),
+    price: compactValueList([deal.askingPrice, deal.conservativeFairValue ? `value ${deal.conservativeFairValue}` : ""], "Price/value not supplied")
+  };
+  const evidence = [
+    {
+      label: "Owner observations",
+      value: observations.length ? `${observations.length} matched, ${trends.length} trend${trends.length === 1 ? "" : "s"}` : "No matched project memory",
+      status: observations.length ? "ready" : "missing",
+      action: observations.length
+        ? "Use the observations as project memory, but check dates and source confidence."
+        : "Add dated owner observations for rent, transaction, occupancy, management, supply, auction, or buyer enquiry."
+    },
+    {
+      label: "Supply moat",
+      value: compactValueList([deal.supplyRadius, deal.substituteCount, deal.substituteThreat, deal.futureSupplyTiming, deal.unsoldStockSignal, deal.densityLiftStress, deal.nearbySupply]),
+      status: developmentEvidenceStatus([deal.substituteThreat, deal.futureSupplyTiming, deal.unsoldStockSignal, deal.densityLiftStress, deal.nearbySupply], /high|serious|many|oversupply|vp|unsold|lift|wait|dense|1\.5k/i),
+      action: "Track closest substitutes within 2.5km, VP timing, unsold stock, layout overlap, and lift/density pressure."
+    },
+    {
+      label: "Management culture",
+      value: compactValueList([deal.managementQuality, deal.managementResponseSignal, deal.arrearsJmbSignal, deal.residentBehaviourSignal, deal.siteManagementNotes]),
+      status: developmentEvidenceStatus([deal.managementQuality, deal.managementResponseSignal, deal.arrearsJmbSignal, deal.residentBehaviourSignal, deal.siteManagementNotes], /poor|slow|no reply|arrears|dispute|complaint|bad|leak|defect|arrogant|irresponsible/i),
+      action: "Verify JMB response speed, arrears, resident behaviour, common-area upkeep, defects, and complaint culture."
+    },
+    {
+      label: "Buyer depth",
+      value: compactValueList([deal.exitBuyerPool, deal.ownStayAppeal, deal.resalePreparation]),
+      status: developmentEvidenceStatus([deal.exitBuyerPool, deal.ownStayAppeal, deal.resalePreparation], /investor only|weak|poor|narrow|airbnb|short.?stay|none/i),
+      action: "Confirm the project can appeal to own-stay buyers and investors instead of one narrow exit pool."
+    },
+    {
+      label: "Liquidity proof",
+      value: compactValueList([deal.comparableTransactions, deal.comparableSource, deal.comparableRecency, deal.bankValuationSupport]),
+      status: developmentEvidenceStatus([deal.comparableTransactions, deal.comparableSource, deal.comparableRecency, deal.bankValuationSupport], /none|old|stale|listing|weak|mismatch|not done/i),
+      action: "Use completed subsale transactions, successful auction bids, bankability, and matched comparable adjustments before trusting value."
+    },
+    {
+      label: "Rental defence",
+      value: compactValueList([deal.expectedRent, deal.rentEvidence, deal.rentalSource, deal.rentalSustainability, deal.vacancySignal]),
+      status: developmentEvidenceStatus([deal.expectedRent, deal.rentEvidence, deal.rentalSource, deal.rentalSustainability, deal.vacancySignal], /none|weak|stale|vacancy|incentive|seasonal|drop|poor/i),
+      action: "Confirm achieved rent, tenant urgency, furnishing gap, vacancy pressure, and whether rent can defend the instalment."
+    }
+  ];
+  const missingCount = evidence.filter((item) => item.status === "missing").length;
+  const watchCount = evidence.filter((item) => item.status === "watch").length;
+  const status = watchCount ? "watch" : missingCount >= 3 ? "thin" : missingCount ? "partial" : "tracked";
+  const title = deal.projectName || deal.area || "Development profile";
+  return {
+    status,
+    title,
+    identity,
+    evidence,
+    observationCount: observations.length,
+    trendCount: trends.length,
+    freshness: summary.warning || (observations.length ? "Owner observations matched. Verify freshness before relying on them." : "No dated owner observation matched this project or area yet."),
+    summary: status === "watch"
+      ? "Development intelligence has live warning signals. Treat the project profile as a watchlist item until the weak lane is cleared."
+      : status === "tracked"
+        ? "Development intelligence is well formed enough for project-level comparison, subject to live verification."
+        : status === "partial"
+          ? `Development intelligence is partial. Fill the missing lane${missingCount === 1 ? "" : "s"} before treating the project view as mature.`
+          : "Development intelligence is still thin. Apex can screen the deal, but it should not behave like it knows the project deeply yet."
+  };
+}
+
+function developmentProfileMarkup(analysis = {}) {
+  const profile = developmentProfile(analysis);
+  const identityEntries = [
+    ["Project", profile.identity.project],
+    ["Area", profile.identity.area],
+    ["Segment", profile.identity.segment],
+    ["Tenure/title", profile.identity.tenure],
+    ["Price/value", profile.identity.price]
+  ];
+  return `
+    <section class="analysisDevelopmentProfile ${escapeHtml(profile.status)}" aria-label="Development intelligence profile">
+      <header>
+        <span><small>V7.0 DEVELOPMENT PROFILE</small><b>${escapeHtml(profile.title)}</b></span>
+        <em>${escapeHtml(profile.status)}</em>
+      </header>
+      <p>${escapeHtml(profile.summary)}</p>
+      <div class="developmentIdentity">
+        ${identityEntries.map(([label, value]) => `
+          <span><small>${escapeHtml(label)}</small><b>${escapeHtml(value)}</b></span>
+        `).join("")}
+      </div>
+      <div class="developmentProfileSignals">
+        ${profile.evidence.map((item) => `
+          <article class="developmentProfileSignal ${escapeHtml(item.status)}">
+            <i>${escapeHtml(item.status)}</i>
+            <span><b>${escapeHtml(item.label)}</b><small>${escapeHtml(item.value)}</small><em>${escapeHtml(item.action)}</em></span>
+          </article>
+        `).join("")}
+      </div>
+      <p class="developmentFreshness">${escapeHtml(profile.freshness)}</p>
+    </section>
+  `;
+}
+
+function developmentProfileText(analysis = {}) {
+  const profile = developmentProfile(analysis);
+  return [
+    "Development intelligence profile:",
+    `- V7.0 ${profile.title} / ${profile.status}: ${profile.summary}`,
+    `- Identity: ${profile.identity.project}; ${profile.identity.area}; ${profile.identity.segment}; ${profile.identity.tenure}; ${profile.identity.price}.`,
+    `- Freshness: ${profile.freshness}`,
+    ...profile.evidence.map((item) => `- ${item.label} / ${item.status}: ${item.value}. ${item.action}`)
+  ];
+}
+
 function sourceLabel(type) {
   if (type === "memory") return "MEMORY";
   if (type === "journal") return "JOURNAL";
@@ -1696,6 +1827,7 @@ function saveAnalysisToShortlist(analysis) {
     supplyAbsorptionEvidence: analysis.supplyAbsorptionEvidence || null,
     siteManagementEvidence: analysis.siteManagementEvidence || null,
     legalTransactionEvidence: analysis.legalTransactionEvidence || null,
+    marketIntelligence: analysis.marketIntelligence || null,
     counterThesis: analysis.counterThesis,
     context: analysis.context || {}
   };
@@ -1764,6 +1896,8 @@ function analysisExportText(analysis) {
     ...professionalReviewText(analysis),
     "",
     ...commercialGuardrailText(analysis),
+    "",
+    ...developmentProfileText(analysis),
     "",
     `Summary: ${analysis.summary || ""}`
   ];
@@ -2983,6 +3117,7 @@ function addDealAnalysis(analysis, sources = [], intelligence = {}) {
     ${complianceRefusalMarkup(analysis)}
     ${professionalReviewMarkup(analysis)}
     ${commercialGuardrailMarkup(analysis)}
+    ${developmentProfileMarkup(analysis)}
     <div class="analysisOverview">
       ${readinessMarkup(analysis.investorReadiness)}
       ${dimensionMarkup ? `<section class="analysisDimensionSection"><h3>DEAL SCORECARD</h3><div class="analysisDimensions">${dimensionMarkup}</div></section>` : ""}
