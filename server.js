@@ -427,10 +427,54 @@ function normalizeReportDevelopmentIntelligence(section = {}) {
   };
 }
 
+function normalizeReportDocumentIntelligence(section = {}) {
+  const safeStatus = (value, fallback = "thin") => ["proven", "partial", "thin", "risk", "clear", "watch", "missing", "action"].includes(value) ? value : fallback;
+  const lanes = Array.isArray(section.lanes) ? section.lanes.slice(0, 12).map((item) => ({
+    version: reportText(item?.version, 20),
+    label: reportText(item?.label, 160),
+    status: safeStatus(item?.status, "watch"),
+    score: Math.max(0, Math.min(100, Number(item?.score || 0))),
+    reading: reportText(item?.reading, 700),
+    action: reportText(item?.action, 500)
+  })).filter((item) => item.version && item.label) : [];
+  return {
+    version: reportText(section.version || "v8", 20),
+    status: safeStatus(section.status, "thin"),
+    score: Math.max(0, Math.min(100, Number(section.score || 0))),
+    summary: reportText(section.summary, 900),
+    posture: reportText(section.posture, 240),
+    vaultHealth: {
+      documents: Math.max(0, Number(section?.vaultHealth?.documents || 0)),
+      indexed: Math.max(0, Number(section?.vaultHealth?.indexed || 0)),
+      chunks: Math.max(0, Number(section?.vaultHealth?.chunks || 0)),
+      matched: Math.max(0, Number(section?.vaultHealth?.matched || 0)),
+      mode: reportText(section?.vaultHealth?.mode, 40),
+      latestUpdatedAt: reportText(section?.vaultHealth?.latestUpdatedAt, 40)
+    },
+    lanes,
+    matchedEvidence: Array.isArray(section.matchedEvidence) ? section.matchedEvidence.slice(0, 8).map((item) => ({
+      id: reportText(item?.id, 140),
+      documentId: reportText(item?.documentId, 100),
+      title: reportText(item?.title, 180),
+      score: Math.max(0, Math.min(100, Number(item?.score || 0))),
+      preview: reportText(item?.preview, 500),
+      tags: reportList(item?.tags, 8),
+      status: safeStatus(item?.status, "watch"),
+      updatedAt: reportText(item?.updatedAt, 40)
+    })).filter((item) => item.id && item.title) : [],
+    actionQueue: Array.isArray(section.actionQueue) ? section.actionQueue.slice(0, 8).map((item) => ({
+      version: reportText(item?.version, 20),
+      label: reportText(item?.label, 160),
+      status: safeStatus(item?.status, "watch"),
+      action: reportText(item?.action, 500)
+    })).filter((item) => item.version && item.label) : []
+  };
+}
+
 function normalizeReportAnalysis(analysis = {}) {
   const objectList = (items, limit, mapper) => Array.isArray(items) ? items.slice(0, limit).map(mapper) : [];
   return {
-    engineVersion: reportText(analysis.engineVersion || "Apex v7.10", 40),
+    engineVersion: reportText(analysis.engineVersion || "Apex v8.10", 40),
     reasoningMode: reportText(analysis.reasoningMode || "Framework only", 40),
     verdict: reportText(analysis.verdict, 40),
     summary: reportText(analysis.summary, 600),
@@ -777,7 +821,7 @@ function normalizeReportAnalysis(analysis = {}) {
       mode: reportText(analysis?.sourceTransparency?.mode, 80),
       summary: reportText(analysis?.sourceTransparency?.summary, 700),
       sources: objectList(analysis?.sourceTransparency?.sources, 8, (item) => ({
-        type: ["framework", "ai", "memory", "journal", "saved_deal", "market"].includes(item?.type) ? item.type : "framework",
+        type: ["framework", "ai", "memory", "journal", "saved_deal", "market", "evidence"].includes(item?.type) ? item.type : "framework",
         label: reportText(item?.label, 140),
         status: ["used", "available", "not_used"].includes(item?.status) ? item.status : "used",
         detail: reportText(item?.detail, 420)
@@ -810,6 +854,7 @@ function normalizeReportAnalysis(analysis = {}) {
     missingEvidence: reportList(analysis.missingEvidence),
     nextActions: reportList(analysis.nextActions),
     developmentIntelligence: normalizeReportDevelopmentIntelligence(analysis.developmentIntelligence),
+    documentIntelligence: normalizeReportDocumentIntelligence(analysis.documentIntelligence),
     marketIntelligence: normalizeReportMarketIntelligence(analysis.marketIntelligence),
     context: normalizeReportContext(analysis.context)
   };
@@ -2249,8 +2294,10 @@ function developmentIntelligenceStatus(score, missingCount, riskCount, observati
 
 function laneStatusScore(status) {
   return {
+    proven: 92,
     clear: 90,
     tracked: 88,
+    usable: 76,
     partial: 66,
     watch: 58,
     thin: 42,
@@ -2480,6 +2527,232 @@ function buildDevelopmentIntelligence(analysis = {}) {
     lanes,
     actionQueue
   };
+}
+
+function documentEvidenceText(document = {}, chunk = {}) {
+  return signalText(
+    document.title,
+    document.filename,
+    document.sourceUrl,
+    ...(document.tags || []),
+    chunk.content
+  );
+}
+
+function documentEvidenceMatches(knowledge = emptyKnowledge(), evidenceResult = {}) {
+  const documents = new Map((knowledge.documents || []).map((document) => [document.id, document]));
+  const seenDocuments = new Set();
+  return (evidenceResult.matches || []).map((chunk) => {
+    const document = documents.get(chunk.documentId) || {};
+    const documentKey = document.id || chunk.documentId || chunk.id;
+    const duplicate = seenDocuments.has(documentKey);
+    seenDocuments.add(documentKey);
+    return {
+      id: chunk.id,
+      documentId: chunk.documentId,
+      title: document.title || "Owner evidence",
+      score: Math.round(Math.max(0, Number(chunk.score || 0)) * 100),
+      preview: conciseText(chunk.content, duplicate ? 180 : 300),
+      tags: document.tags || [],
+      status: document.status || "stored",
+      updatedAt: document.updatedAt || document.createdAt || "",
+      sourceUrl: document.sourceUrl || "",
+      content: chunk.content || "",
+      duplicateDocument: duplicate
+    };
+  });
+}
+
+function matchedDocumentCount(matches = []) {
+  return new Set(matches.map((item) => item.documentId || item.id).filter(Boolean)).size;
+}
+
+function evidenceMatchesFor(matches = [], patterns = []) {
+  return matches.filter((match) => hasSignal(documentEvidenceText(match, match), patterns));
+}
+
+function documentLane(version, label, status, reading, action) {
+  return {
+    version,
+    label,
+    status,
+    score: laneStatusScore(status),
+    reading,
+    action
+  };
+}
+
+function documentStatusFromEvidence(sectionStatus, matches, patterns) {
+  const categoryMatches = evidenceMatchesFor(matches, patterns);
+  if (categoryMatches.length && ["strong", "proven", "ready", "clear"].includes(sectionStatus)) return "clear";
+  if (categoryMatches.length) return "partial";
+  if (["strong", "proven", "ready", "clear"].includes(sectionStatus)) return "watch";
+  if (["unsafe", "blocked", "risk"].includes(sectionStatus)) return "risk";
+  if (["usable", "conditional", "watch", "thin", "unknown"].includes(sectionStatus)) return "watch";
+  return "missing";
+}
+
+function buildDocumentIntelligence(analysis = {}, knowledge = emptyKnowledge(), evidenceResult = {}) {
+  const documents = Array.isArray(knowledge.documents) ? knowledge.documents : [];
+  const indexedDocuments = documents.filter((document) => document.status === "indexed");
+  const chunks = Array.isArray(knowledge.chunks) ? knowledge.chunks : [];
+  const matches = documentEvidenceMatches(knowledge, evidenceResult);
+  const matchedDocs = matchedDocumentCount(matches);
+  const subject = analysis.context?.dealCard?.projectName || analysis.context?.dealCard?.area || "this deal";
+  const latestUpdatedAt = documents.map((document) => document.updatedAt || document.createdAt || "").filter(Boolean).sort().at(-1) || "";
+  const freshCutoff = Date.now() - (180 * 24 * 60 * 60 * 1000);
+  const freshDocuments = documents.filter((document) => {
+    const timestamp = Date.parse(document.updatedAt || document.createdAt || "");
+    return Number.isFinite(timestamp) && timestamp >= freshCutoff;
+  });
+  const documentsWithSource = documents.filter((document) => document.sourceUrl || (document.tags || []).length);
+  const transactionPatterns = [/transaction/, /transacted/, /subsale/, /auction/, /successful bid/, /brickz/, /valuation/, /comparable/];
+  const rentalPatterns = [/rent/, /rental/, /tenant/, /tenancy/, /occupancy/, /vacancy/, /enquiry/, /inquiry/, /yield/];
+  const financingPatterns = [/bank/, /loan/, /financing/, /valuation/, /dsr/, /ccris/, /ctos/, /legal/, /lawyer/, /title/, /caveat/, /consent/];
+  const sitePatterns = [/site/, /visit/, /management/, /jmb/, /resident/, /lobby/, /lift/, /security/, /maintenance/, /defect/, /leak/];
+  const legalStatus = analysis.legalTransactionEvidence?.status || "";
+  const financingLegalStatus = ["unsafe", "blocked", "risk"].includes(legalStatus) ? legalStatus : analysis.financingValuationEvidence?.status;
+  const lanes = [
+    documentLane(
+      "V8.1",
+      "Evidence vault coverage",
+      documents.length >= 8 && indexedDocuments.length >= 6 ? "clear" : documents.length >= 3 ? "partial" : documents.length ? "thin" : "missing",
+      documents.length
+        ? `${documents.length} owner evidence document${documents.length === 1 ? "" : "s"} exist, with ${indexedDocuments.length} indexed for retrieval.`
+        : "No owner evidence documents are available for deal proof yet.",
+      "Upload transaction, achieved rent, financing/legal, site-management, and supply evidence as dated documents before expecting strong document-backed reports."
+    ),
+    documentLane(
+      "V8.2",
+      "Retrieval match quality",
+      matchedDocs >= 4 ? "clear" : matchedDocs >= 2 ? "partial" : matchedDocs === 1 ? "thin" : "missing",
+      matchedDocs
+        ? `${matchedDocs} evidence document${matchedDocs === 1 ? "" : "s"} matched ${subject} through ${evidenceResult.mode || "lexical"} retrieval.`
+        : `No uploaded evidence document matched ${subject}.`,
+      "Use project name, area, developer, rent, transaction, and legal keywords in evidence titles/tags so retrieval can find the right files."
+    ),
+    documentLane(
+      "V8.3",
+      "Transaction proof file",
+      documentStatusFromEvidence(analysis.transactionComparableEvidence?.status, matches, transactionPatterns),
+      analysis.transactionComparableEvidence?.summary || "Completed value proof still depends on uploaded transaction or auction evidence.",
+      "Attach completed subsale, successful auction, valuation support, and comparable adjustment notes instead of relying on asking-price listings."
+    ),
+    documentLane(
+      "V8.4",
+      "Rental proof file",
+      documentStatusFromEvidence(analysis.achievedRentalEvidence?.status, matches, rentalPatterns),
+      analysis.achievedRentalEvidence?.summary || "Achieved rental proof still needs signed rent, agent feedback, or occupancy/enquiry evidence.",
+      "Attach achieved rent, tenancy, agent rent feedback, occupancy, vacancy, and tenant-demand proof before treating yield as real."
+    ),
+    documentLane(
+      "V8.5",
+      "Financing and legal proof file",
+      documentStatusFromEvidence(financingLegalStatus, matches, financingPatterns),
+      analysis.financingValuationEvidence?.summary || analysis.legalTransactionEvidence?.summary || "Financing, valuation, and title proof are not yet document-backed.",
+      "Attach banker valuation support, loan precheck, DSR assumptions, title status, restriction, caveat, consent, and lawyer review evidence."
+    ),
+    documentLane(
+      "V8.6",
+      "Site and management proof file",
+      documentStatusFromEvidence(analysis.siteManagementEvidence?.status, matches, sitePatterns),
+      analysis.siteManagementEvidence?.summary || "Site visit, JMB, maintenance, resident, and building-quality proof are not yet document-backed.",
+      "Attach site-visit photos/notes, management office feedback, arrears/JMB evidence, defect records, lift/security observations, and resident-culture notes."
+    ),
+    documentLane(
+      "V8.7",
+      "Freshness and version control",
+      !documents.length ? "missing" : freshDocuments.length / documents.length >= 0.65 ? "clear" : freshDocuments.length ? "watch" : "risk",
+      documents.length
+        ? `${freshDocuments.length} of ${documents.length} evidence document${documents.length === 1 ? "" : "s"} were updated within roughly six months.`
+        : "Freshness cannot be checked without documents.",
+      "Refresh stale rental, transaction, supply, and management files before using them for pricing, offer, refinancing, or exit decisions."
+    ),
+    documentLane(
+      "V8.8",
+      "Source reliability tags",
+      documents.length && documentsWithSource.length / documents.length >= 0.7 ? "clear" : documentsWithSource.length ? "watch" : "missing",
+      documentsWithSource.length
+        ? `${documentsWithSource.length} document${documentsWithSource.length === 1 ? " has" : "s have"} source URLs or tags for auditability.`
+        : "Evidence documents are not yet tagged or source-linked enough for auditability.",
+      "Tag every evidence file by project, area, evidence type, date, source quality, and whether it is owner observation, agent input, transaction proof, or professional review."
+    ),
+    documentLane(
+      "V8.9",
+      "Evidence gap queue",
+      (analysis.missingEvidence || []).length >= 4 ? "action" : (analysis.missingEvidence || []).length ? "watch" : "clear",
+      (analysis.missingEvidence || []).length
+        ? `${analysis.missingEvidence.length} missing evidence item${analysis.missingEvidence.length === 1 ? "" : "s"} still need document proof.`
+        : "No major evidence gap is listed by the current report.",
+      "Convert every missing evidence item into a file request: what document, who should provide it, and what decision it can change."
+    ),
+    documentLane(
+      "V8.10",
+      "Evidence confidence seal",
+      "watch",
+      "The V8 seal depends on the weakest document lane, not the most impressive uploaded file.",
+      "Treat document-backed confidence as conditional until the weakest transaction, rent, financing/legal, site, or freshness lane is cleared."
+    )
+  ];
+  const riskCount = lanes.filter((lane) => lane.status === "risk").length;
+  const missingCount = lanes.filter((lane) => lane.status === "missing").length;
+  const thinCount = lanes.filter((lane) => lane.status === "thin").length;
+  const scoreWithoutSeal = clampScore(lanes.slice(0, -1).reduce((sum, lane) => sum + lane.score, 0) / Math.max(1, lanes.length - 1));
+  const sealStatus = riskCount ? "risk" : missingCount >= 3 ? "thin" : scoreWithoutSeal >= 78 && matchedDocs >= 3 ? "proven" : scoreWithoutSeal >= 58 ? "partial" : "thin";
+  lanes[lanes.length - 1] = {
+    ...lanes[lanes.length - 1],
+    status: sealStatus,
+    score: laneStatusScore(sealStatus),
+    reading: sealStatus === "proven"
+      ? "The V8 seal is document-backed enough to explain what evidence supported the report."
+      : sealStatus === "risk"
+        ? "The V8 seal is blocked by a risk-level document lane."
+        : sealStatus === "thin"
+          ? "The V8 seal is thin because too many document lanes are missing or weak."
+          : "The V8 seal is partial; useful evidence exists, but the weakest lane still controls confidence."
+  };
+  const score = clampScore(lanes.reduce((sum, lane) => sum + lane.score, 0) / lanes.length);
+  const status = riskCount ? "risk" : score >= 78 && matchedDocs >= 3 ? "proven" : score >= 58 ? "partial" : thinCount || missingCount ? "thin" : "partial";
+  const actionQueue = lanes
+    .filter((lane) => !["clear", "proven"].includes(lane.status) && lane.version !== "V8.10")
+    .sort((left, right) => laneStatusScore(left.status) - laneStatusScore(right.status))
+    .slice(0, 5)
+    .map((lane) => ({ version: lane.version, label: lane.label, status: lane.status, action: lane.action }));
+  return {
+    version: "v8",
+    status,
+    score,
+    summary: status === "proven"
+      ? `${subject} has usable document-backed evidence in the owner vault.`
+      : status === "risk"
+        ? `${subject} has evidence-vault risk. Clear the weakest document lane before relying on the report.`
+        : `${subject} has only partial document backing. The report can reason, but proof still needs to be uploaded or refreshed.`,
+    posture: status === "proven" ? "Document-backed" : status === "risk" ? "Do not rely until verified" : "Evidence-building mode",
+    vaultHealth: {
+      documents: documents.length,
+      indexed: indexedDocuments.length,
+      chunks: chunks.length,
+      matched: matchedDocs,
+      mode: evidenceResult.mode || "none",
+      latestUpdatedAt
+    },
+    lanes,
+    matchedEvidence: matches.slice(0, 8),
+    actionQueue
+  };
+}
+
+function documentEvidenceSources(documentIntelligence = {}) {
+  return (documentIntelligence.matchedEvidence || []).slice(0, 6).map((item) => ({
+    id: item.id,
+    title: item.title,
+    type: "evidence",
+    preview: item.preview,
+    score: item.score,
+    documentId: item.documentId,
+    tags: item.tags || [],
+    status: item.status
+  }));
 }
 
 function marketInputError(message, statusCode = 400) {
@@ -5944,7 +6217,7 @@ function analyzeSevenStageDeal(rawDealCard = {}, rawFinancialProfile = {}) {
   };
 
   return {
-    engineVersion: "Apex v7.10",
+    engineVersion: "Apex v8.10",
     reasoningMode: "Framework only",
     verdict,
     summary: verdictSummary,
@@ -6139,6 +6412,22 @@ function dealAnalysisText(analysis) {
     lines.push(...(analysis.developmentIntelligence.lanes || []).map((item) => `- ${item.version} ${item.label}: ${item.status}, ${item.score}/100. ${item.reading} Action: ${item.action}`));
     if (analysis.developmentIntelligence.actionQueue?.length) {
       lines.push("V7 action queue", ...analysis.developmentIntelligence.actionQueue.map((item) => `- ${item.version} ${item.label}: ${item.action}`));
+    }
+  }
+  if (analysis.documentIntelligence?.summary) {
+    lines.push(
+      "",
+      "V8 document intelligence stack",
+      `- ${analysis.documentIntelligence.status || "thin"} (${analysis.documentIntelligence.score || 0}/100): ${analysis.documentIntelligence.summary}`,
+      `- Posture: ${analysis.documentIntelligence.posture || "Evidence-building mode"}.`,
+      `- Vault: ${analysis.documentIntelligence.vaultHealth?.documents || 0} documents, ${analysis.documentIntelligence.vaultHealth?.indexed || 0} indexed, ${analysis.documentIntelligence.vaultHealth?.matched || 0} matched.`
+    );
+    lines.push(...(analysis.documentIntelligence.lanes || []).map((item) => `- ${item.version} ${item.label}: ${item.status}, ${item.score}/100. ${item.reading} Action: ${item.action}`));
+    if (analysis.documentIntelligence.matchedEvidence?.length) {
+      lines.push("Matched owner evidence", ...analysis.documentIntelligence.matchedEvidence.map((item) => `- ${item.title}: ${item.preview}`));
+    }
+    if (analysis.documentIntelligence.actionQueue?.length) {
+      lines.push("V8 action queue", ...analysis.documentIntelligence.actionQueue.map((item) => `- ${item.version} ${item.label}: ${item.action}`));
     }
   }
   if (analysis.holdExitPlan?.summary) {
@@ -8140,7 +8429,10 @@ async function router(req, res) {
       marketStage.summary = `${analysis.marketIntelligence.summary.matched} owner market observation${analysis.marketIntelligence.summary.matched === 1 ? " matches" : "s match"} this deal. ${analysis.marketIntelligence.summary.warning}`;
     }
     analysis.developmentIntelligence = buildDevelopmentIntelligence(analysis);
+    const documentEvidenceResult = await knowledgeService.retrieve(learningQuery, db.knowledge.chunks, 8);
+    analysis.documentIntelligence = buildDocumentIntelligence(analysis, db.knowledge, documentEvidenceResult);
     const sources = [
+      ...documentEvidenceSources(analysis.documentIntelligence),
       ...marketSources(analysis.marketIntelligence),
       ...dealMemories.map((memory) => ({
         id: memory.id,

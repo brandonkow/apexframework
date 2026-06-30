@@ -1885,6 +1885,27 @@ button {
   display: none;
 }
 
+.ownerEvidencePanel {
+  display: grid;
+  min-height: 0;
+  max-height: min(82dvh, 780px);
+  width: min(1040px, 100%);
+  margin: 0 auto;
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  gap: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(103, 229, 255, 0.24);
+  border-radius: 12px;
+  padding: 13px;
+  background: linear-gradient(135deg, rgba(90, 231, 255, 0.09), transparent 28%), rgba(2, 13, 21, 0.93);
+  box-shadow: 0 0 38px rgba(28, 190, 221, 0.09), inset 0 0 28px rgba(28, 190, 221, 0.04);
+  backdrop-filter: blur(18px);
+}
+
+.ownerEvidencePanel[hidden] {
+  display: none;
+}
+
 .ownerMarketOpen .transcript,
 .ownerMarketOpen .contextDeck,
 .ownerMarketOpen .contextReadiness,
@@ -1895,10 +1916,24 @@ button {
   display: none;
 }
 
+.ownerEvidenceOpen .transcript,
+.ownerEvidenceOpen .contextDeck,
+.ownerEvidenceOpen .contextReadiness,
+.ownerEvidenceOpen .experienceLock,
+.ownerEvidenceOpen .aiDisclosure,
+.ownerEvidenceOpen .commandBar,
+.ownerEvidenceOpen .utilityBar {
+  display: none;
+}
+
 .ownerMarketHeader,
 .ownerMarketForm header,
 .ownerMarketLists > section > header,
-.ownerMarketItem header {
+.ownerMarketItem header,
+.ownerEvidenceHeader,
+.ownerEvidenceForm header,
+.ownerEvidenceListWrap > header,
+.ownerEvidenceItem header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1906,7 +1941,10 @@ button {
 }
 
 .ownerMarketHeader > span,
-.ownerMarketItem header > span {
+.ownerMarketItem header > span,
+.ownerEvidenceHeader > span,
+.ownerEvidenceItem header > span,
+.ownerEvidenceListWrap > header > span {
   display: grid;
   gap: 3px;
 }
@@ -1914,7 +1952,11 @@ button {
 .ownerMarketHeader small,
 .ownerMarketForm small,
 .ownerMarketLists small,
-.ownerMarketItem small {
+.ownerMarketItem small,
+.ownerEvidenceHeader small,
+.ownerEvidenceForm small,
+.ownerEvidenceListWrap small,
+.ownerEvidenceItem small {
   color: #5d8c97;
   font-size: 0.47rem;
   font-weight: 400;
@@ -1925,7 +1967,11 @@ button {
 .ownerMarketHeader b,
 .ownerMarketForm header b,
 .ownerMarketLists header b,
-.ownerMarketItem header b {
+.ownerMarketItem header b,
+.ownerEvidenceHeader b,
+.ownerEvidenceForm header b,
+.ownerEvidenceListWrap header b,
+.ownerEvidenceItem header b {
   color: var(--cyan-bright);
   font-size: 0.72rem;
   font-weight: 500;
@@ -1936,7 +1982,12 @@ button {
 .ownerMarketAccess button,
 .ownerMarketForm button,
 .ownerMarketFilters button,
-.ownerMarketItem button {
+.ownerMarketItem button,
+.ownerEvidenceHeader button,
+.ownerEvidenceAccess button,
+.ownerEvidenceForm button,
+.ownerEvidenceListWrap button,
+.ownerEvidenceItem button {
   border: 1px solid rgba(103, 229, 255, 0.18);
   border-radius: 999px;
   padding: 7px 10px;
@@ -1948,7 +1999,9 @@ button {
 }
 
 .ownerMarketPrimary,
-.ownerMarketAccess button[type="submit"] {
+.ownerMarketAccess button[type="submit"],
+.ownerEvidencePrimary,
+.ownerEvidenceAccess button[type="submit"] {
   border-color: rgba(103, 229, 255, 0.36) !important;
   color: var(--cyan) !important;
 }
@@ -1957,7 +2010,12 @@ button {
 .ownerMarketAccess button:hover,
 .ownerMarketForm button:hover,
 .ownerMarketFilters button:hover,
-.ownerMarketItem button:hover {
+.ownerMarketItem button:hover,
+.ownerEvidenceHeader button:hover,
+.ownerEvidenceAccess button:hover,
+.ownerEvidenceForm button:hover,
+.ownerEvidenceListWrap button:hover,
+.ownerEvidenceItem button:hover {
   border-color: rgba(103, 229, 255, 0.42);
   color: var(--cyan);
 }
@@ -1965,7 +2023,11 @@ button {
 .ownerMarketIntro,
 .ownerMarketMessage,
 .ownerMarketEmpty,
-.ownerMarketItem p {
+.ownerMarketItem p,
+.ownerEvidenceIntro,
+.ownerEvidenceMessage,
+.ownerEvidenceEmpty,
+.ownerEvidenceItem p {
   margin: 0;
   color: #729ca6;
   font-size: 0.61rem;
@@ -1976,19 +2038,29 @@ button {
   color: #ef9999;
 }
 
+.ownerEvidenceMessage[data-tone="danger"] {
+  color: #ef9999;
+}
+
 .ownerMarketMessage[data-tone="warning"] {
   color: #d7b970;
 }
 
+.ownerEvidenceMessage[data-tone="warning"] {
+  color: #d7b970;
+}
+
 .ownerMarketAccess,
-.ownerMarketFilters {
+.ownerMarketFilters,
+.ownerEvidenceAccess {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 8px;
   align-items: end;
 }
 
-.ownerMarketAccess label {
+.ownerMarketAccess label,
+.ownerEvidenceAccess label {
   display: grid;
   gap: 4px;
   color: #6e9fab;
@@ -1997,11 +2069,14 @@ button {
 }
 
 .ownerMarketAccess input,
+.ownerEvidenceAccess input,
 .ownerMarketFilters input,
 .ownerMarketFilters select,
 .ownerMarketGrid input,
 .ownerMarketGrid select,
-.ownerMarketGrid textarea {
+.ownerMarketGrid textarea,
+.ownerEvidenceGrid input,
+.ownerEvidenceGrid textarea {
   width: 100%;
   min-height: 38px;
   border: 1px solid rgba(103, 229, 255, 0.15);
@@ -2013,29 +2088,36 @@ button {
   font-size: 0.72rem;
 }
 
-.ownerMarketGrid textarea {
+.ownerMarketGrid textarea,
+.ownerEvidenceGrid textarea {
   min-height: 76px;
   resize: vertical;
   line-height: 1.45;
 }
 
 .ownerMarketAccess input:focus,
+.ownerEvidenceAccess input:focus,
 .ownerMarketFilters input:focus,
 .ownerMarketFilters select:focus,
 .ownerMarketGrid input:focus,
 .ownerMarketGrid select:focus,
-.ownerMarketGrid textarea:focus {
+.ownerMarketGrid textarea:focus,
+.ownerEvidenceGrid input:focus,
+.ownerEvidenceGrid textarea:focus {
   border-color: rgba(103, 229, 255, 0.48);
 }
 
-.ownerMarketSummary {
+.ownerMarketSummary,
+.ownerEvidenceSummary {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
 }
 
 .ownerMarketSummary span,
-.ownerMarketMeta span {
+.ownerMarketMeta span,
+.ownerEvidenceSummary span,
+.ownerEvidenceMeta span {
   border: 1px solid rgba(103, 229, 255, 0.13);
   border-radius: 999px;
   padding: 5px 8px;
@@ -2044,19 +2126,23 @@ button {
   letter-spacing: 0.1em;
 }
 
-.ownerMarketSummary b {
+.ownerMarketSummary b,
+.ownerEvidenceSummary b {
   color: var(--cyan);
   font-weight: 500;
 }
 
-.ownerMarketWorkspace {
+.ownerMarketWorkspace,
+.ownerEvidenceWorkspace {
   display: grid;
   min-height: 0;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
-.ownerMarketForm {
+.ownerMarketForm,
+.ownerEvidenceForm,
+.ownerEvidenceListWrap {
   display: grid;
   align-content: start;
   gap: 9px;
@@ -2072,7 +2158,14 @@ button {
   gap: 8px;
 }
 
-.ownerMarketGrid label {
+.ownerEvidenceGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.ownerMarketGrid label,
+.ownerEvidenceGrid label {
   display: grid;
   gap: 4px;
   color: #6e9fab;
@@ -2081,6 +2174,10 @@ button {
 }
 
 .ownerMarketWide {
+  grid-column: 1 / -1;
+}
+
+.ownerEvidenceWide {
   grid-column: 1 / -1;
 }
 
@@ -2099,7 +2196,8 @@ button {
 }
 
 .ownerProjectList,
-.ownerObservationList {
+.ownerObservationList,
+.ownerEvidenceList {
   display: grid;
   align-content: start;
   min-height: 0;
@@ -2108,7 +2206,8 @@ button {
   overscroll-behavior: contain;
 }
 
-.ownerMarketItem {
+.ownerMarketItem,
+.ownerEvidenceItem {
   display: grid;
   gap: 8px;
   border: 1px solid rgba(103, 229, 255, 0.14);
@@ -2126,7 +2225,16 @@ button {
   border-left-color: #e68e8e;
 }
 
-.ownerMarketItem header em {
+.ownerEvidenceItem.indexed {
+  border-left-color: #70e6b3;
+}
+
+.ownerEvidenceItem.stored {
+  border-left-color: #d0ad69;
+}
+
+.ownerMarketItem header em,
+.ownerEvidenceItem header em {
   color: var(--cyan);
   font-size: 0.54rem;
   font-style: normal;
@@ -2134,13 +2242,15 @@ button {
   text-transform: uppercase;
 }
 
-.ownerMarketMeta {
+.ownerMarketMeta,
+.ownerEvidenceMeta {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
 }
 
-.ownerMarketItem button {
+.ownerMarketItem button,
+.ownerEvidenceItem button {
   justify-self: start;
 }
 
@@ -4000,6 +4110,196 @@ button {
   color: #a8d0d8;
   font-size: 0.56rem;
   font-weight: 500;
+}
+
+.analysisDocumentStack {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  border: 1px solid rgba(103, 229, 255, 0.12);
+  border-left: 2px solid rgba(103, 229, 255, 0.58);
+  border-radius: 8px;
+  padding: 9px;
+  background: linear-gradient(135deg, rgba(103, 229, 255, 0.055), transparent 48%), rgba(0, 11, 18, 0.38);
+  overflow-wrap: anywhere;
+}
+
+.analysisDocumentStack.proven {
+  border-left-color: #6fd9a0;
+}
+
+.analysisDocumentStack.risk {
+  border-left-color: #e68e8e;
+}
+
+.analysisDocumentStack.thin,
+.analysisDocumentStack.partial,
+.analysisDocumentStack.watch {
+  border-left-color: #d0ad69;
+}
+
+.analysisDocumentStack header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+}
+
+.analysisDocumentStack header span {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.analysisDocumentStack small {
+  color: #67b7c7;
+  font-size: 0.5rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.analysisDocumentStack header b {
+  color: #d8fbff;
+  font-size: 0.68rem;
+  font-weight: 500;
+}
+
+.analysisDocumentStack header em {
+  border: 1px solid rgba(103, 229, 255, 0.16);
+  border-radius: 999px;
+  padding: 4px 7px;
+  color: #8fdde8;
+  font-size: 0.46rem;
+  font-style: normal;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.documentStackMeta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.documentStackMeta span,
+.documentStackLane,
+.documentMatchedEvidence,
+.documentActionQueue {
+  border: 1px solid rgba(103, 229, 255, 0.08);
+  border-radius: 8px;
+  padding: 7px;
+  background: rgba(0, 10, 17, 0.28);
+}
+
+.documentStackMeta span {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.documentStackMeta b {
+  color: #a8d0d8;
+  font-size: 0.58rem;
+  font-weight: 500;
+}
+
+.documentStackLanes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.documentStackLane {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 7px;
+}
+
+.documentStackLane i {
+  align-self: start;
+  border: 1px solid rgba(103, 229, 255, 0.16);
+  border-radius: 999px;
+  padding: 3px 6px;
+  color: #8fb8c1;
+  font-size: 0.42rem;
+  font-style: normal;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.documentStackLane.clear i,
+.documentStackLane.proven i { color: #7bdca9; border-color: rgba(112, 255, 191, 0.26); }
+.documentStackLane.watch i,
+.documentStackLane.partial i,
+.documentStackLane.thin i,
+.documentStackLane.missing i,
+.documentStackLane.action i { color: #d7b970; border-color: rgba(255, 210, 116, 0.26); }
+.documentStackLane.risk i { color: #ef9999; border-color: rgba(255, 126, 126, 0.3); }
+
+.documentStackLane span {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.documentStackLane b,
+.documentMatchedEvidence b,
+.documentActionQueue b {
+  color: #a8d0d8;
+  font-size: 0.59rem;
+  font-weight: 500;
+}
+
+.documentStackLane b small {
+  color: #6f9ca6;
+  font-size: 0.46rem;
+  letter-spacing: 0.08em;
+}
+
+.documentStackLane span > small,
+.documentStackLane em,
+.documentMatchedEvidence span,
+.documentMatchedEvidence em,
+.documentActionQueue span {
+  color: #638f99;
+  font-size: 0.49rem;
+  font-style: normal;
+  line-height: 1.35;
+}
+
+.documentStackLane em,
+.documentMatchedEvidence em {
+  color: #7faeb8;
+}
+
+.documentMatchedEvidence,
+.documentActionQueue {
+  display: grid;
+  gap: 5px;
+}
+
+.documentMatchedEvidence h3,
+.documentActionQueue h3 {
+  margin: 0;
+  color: #67b7c7;
+  font-size: 0.5rem;
+  font-weight: 500;
+  letter-spacing: 0.17em;
+}
+
+.documentMatchedEvidence p,
+.documentActionQueue p {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.38fr) minmax(0, 1fr);
+  gap: 7px;
+  margin: 0;
+  border-top: 1px solid rgba(103, 229, 255, 0.07);
+  padding-top: 5px;
+}
+
+.documentMatchedEvidence p {
+  grid-template-columns: minmax(120px, 0.32fr) minmax(0, 1fr) minmax(90px, 0.2fr);
 }
 
 .analysisMarketPulse {
@@ -6060,6 +6360,7 @@ button {
   .reportsOpen .assistantStage,
   .journalOpen .assistantStage,
   .ownerMarketOpen .assistantStage,
+  .ownerEvidenceOpen .assistantStage,
   .trustOpen .assistantStage {
     transform: translateY(-28dvh) scale(0.5);
   }
@@ -6070,6 +6371,7 @@ button {
   .reportsOpen .identity,
   .journalOpen .identity,
   .ownerMarketOpen .identity,
+  .ownerEvidenceOpen .identity,
   .trustOpen .identity {
     opacity: 0;
   }
@@ -6123,6 +6425,7 @@ button {
   .reportsPanel,
   .journalPanel,
   .ownerMarketPanel,
+  .ownerEvidencePanel,
   .trustPanel {
     padding: 12px;
   }
@@ -6229,6 +6532,10 @@ button {
     max-height: calc(100dvh - 104px);
   }
 
+  .ownerEvidencePanel {
+    max-height: calc(100dvh - 104px);
+  }
+
   .trustPanel {
     max-height: calc(100dvh - 104px);
   }
@@ -6247,17 +6554,24 @@ button {
   }
 
   .ownerMarketAccess,
+  .ownerEvidenceAccess,
   .ownerMarketFilters,
   .ownerMarketWorkspace,
+  .ownerEvidenceWorkspace,
   .ownerMarketGrid,
+  .ownerEvidenceGrid,
   .ownerMarketLists {
     grid-template-columns: minmax(0, 1fr);
   }
 
   .ownerMarketAccess button,
+  .ownerEvidenceAccess button,
   .ownerMarketFilters button,
   .ownerMarketForm button,
-  .ownerMarketItem button {
+  .ownerEvidenceForm button,
+  .ownerMarketItem button,
+  .ownerEvidenceItem button,
+  .ownerEvidenceListWrap button {
     min-height: 40px;
   }
 
@@ -6266,7 +6580,8 @@ button {
   }
 
   .ownerProjectList,
-  .ownerObservationList {
+  .ownerObservationList,
+  .ownerEvidenceList {
     max-height: none;
     overflow: visible;
   }
@@ -6274,7 +6589,10 @@ button {
   .ownerMarketGrid input,
   .ownerMarketGrid select,
   .ownerMarketGrid textarea,
+  .ownerEvidenceGrid input,
+  .ownerEvidenceGrid textarea,
   .ownerMarketAccess input,
+  .ownerEvidenceAccess input,
   .ownerMarketFilters input,
   .ownerMarketFilters select {
     min-height: 44px;
@@ -6504,6 +6822,9 @@ button {
   .developmentProfileSignals,
   .developmentStackMeta,
   .developmentStackLanes,
+  .documentStackMeta,
+  .documentStackLanes,
+  .documentMatchedEvidence p,
   .executionOffer,
   .executionActions,
   .shortlistList {
@@ -6535,23 +6856,29 @@ button {
   .analysisMarketPulse header,
   .analysisDevelopmentProfile header,
   .analysisDevelopmentStack header,
+  .analysisDocumentStack header,
   .analysisMarketPulse li {
     align-items: flex-start;
   }
 
   .analysisDevelopmentStack header,
+  .analysisDocumentStack header,
   .analysisDevelopmentProfile header {
     grid-template-columns: minmax(0, 1fr);
   }
 
   .analysisDevelopmentStack header em,
+  .analysisDocumentStack header em,
   .analysisDevelopmentProfile header em {
     justify-self: start;
   }
 
   .analysisDevelopmentStack header b,
+  .analysisDocumentStack header b,
   .developmentStackMeta b,
+  .documentStackMeta b,
   .developmentStackLane b,
+  .documentStackLane b,
   .analysisDevelopmentProfile header b,
   .developmentIdentity b,
   .developmentProfileSignal b {
@@ -6561,6 +6888,11 @@ button {
   .developmentStackLane span > small,
   .developmentStackLane em,
   .developmentActionQueue span,
+  .documentStackLane span > small,
+  .documentStackLane em,
+  .documentMatchedEvidence span,
+  .documentMatchedEvidence em,
+  .documentActionQueue span,
   .analysisDevelopmentProfile p,
   .developmentProfileSignal small,
   .developmentProfileSignal em {
@@ -6568,7 +6900,8 @@ button {
     line-height: 1.4;
   }
 
-  .developmentActionQueue p {
+  .developmentActionQueue p,
+  .documentActionQueue p {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -6841,7 +7174,8 @@ button {
   body.printMode .analysisComplianceRefusal,
   body.printMode .analysisCommercialGuardrail,
   body.printMode .analysisDevelopmentProfile,
-  body.printMode .analysisDevelopmentStack {
+  body.printMode .analysisDevelopmentStack,
+  body.printMode .analysisDocumentStack {
     border-color: #d7e4e8;
     border-left-color: #2b8fa3;
     background: #f8fcfd;
@@ -6853,7 +7187,11 @@ button {
   body.printMode .developmentProfileSignal,
   body.printMode .developmentStackMeta span,
   body.printMode .developmentStackLane,
-  body.printMode .developmentActionQueue {
+  body.printMode .developmentActionQueue,
+  body.printMode .documentStackMeta span,
+  body.printMode .documentStackLane,
+  body.printMode .documentMatchedEvidence,
+  body.printMode .documentActionQueue {
     border-color: #d6e3e7;
     background: #fff;
   }
@@ -6882,6 +7220,16 @@ button {
   body.printMode .developmentStackLane em,
   body.printMode .developmentActionQueue b,
   body.printMode .developmentActionQueue span,
+  body.printMode .analysisDocumentStack header b,
+  body.printMode .documentStackMeta b,
+  body.printMode .documentStackLane b,
+  body.printMode .documentStackLane span > small,
+  body.printMode .documentStackLane em,
+  body.printMode .documentMatchedEvidence b,
+  body.printMode .documentMatchedEvidence span,
+  body.printMode .documentMatchedEvidence em,
+  body.printMode .documentActionQueue b,
+  body.printMode .documentActionQueue span,
   body.printMode .analysisReadiness p,
   body.printMode .analysisReadiness li,
   body.printMode .evidenceItem b,
@@ -6936,6 +7284,7 @@ button {
   body.printMode .analysisMarketPulse,
   body.printMode .analysisDevelopmentProfile,
   body.printMode .analysisDevelopmentStack,
+  body.printMode .analysisDocumentStack,
   body.printMode .analysisDecisionFocus,
   body.printMode .analysisPersonalChallenge,
   body.printMode .personalChallengeCheck,
@@ -6975,6 +7324,7 @@ button {
   body.printMode .analysisMarketPulse,
   body.printMode .analysisDevelopmentProfile,
   body.printMode .analysisDevelopmentStack,
+  body.printMode .analysisDocumentStack,
   body.printMode .analysisOverview,
   body.printMode .analysisEvidence,
   body.printMode .analysisPersonalChallenge,

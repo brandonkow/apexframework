@@ -593,6 +593,23 @@ The rest of the V7 path turns the development profile into a compact market inte
 
 V7 improves the market read, but it does not override V6 trust boundaries or V4 evidence gates. A project can be attractive and still fail because of financing, legal title, poor management, weak rent, or the user's financial profile.
 
+## v8.1 - v8.10 Evidence Vault And Document Intelligence Stack
+
+The V8 path turns the owner evidence store into an auditable proof layer. It answers a different question from V7: not "is the market story coherent?", but "which uploaded documents actually support this conclusion?"
+
+- **v8.1 Evidence vault coverage**: Apex counts owner evidence documents, indexed documents, and retrievable chunks before claiming document-backed confidence.
+- **v8.2 Retrieval match quality**: Apex checks whether uploaded evidence actually matches the current project, area, deal card, and financial profile.
+- **v8.3 Transaction proof file**: Apex looks for completed subsale, successful auction, valuation support, comparable adjustment, or transaction evidence.
+- **v8.4 Rental proof file**: Apex looks for achieved rent, tenancy, agent rent feedback, occupancy, vacancy, enquiry, and tenant-demand evidence.
+- **v8.5 Financing and legal proof file**: Apex looks for bank valuation, loan precheck, DSR, legal/title, caveat, restriction, consent, and lawyer review evidence.
+- **v8.6 Site and management proof file**: Apex looks for site visit, management/JMB, arrears, maintenance, resident culture, security, lift, defect, and building-quality evidence.
+- **v8.7 Freshness and version control**: Apex distinguishes current documents from stale evidence and warns before relying on outdated rent, transaction, supply, or management proof.
+- **v8.8 Source reliability tags**: Apex rewards evidence with source URL, tags, project/area labels, evidence type, and date so the document can be audited later.
+- **v8.9 Evidence gap queue**: Apex converts missing evidence into file requests instead of leaving "missing evidence" as vague advice.
+- **v8.10 Evidence confidence seal**: Apex summarizes the weakest document lane and shows whether the report is document-backed, partial, thin, or risky.
+
+V8 does not train itself from public users. Normal users can submit chat and card context, but only owner-controlled evidence can enter the shared vault. If no matching document exists, Apex may still reason from the framework, but the report must show that document backing is thin.
+
 ## Four Decision Dimensions
 
 - **Property quality**: entry value, rentability, own-stay appeal, management, unit position, tenure, and buyer depth.

@@ -108,6 +108,9 @@ const journalMessage = document.querySelector("#journalMessage");
 const ownerMarketToggle = document.querySelector("#ownerMarketToggle");
 const ownerMarketPanel = document.querySelector("#ownerMarketPanel");
 const ownerMarketClose = document.querySelector("#ownerMarketClose");
+const ownerEvidenceToggle = document.querySelector("#ownerEvidenceToggle");
+const ownerEvidencePanel = document.querySelector("#ownerEvidencePanel");
+const ownerEvidenceClose = document.querySelector("#ownerEvidenceClose");
 const trustToggle = document.querySelector("#trustToggle");
 const trustPanel = document.querySelector("#trustPanel");
 const trustClose = document.querySelector("#trustClose");
@@ -119,6 +122,20 @@ const ownerMarketAccess = document.querySelector("#ownerMarketAccess");
 const ownerMarketToken = document.querySelector("#ownerMarketToken");
 const ownerMarketClearToken = document.querySelector("#ownerMarketClearToken");
 const ownerMarketSummary = document.querySelector("#ownerMarketSummary");
+const ownerEvidenceAccess = document.querySelector("#ownerEvidenceAccess");
+const ownerEvidenceToken = document.querySelector("#ownerEvidenceToken");
+const ownerEvidenceClearToken = document.querySelector("#ownerEvidenceClearToken");
+const ownerEvidenceSummary = document.querySelector("#ownerEvidenceSummary");
+const ownerEvidenceForm = document.querySelector("#ownerEvidenceForm");
+const ownerEvidenceTitle = document.querySelector("#ownerEvidenceTitle");
+const ownerEvidenceFilename = document.querySelector("#ownerEvidenceFilename");
+const ownerEvidenceSourceUrl = document.querySelector("#ownerEvidenceSourceUrl");
+const ownerEvidenceTags = document.querySelector("#ownerEvidenceTags");
+const ownerEvidenceText = document.querySelector("#ownerEvidenceText");
+const ownerEvidenceRefresh = document.querySelector("#ownerEvidenceRefresh");
+const ownerEvidenceList = document.querySelector("#ownerEvidenceList");
+const ownerEvidenceMetrics = document.querySelector("#ownerEvidenceMetrics");
+const ownerEvidenceMessage = document.querySelector("#ownerEvidenceMessage");
 const ownerProjectForm = document.querySelector("#ownerProjectForm");
 const ownerProjectName = document.querySelector("#ownerProjectName");
 const ownerProjectArea = document.querySelector("#ownerProjectArea");
@@ -491,6 +508,7 @@ function renderAuthState(user) {
     closeReportsPanel();
     closeJournalPanel();
     closeOwnerMarketPanel();
+    closeOwnerEvidencePanel();
     closeTrustPanel();
     billingState = null;
   }
@@ -512,6 +530,7 @@ function openAuthPanel() {
   closeReportsPanel();
   closeJournalPanel();
   closeOwnerMarketPanel();
+  closeOwnerEvidencePanel();
   closeTrustPanel();
   closeShortlistPanel();
   collapseContextPanels();
@@ -544,6 +563,7 @@ function openTrustPanel(action = "") {
   closeReportsPanel();
   closeJournalPanel();
   closeOwnerMarketPanel();
+  closeOwnerEvidencePanel();
   closeShortlistPanel();
   collapseContextPanels();
   trustPanel.hidden = false;
@@ -1095,6 +1115,79 @@ function developmentIntelligenceText(section = {}) {
   return lines;
 }
 
+function documentIntelligenceMarkup(section = {}) {
+  if (!section.summary) return "";
+  const lanes = Array.isArray(section.lanes) ? section.lanes : [];
+  const matches = Array.isArray(section.matchedEvidence) ? section.matchedEvidence : [];
+  const actions = Array.isArray(section.actionQueue) ? section.actionQueue : [];
+  const health = section.vaultHealth || {};
+  return `
+    <section class="analysisDocumentStack ${escapeHtml(section.status || "thin")}" aria-label="V8 document intelligence stack">
+      <header>
+        <span><small>V8.1 - V8.10 DOCUMENT INTELLIGENCE</small><b>${escapeHtml(section.summary)}</b></span>
+        <em>${escapeHtml(section.score || 0)}/100</em>
+      </header>
+      <div class="documentStackMeta">
+        <span><small>POSTURE</small><b>${escapeHtml(section.posture || "Evidence-building mode")}</b></span>
+        <span><small>VAULT</small><b>${escapeHtml(health.documents || 0)} docs / ${escapeHtml(health.indexed || 0)} indexed</b></span>
+        <span><small>MATCHED</small><b>${escapeHtml(health.matched || 0)} docs / ${escapeHtml(health.mode || "none")}</b></span>
+      </div>
+      ${lanes.length ? `
+        <div class="documentStackLanes">
+          ${lanes.map((item) => `
+            <article class="documentStackLane ${escapeHtml(item.status || "watch")}">
+              <i>${escapeHtml(item.version || "V8")}</i>
+              <span>
+                <b>${escapeHtml(item.label)} <small>${escapeHtml(item.score || 0)}/100</small></b>
+                <small>${escapeHtml(item.reading)}</small>
+                <em>${escapeHtml(item.action)}</em>
+              </span>
+            </article>
+          `).join("")}
+        </div>
+      ` : ""}
+      ${matches.length ? `
+        <div class="documentMatchedEvidence">
+          <h3>MATCHED OWNER EVIDENCE</h3>
+          ${matches.map((item) => `
+            <p><b>${escapeHtml(item.title)}</b><span>${escapeHtml(item.preview)}</span><em>${escapeHtml((item.tags || []).join(", ") || "untagged")}</em></p>
+          `).join("")}
+        </div>
+      ` : ""}
+      ${actions.length ? `
+        <div class="documentActionQueue">
+          <h3>V8 ACTION QUEUE</h3>
+          ${actions.map((item) => `
+            <p><b>${escapeHtml(item.version)} ${escapeHtml(item.label)}</b><span>${escapeHtml(item.action)}</span></p>
+          `).join("")}
+        </div>
+      ` : ""}
+    </section>
+  `;
+}
+
+function documentIntelligenceText(section = {}) {
+  if (!section.summary) return [];
+  const lines = [
+    "V8 document intelligence stack:",
+    `- ${section.status || "thin"} (${section.score || 0}/100): ${section.summary}`,
+    `- Posture: ${section.posture || "Evidence-building mode"}.`,
+    `- Vault: ${section.vaultHealth?.documents || 0} documents, ${section.vaultHealth?.indexed || 0} indexed, ${section.vaultHealth?.matched || 0} matched, ${section.vaultHealth?.mode || "none"} retrieval.`
+  ];
+  for (const item of section.lanes || []) {
+    lines.push(`- ${item.version} ${item.label}: ${item.status}, ${item.score}/100. ${item.reading} Action: ${item.action}`);
+  }
+  if (section.matchedEvidence?.length) {
+    lines.push("Matched owner evidence:");
+    for (const item of section.matchedEvidence) lines.push(`- ${item.title}: ${item.preview}`);
+  }
+  if (section.actionQueue?.length) {
+    lines.push("V8 action queue:");
+    for (const item of section.actionQueue) lines.push(`- ${item.version} ${item.label}: ${item.action}`);
+  }
+  return lines;
+}
+
 function sourceLabel(type) {
   if (type === "memory") return "MEMORY";
   if (type === "journal") return "JOURNAL";
@@ -1298,6 +1391,7 @@ async function openMemoryPanel() {
   closeReportsPanel();
   closeJournalPanel();
   closeOwnerMarketPanel();
+  closeOwnerEvidencePanel();
   closeTrustPanel();
   closeShortlistPanel();
   collapseContextPanels();
@@ -1461,6 +1555,7 @@ async function openReportsPanel() {
   closeMemoryPanel();
   closeJournalPanel();
   closeOwnerMarketPanel();
+  closeOwnerEvidencePanel();
   closeTrustPanel();
   closeShortlistPanel();
   collapseContextPanels();
@@ -1542,6 +1637,7 @@ async function openJournalPanel(decisionId = "") {
   closeMemoryPanel();
   closeReportsPanel();
   closeOwnerMarketPanel();
+  closeOwnerEvidencePanel();
   closeTrustPanel();
   closeShortlistPanel();
   collapseContextPanels();
@@ -1836,6 +1932,7 @@ function openShortlistPanel() {
   closeReportsPanel();
   closeJournalPanel();
   closeOwnerMarketPanel();
+  closeOwnerEvidencePanel();
   closeTrustPanel();
   collapseContextPanels();
   renderShortlist();
@@ -1888,6 +1985,7 @@ function saveAnalysisToShortlist(analysis) {
     siteManagementEvidence: analysis.siteManagementEvidence || null,
     legalTransactionEvidence: analysis.legalTransactionEvidence || null,
     developmentIntelligence: analysis.developmentIntelligence || null,
+    documentIntelligence: analysis.documentIntelligence || null,
     marketIntelligence: analysis.marketIntelligence || null,
     counterThesis: analysis.counterThesis,
     context: analysis.context || {}
@@ -1961,6 +2059,8 @@ function analysisExportText(analysis) {
     ...developmentProfileText(analysis),
     "",
     ...developmentIntelligenceText(analysis.developmentIntelligence),
+    "",
+    ...documentIntelligenceText(analysis.documentIntelligence),
     "",
     `Summary: ${analysis.summary || ""}`
   ];
@@ -2314,9 +2414,18 @@ function ownerMarketTokenValue() {
   return ownerMarketToken.value.trim() || window.localStorage.getItem(ownerMarketTokenKey) || "";
 }
 
+function ownerEvidenceTokenValue() {
+  return ownerEvidenceToken.value.trim() || ownerMarketTokenValue();
+}
+
 function setOwnerMarketMessage(message, tone = "") {
   ownerMarketMessage.textContent = message || "";
   ownerMarketMessage.dataset.tone = tone;
+}
+
+function setOwnerEvidenceMessage(message, tone = "") {
+  ownerEvidenceMessage.textContent = message || "";
+  ownerEvidenceMessage.dataset.tone = tone;
 }
 
 async function ownerMarketRequest(pathname, options = {}) {
@@ -2329,6 +2438,109 @@ async function ownerMarketRequest(pathname, options = {}) {
       ...(options.headers || {})
     }
   });
+}
+
+async function ownerEvidenceRequest(pathname, options = {}) {
+  const token = ownerEvidenceTokenValue();
+  if (!token) throw new Error("Paste and save the owner token first.");
+  return requestJson(pathname, {
+    ...options,
+    headers: {
+      "x-estatelab-owner-token": token,
+      ...(options.headers || {})
+    }
+  });
+}
+
+function ownerEvidenceTagsText(tags = []) {
+  return Array.isArray(tags) && tags.length ? tags.join(", ") : "untagged";
+}
+
+function ownerEvidenceMarkup(document) {
+  return `
+    <article class="ownerEvidenceItem ${escapeHtml(document.status || "stored")}" data-owner-evidence="${escapeHtml(document.id)}">
+      <header>
+        <span><small>${escapeHtml(ownerEvidenceTagsText(document.tags))}</small><b>${escapeHtml(document.title || "Owner evidence")}</b></span>
+        <em>${escapeHtml(document.status || "stored")} / ${escapeHtml(document.chunkCount || 0)} chunks</em>
+      </header>
+      <p>${escapeHtml(document.filename || "Evidence file")}${document.sourceUrl ? ` / ${escapeHtml(document.sourceUrl)}` : ""}</p>
+      <div class="ownerEvidenceMeta">
+        <span>${escapeHtml(document.indexMode || "stored")} index</span>
+        <span>${escapeHtml(document.updatedAt ? marketDateText(document.updatedAt) : "No date")}</span>
+      </div>
+      <button type="button" data-owner-evidence-action="delete" data-owner-evidence-id="${escapeHtml(document.id)}">DELETE</button>
+    </article>
+  `;
+}
+
+function renderOwnerEvidence(payload = {}) {
+  const documents = Array.isArray(payload.documents) ? payload.documents : [];
+  const summary = payload.summary || {};
+  ownerEvidenceSummary.innerHTML = `
+    <span><b>${escapeHtml(summary.documents || documents.length)}</b> DOCUMENTS</span>
+    <span><b>${escapeHtml(summary.indexed || 0)}</b> INDEXED</span>
+    <span><b>${escapeHtml(summary.chunks || 0)}</b> CHUNKS</span>
+    <span>${escapeHtml(summary.embeddingProvider ? "EMBEDDINGS ON" : "LEXICAL SEARCH")}</span>
+  `;
+  ownerEvidenceMetrics.textContent = `${summary.chunks || 0} indexed chunks`;
+  ownerEvidenceList.innerHTML = documents.length
+    ? documents.map(ownerEvidenceMarkup).join("")
+    : '<p class="ownerEvidenceEmpty">No evidence documents yet. Add the first transaction, rent, financing, legal, or site proof above.</p>';
+}
+
+async function loadOwnerEvidence() {
+  if (!ownerEvidenceTokenValue()) {
+    renderOwnerEvidence({});
+    setOwnerEvidenceMessage(ownerMarketEnabled ? "Owner API is enabled. Token required." : "Owner API may be disabled. Set the owner token on Render if this fails.", "warning");
+    return null;
+  }
+  setOwnerEvidenceMessage("Loading evidence vault...");
+  const payload = await ownerEvidenceRequest("/api/owner/documents");
+  renderOwnerEvidence(payload);
+  setOwnerEvidenceMessage("Evidence vault loaded.");
+  return payload;
+}
+
+async function createOwnerEvidence() {
+  const title = ownerEvidenceTitle.value.trim();
+  const text = ownerEvidenceText.value.trim();
+  if (!title) return ownerEvidenceTitle.focus();
+  if (!text) return ownerEvidenceText.focus();
+  setOwnerEvidenceMessage("Indexing evidence...");
+  await ownerEvidenceRequest("/api/owner/documents", {
+    method: "POST",
+    body: JSON.stringify({
+      title,
+      filename: ownerEvidenceFilename.value.trim() || `${title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "evidence"}.md`,
+      mimeType: "text/markdown",
+      sourceUrl: ownerEvidenceSourceUrl.value.trim(),
+      tags: ownerEvidenceTags.value.split(",").map((item) => item.trim()).filter(Boolean),
+      text
+    })
+  });
+  ownerEvidenceForm.reset();
+  await loadOwnerEvidence();
+  setOwnerEvidenceMessage("Evidence added. V8 reports can now retrieve it when relevant.");
+}
+
+async function deleteOwnerEvidenceDocument(button) {
+  const id = button.getAttribute("data-owner-evidence-id");
+  if (!id) return;
+  if (button.dataset.confirming !== "true") {
+    button.dataset.confirming = "true";
+    button.textContent = "CONFIRM";
+    setOwnerEvidenceMessage("Press CONFIRM to delete this evidence document.");
+    return;
+  }
+  button.disabled = true;
+  try {
+    await ownerEvidenceRequest(`/api/owner/documents/${encodeURIComponent(id)}`, { method: "DELETE" });
+    await loadOwnerEvidence();
+    setOwnerEvidenceMessage("Evidence deleted.");
+  } catch (error) {
+    button.disabled = false;
+    setOwnerEvidenceMessage(error.message || "Evidence could not be deleted.", "danger");
+  }
 }
 
 function marketMetricText(metricType) {
@@ -2438,11 +2650,39 @@ function closeOwnerMarketPanel() {
   document.body.classList.remove("ownerMarketOpen");
 }
 
+function closeOwnerEvidencePanel() {
+  ownerEvidencePanel.hidden = true;
+  ownerEvidenceToggle.setAttribute("aria-expanded", "false");
+  document.body.classList.remove("ownerEvidenceOpen");
+}
+
+async function openOwnerEvidencePanel() {
+  closeAuthPanel();
+  closeMemoryPanel();
+  closeReportsPanel();
+  closeJournalPanel();
+  closeOwnerMarketPanel();
+  closeTrustPanel();
+  closeShortlistPanel();
+  collapseContextPanels();
+  ownerEvidencePanel.hidden = false;
+  ownerEvidenceToggle.setAttribute("aria-expanded", "true");
+  document.body.classList.add("ownerEvidenceOpen");
+  ownerEvidenceToken.value = window.localStorage.getItem(ownerMarketTokenKey) || "";
+  ownerMarketToken.value = ownerEvidenceToken.value;
+  try {
+    await loadOwnerEvidence();
+  } catch (error) {
+    setOwnerEvidenceMessage(error.message || "Evidence vault is unavailable.", "danger");
+  }
+}
+
 async function openOwnerMarketPanel() {
   closeAuthPanel();
   closeMemoryPanel();
   closeReportsPanel();
   closeJournalPanel();
+  closeOwnerEvidencePanel();
   closeTrustPanel();
   closeShortlistPanel();
   collapseContextPanels();
@@ -3171,7 +3411,7 @@ function addDealAnalysis(analysis, sources = [], intelligence = {}) {
       </section>
     ` : ""}
     <div class="analysisMeta">
-      <span>ENGINE <b>${escapeHtml(analysis.engineVersion || "Apex v7.10")}</b></span>
+      <span>ENGINE <b>${escapeHtml(analysis.engineVersion || "Apex v8.10")}</b></span>
       <span>REASONING <b>${escapeHtml(analysis.reasoningMode || (analysis.aiCommentary ? "Framework + AI" : "Framework only"))}</b></span>
       <span>DECISION SCORE <b>${escapeHtml(analysis.averageScore)}/100</b></span>
       <span>INPUT COMPLETE <b>${escapeHtml(analysis.completeness)}%</b></span>
@@ -3182,6 +3422,7 @@ function addDealAnalysis(analysis, sources = [], intelligence = {}) {
     ${commercialGuardrailMarkup(analysis)}
     ${developmentProfileMarkup(analysis)}
     ${developmentIntelligenceMarkup(analysis.developmentIntelligence)}
+    ${documentIntelligenceMarkup(analysis.documentIntelligence)}
     <div class="analysisOverview">
       ${readinessMarkup(analysis.investorReadiness)}
       ${dimensionMarkup ? `<section class="analysisDimensionSection"><h3>DEAL SCORECARD</h3><div class="analysisDimensions">${dimensionMarkup}</div></section>` : ""}
@@ -3748,6 +3989,7 @@ async function logout() {
     closeReportsPanel();
     closeJournalPanel();
     closeOwnerMarketPanel();
+    closeOwnerEvidencePanel();
     await requestJson("/api/auth/logout", { method: "POST", body: "{}" });
     renderAuthState(null);
     setAuthMode("login");
@@ -4018,6 +4260,11 @@ ownerMarketToggle.addEventListener("click", () => {
   else closeOwnerMarketPanel();
 });
 ownerMarketClose.addEventListener("click", closeOwnerMarketPanel);
+ownerEvidenceToggle.addEventListener("click", () => {
+  if (ownerEvidencePanel.hidden) void openOwnerEvidencePanel();
+  else closeOwnerEvidencePanel();
+});
+ownerEvidenceClose.addEventListener("click", closeOwnerEvidencePanel);
 trustToggle.addEventListener("click", () => {
   if (trustPanel.hidden) openTrustPanel();
   else closeTrustPanel();
@@ -4029,13 +4276,43 @@ ownerMarketAccess.addEventListener("submit", (event) => {
   const token = ownerMarketToken.value.trim();
   if (!token) return ownerMarketToken.focus();
   window.localStorage.setItem(ownerMarketTokenKey, token);
+  ownerEvidenceToken.value = token;
   void loadOwnerMarket();
 });
 ownerMarketClearToken.addEventListener("click", () => {
   window.localStorage.removeItem(ownerMarketTokenKey);
   ownerMarketToken.value = "";
+  ownerEvidenceToken.value = "";
   renderOwnerMarket({}, {});
   setOwnerMarketMessage("Owner token cleared from this device.");
+});
+ownerEvidenceAccess.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const token = ownerEvidenceToken.value.trim();
+  if (!token) return ownerEvidenceToken.focus();
+  window.localStorage.setItem(ownerMarketTokenKey, token);
+  ownerMarketToken.value = token;
+  void loadOwnerEvidence();
+});
+ownerEvidenceClearToken.addEventListener("click", () => {
+  window.localStorage.removeItem(ownerMarketTokenKey);
+  ownerEvidenceToken.value = "";
+  ownerMarketToken.value = "";
+  renderOwnerEvidence({});
+  setOwnerEvidenceMessage("Owner token cleared from this device.");
+});
+ownerEvidenceForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const button = ownerEvidenceForm.querySelector("button[type='submit']");
+  button.disabled = true;
+  createOwnerEvidence().catch((error) => setOwnerEvidenceMessage(error.message || "Evidence could not be added.", "danger")).finally(() => {
+    button.disabled = false;
+  });
+});
+ownerEvidenceRefresh.addEventListener("click", () => void loadOwnerEvidence().catch((error) => setOwnerEvidenceMessage(error.message || "Evidence vault could not be loaded.", "danger")));
+ownerEvidenceList.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-owner-evidence-action='delete']");
+  if (button) void deleteOwnerEvidenceDocument(button);
 });
 ownerProjectForm.addEventListener("submit", (event) => {
   event.preventDefault();
@@ -4151,6 +4428,7 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !reportsPanel.hidden) closeReportsPanel();
   if (event.key === "Escape" && !journalPanel.hidden) closeJournalPanel();
   if (event.key === "Escape" && !ownerMarketPanel.hidden) closeOwnerMarketPanel();
+  if (event.key === "Escape" && !ownerEvidencePanel.hidden) closeOwnerEvidencePanel();
   if (event.key === "Escape" && !trustPanel.hidden) closeTrustPanel();
   if (event.key === "Escape" && !shortlistPanel.hidden) closeShortlistPanel();
 });

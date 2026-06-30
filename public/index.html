@@ -114,6 +114,7 @@
             <button id="reportsToggle" type="button" aria-expanded="false" aria-controls="reportsPanel" hidden>REPORTS</button>
             <button id="journalToggle" type="button" aria-expanded="false" aria-controls="journalPanel" hidden>JOURNAL</button>
             <button id="ownerMarketToggle" type="button" aria-expanded="false" aria-controls="ownerMarketPanel">MARKET</button>
+            <button id="ownerEvidenceToggle" type="button" aria-expanded="false" aria-controls="ownerEvidencePanel">EVIDENCE</button>
             <button id="trustToggle" type="button" aria-expanded="false" aria-controls="trustPanel">TRUST</button>
           </div>
         </section>
@@ -266,6 +267,47 @@
             </fieldset>
             <p id="journalMessage" class="journalMessage" role="status"></p>
           </form>
+        </section>
+
+        <section id="ownerEvidencePanel" class="ownerEvidencePanel" aria-label="Owner evidence vault" hidden>
+          <header class="ownerEvidenceHeader">
+            <span><small>OWNER-CONTROLLED PROOF</small><b>EVIDENCE VAULT</b></span>
+            <button id="ownerEvidenceClose" type="button" aria-label="Close evidence vault">CLOSE</button>
+          </header>
+          <p class="ownerEvidenceIntro">Store transaction notes, achieved-rent proof, financing/legal checks, site observations, and management evidence. V8 reports will show whether conclusions are backed by these documents.</p>
+          <form id="ownerEvidenceAccess" class="ownerEvidenceAccess" autocomplete="off">
+            <label>Owner Token<input id="ownerEvidenceToken" type="password" placeholder="Uses the same owner token as Market" autocomplete="off" /></label>
+            <button id="ownerEvidenceSaveToken" type="submit">SAVE</button>
+            <button id="ownerEvidenceClearToken" type="button">CLEAR</button>
+          </form>
+          <div id="ownerEvidenceSummary" class="ownerEvidenceSummary" aria-live="polite">
+            <span><b>0</b> DOCUMENTS</span>
+            <span><b>0</b> INDEXED</span>
+            <span>OWNER TOKEN REQUIRED</span>
+          </div>
+
+          <div class="ownerEvidenceWorkspace">
+            <form id="ownerEvidenceForm" class="ownerEvidenceForm" autocomplete="off">
+              <header><small>NEW EVIDENCE</small><b>Add A Proof File</b></header>
+              <div class="ownerEvidenceGrid">
+                <label>Title<input id="ownerEvidenceTitle" required maxlength="160" placeholder="Queens Waterfront achieved rent proof" /></label>
+                <label>Filename<input id="ownerEvidenceFilename" maxlength="160" placeholder="queens-waterfront-rent.md" /></label>
+                <label>Source URL<input id="ownerEvidenceSourceUrl" maxlength="500" placeholder="Optional link to source" /></label>
+                <label>Tags<input id="ownerEvidenceTags" maxlength="300" placeholder="Penang, rent, transaction, legal..." /></label>
+                <label class="ownerEvidenceWide">Evidence Text<textarea id="ownerEvidenceText" required maxlength="12000" placeholder="Paste the transaction, rental, financing, legal, site, or management evidence here..."></textarea></label>
+              </div>
+              <button class="ownerEvidencePrimary" type="submit">ADD EVIDENCE</button>
+            </form>
+
+            <section class="ownerEvidenceListWrap">
+              <header>
+                <span><small>DOCUMENTS</small><b id="ownerEvidenceMetrics">0 indexed chunks</b></span>
+                <button id="ownerEvidenceRefresh" type="button">REFRESH</button>
+              </header>
+              <div id="ownerEvidenceList" class="ownerEvidenceList"></div>
+            </section>
+          </div>
+          <p id="ownerEvidenceMessage" class="ownerEvidenceMessage" role="status"></p>
         </section>
 
         <section id="ownerMarketPanel" class="ownerMarketPanel" aria-label="Owner market intelligence console" hidden>
