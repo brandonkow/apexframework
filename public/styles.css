@@ -649,6 +649,146 @@ button {
   white-space: nowrap;
 }
 
+.dealJourney {
+  display: grid;
+  width: min(720px, 100%);
+  margin: -1px auto 0;
+  gap: 6px;
+  border: 1px solid rgba(103, 229, 255, 0.14);
+  border-radius: 18px;
+  padding: 7px;
+  background:
+    linear-gradient(135deg, rgba(103, 229, 255, 0.07), transparent 44%),
+    rgba(1, 12, 20, 0.58);
+  backdrop-filter: blur(14px);
+}
+
+.dealJourney:empty {
+  display: none;
+}
+
+.dealJourneyHeader {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.dealJourneyHeader span {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.dealJourney small {
+  overflow: hidden;
+  color: #6796a0;
+  font-size: 0.47rem;
+  letter-spacing: 0.15em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.dealJourney b {
+  overflow: hidden;
+  color: #a8d5dd;
+  font-size: 0.62rem;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dealJourney button {
+  border: 1px solid rgba(103, 229, 255, 0.18);
+  border-radius: 999px;
+  cursor: pointer;
+  color: #8ccbd6;
+  background: rgba(2, 13, 21, 0.62);
+}
+
+.dealJourneyHeader button {
+  min-height: 30px;
+  padding: 6px 11px;
+  font-size: 0.5rem;
+  letter-spacing: 0.13em;
+}
+
+.dealJourney button:hover,
+.dealJourney button:focus-visible {
+  border-color: rgba(103, 229, 255, 0.48);
+  color: var(--cyan-bright);
+  background: rgba(41, 158, 181, 0.12);
+}
+
+.dealJourneySteps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.dealJourneySteps button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: 34px;
+  padding: 5px 7px;
+  text-align: left;
+}
+
+.dealJourneySteps i {
+  display: inline-grid;
+  width: 19px;
+  height: 19px;
+  place-items: center;
+  border-radius: 50%;
+  color: #04121b;
+  background: #4b7984;
+  font-size: 0.55rem;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.dealJourneySteps span {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.dealJourneySteps small {
+  font-size: 0.42rem;
+  letter-spacing: 0.06em;
+  text-transform: none;
+}
+
+.dealJourneySteps .done {
+  border-color: rgba(112, 230, 179, 0.24);
+}
+
+.dealJourneySteps .done i {
+  background: #70e6b3;
+}
+
+.dealJourneySteps .active {
+  border-color: rgba(103, 229, 255, 0.42);
+  box-shadow: 0 0 18px rgba(103, 229, 255, 0.08);
+}
+
+.dealJourneySteps .active i {
+  background: var(--cyan-bright);
+}
+
+.dealJourneySteps .blocked {
+  border-color: rgba(230, 142, 142, 0.24);
+}
+
+.dealJourneySteps .blocked i {
+  background: #c17c7c;
+}
+
 .experienceLock {
   display: none;
   flex-wrap: wrap;
@@ -723,6 +863,7 @@ button {
 .accountOpen .transcript,
 .accountOpen .contextDeck,
 .accountOpen .contextReadiness,
+.accountOpen .dealJourney,
 .accountOpen .experienceLock,
 .accountOpen .aiDisclosure,
 .accountOpen .commandBar,
@@ -733,6 +874,7 @@ button {
 .memoryOpen .transcript,
 .memoryOpen .contextDeck,
 .memoryOpen .contextReadiness,
+.memoryOpen .dealJourney,
 .memoryOpen .experienceLock,
 .memoryOpen .aiDisclosure,
 .memoryOpen .commandBar,
@@ -760,6 +902,7 @@ button {
 .trustOpen .transcript,
 .trustOpen .contextDeck,
 .trustOpen .contextReadiness,
+.trustOpen .dealJourney,
 .trustOpen .experienceLock,
 .trustOpen .aiDisclosure,
 .trustOpen .commandBar,
@@ -1496,6 +1639,7 @@ button {
 .reportsOpen .transcript,
 .reportsOpen .contextDeck,
 .reportsOpen .contextReadiness,
+.reportsOpen .dealJourney,
 .reportsOpen .experienceLock,
 .reportsOpen .aiDisclosure,
 .reportsOpen .commandBar,
@@ -1639,6 +1783,7 @@ button {
 .journalOpen .transcript,
 .journalOpen .contextDeck,
 .journalOpen .contextReadiness,
+.journalOpen .dealJourney,
 .journalOpen .experienceLock,
 .journalOpen .aiDisclosure,
 .journalOpen .commandBar,
@@ -1930,6 +2075,7 @@ button {
 .ownerMarketOpen .transcript,
 .ownerMarketOpen .contextDeck,
 .ownerMarketOpen .contextReadiness,
+.ownerMarketOpen .dealJourney,
 .ownerMarketOpen .experienceLock,
 .ownerMarketOpen .aiDisclosure,
 .ownerMarketOpen .commandBar,
@@ -1940,6 +2086,7 @@ button {
 .ownerEvidenceOpen .transcript,
 .ownerEvidenceOpen .contextDeck,
 .ownerEvidenceOpen .contextReadiness,
+.ownerEvidenceOpen .dealJourney,
 .ownerEvidenceOpen .experienceLock,
 .ownerEvidenceOpen .aiDisclosure,
 .ownerEvidenceOpen .commandBar,
@@ -1950,6 +2097,7 @@ button {
 .ownerCaseOpen .transcript,
 .ownerCaseOpen .contextDeck,
 .ownerCaseOpen .contextReadiness,
+.ownerCaseOpen .dealJourney,
 .ownerCaseOpen .experienceLock,
 .ownerCaseOpen .aiDisclosure,
 .ownerCaseOpen .commandBar,
@@ -2551,6 +2699,7 @@ button {
 .shortlistOpen .transcript,
 .shortlistOpen .contextDeck,
 .shortlistOpen .contextReadiness,
+.shortlistOpen .dealJourney,
 .shortlistOpen .experienceLock,
 .shortlistOpen .aiDisclosure,
 .shortlistOpen .commandBar,
@@ -2815,6 +2964,7 @@ button {
 }
 
 .conversation:has(.contextPanel.expanded) .transcript,
+.conversation:has(.contextPanel.expanded) .dealJourney,
 .conversation:has(.contextPanel.expanded) .experienceLock,
 .conversation:has(.contextPanel.expanded) .aiDisclosure {
   display: none;
@@ -7447,6 +7597,38 @@ button {
     display: none;
   }
 
+  .dealJourney {
+    width: 100%;
+    border-radius: 16px;
+    padding: 7px;
+  }
+
+  .dealJourneyHeader {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dealJourneyHeader button {
+    justify-self: start;
+    min-height: 36px;
+    padding: 7px 12px;
+  }
+
+  .dealJourneySteps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dealJourneySteps button {
+    min-height: 42px;
+  }
+
+  .dealJourney b {
+    font-size: 0.68rem;
+  }
+
+  .dealJourney small {
+    white-space: normal;
+  }
+
   .experienceLock {
     display: none;
   }
@@ -8184,6 +8366,7 @@ button {
   body.printMode .assistantStage,
   body.printMode .contextDeck,
   body.printMode .contextReadiness,
+  body.printMode .dealJourney,
   body.printMode .experienceLock,
   body.printMode .aiDisclosure,
   body.printMode .commandBar,

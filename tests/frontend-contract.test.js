@@ -36,6 +36,7 @@ test("frontend selectors and stylesheet structure stay valid", async () => {
   assert.match(html, /id="sessionBriefBtn"[\s\S]*?>BRIEF<\/button>/, "V5.9 needs a compact session-brief export action.");
   assert.match(html, /id="inputModeHint"[\s\S]*?class="inputModeHint"/, "V5.4 needs a compact smart-input mode chip in the command bar.");
   assert.match(html, /id="contextReadiness"[\s\S]*?aria-label="Context readiness"/, "V5.3 needs a compact context-readiness strip near the input box.");
+  assert.match(html, /id="dealJourney"[\s\S]*?aria-label="Apex deal journey"/, "The app needs a unified Deal Journey conductor near the input flow.");
   assert.match(html, /id="experienceLock"[\s\S]*?aria-label="Product experience lock"/, "V5.10 needs one compact product-experience lock surface.");
   assert.equal((html.match(/data-context-reset="(?:deal|profile|guidance)"/g) || []).length, 3, "Each context card needs its own reset button.");
   assert.match(html, /id="memoryPanel"[\s\S]*?PRIVATE TO YOUR ACCOUNT[\s\S]*?id="memoryList"/, "Signed-in users need a private memory review screen.");
@@ -81,6 +82,8 @@ test("frontend selectors and stylesheet structure stay valid", async () => {
   assert.match(app, /data-coach-prompt/, "V5.2 next-move prompts must be clickable from chat.");
   assert.match(app, /function renderContextReadiness[\s\S]*?data-readiness-panel/, "V5.3 must render clickable Deal, Profile, and Guidance readiness chips.");
   assert.match(app, /focusFirstMissingContextField\(panelName\)/, "V5.3 readiness chips must open the right card and focus missing context.");
+  assert.match(app, /function renderDealJourney[\s\S]*?APEX DEAL JOURNEY[\s\S]*?data-journey-action/, "The Deal Journey must convert scattered tools into one guided next-action flow.");
+  assert.match(app, /function handleJourneyAction[\s\S]*?runDealScreening\(\)[\s\S]*?runDealAnalysis\(\)[\s\S]*?openShortlistPanel\(\)/, "Journey actions must route to existing screen, analyse, and compare flows.");
   assert.match(app, /contextCoreFieldKeys[\s\S]*?function renderContextAssist[\s\S]*?data-context-field-mode/, "Expanded cards must default to guided essentials before exposing advanced fields.");
   assert.match(app, /function markContextFieldDepth[\s\S]*?contextAdvanced[\s\S]*?applyContextFieldMode/, "Context fields must be classified into core and advanced groups at boot.");
   assert.match(app, /function dealScreeningPrompt[\s\S]*?Run Apex Deal Screening Mode[\s\S]*?Ask at most 3 next questions/, "The quick screening path must generate a short mentor-style prompt from current cards.");
@@ -297,6 +300,8 @@ test("frontend selectors and stylesheet structure stay valid", async () => {
   assert.match(styles, /\.analysisProductExperience[\s\S]*?\.productExperienceCheck/, "The v5 product-experience report section needs styled compact cards.");
   assert.match(styles, /\.contextCoach[\s\S]*?data-coach-prompt|\.contextCoach[\s\S]*?\.contextCoach button/, "The v5.2 next-move coach needs styled prompt buttons.");
   assert.match(styles, /\.contextReadiness[\s\S]*?\.contextReadiness button/, "The v5.3 context-readiness strip needs styled clickable chips.");
+  assert.match(styles, /\.dealJourney[\s\S]*?\.dealJourneySteps[\s\S]*?grid-template-columns:\s*repeat\(4/, "The Deal Journey needs a compact desktop step strip.");
+  assert.match(styles, /@media \(max-width: 640px\)[\s\S]*?\.dealJourneySteps[\s\S]*?grid-template-columns:\s*repeat\(2/, "The Deal Journey must collapse cleanly on mobile.");
   assert.match(styles, /\.contextGrid\.contextCoreMode \.contextAdvanced[\s\S]*?display:\s*none;[\s\S]*?\.contextAssist/, "Expanded context cards must hide advanced fields behind a guided essentials layer.");
   assert.match(styles, /\.accountOpen \.contextReadiness[\s\S]*?display:\s*none;/, "Context readiness must hide when workspace panels replace chat.");
   assert.match(styles, /\.experienceLock[\s\S]*?\.experienceLock\.thin span/, "V5.10 experience lock needs compact state styling.");

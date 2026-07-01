@@ -14,6 +14,7 @@ const analyzeDealBtn = document.querySelector("#analyzeDealBtn");
 const screenDealBtn = document.querySelector("#screenDealBtn");
 const aiDisclosure = document.querySelector("#aiDisclosure");
 const contextReadiness = document.querySelector("#contextReadiness");
+const dealJourney = document.querySelector("#dealJourney");
 const experienceLock = document.querySelector("#experienceLock");
 const accountToggle = document.querySelector("#accountToggle");
 const accountLabel = document.querySelector("#accountLabel");
@@ -256,6 +257,7 @@ let ownerCaseItems = [];
 let ownerCaseEditingId = "";
 let memorySettingsLoading = false;
 let pendingTrustAction = "";
+let latestAnalysisId = "";
 
 const contextCoreFieldKeys = {
   deal: new Set([
@@ -584,6 +586,7 @@ function renderAuthState(user) {
     verificationSubmit.hidden = Boolean(authenticatedUser.emailVerified) || !emailDeliveryEnabled;
     void loadBillingStatus();
   }
+  renderDealJourney();
 }
 
 function openAuthPanel() {
@@ -2181,6 +2184,7 @@ function renderShortlist() {
     ? items.map(shortlistItemMarkup).join("")
     : '<p class="shortlistEmpty">No analysed deals saved yet. Run an analysis, then choose SAVE TO SHORTLIST.</p>';
   shortlistClear.hidden = !items.length;
+  renderDealJourney();
 }
 
 function closeShortlistPanel() {
@@ -2678,9 +2682,56 @@ function handleAnalysisAction(button) {
     saveAnalysisToShortlist(analysis);
     button.textContent = "SAVED";
     setSystemState("System ready", `${analysisSubject(analysis)} saved to your shortlist.`);
+    renderDealJourney();
     return;
   }
   if (action === "journal") void createJournalDecision(analysis);
+}
+
+function openJourneyPanel(panelName) {
+  const toggle = contextToggles.find((item) => item.getAttribute("data-context-toggle") === panelName);
+  if (toggle) setContextPanelState(toggle, true);
+  focusFirstMissingContextField(panelName);
+}
+
+function handleJourneyAction(button) {
+  const action = button?.getAttribute("data-journey-action");
+  if (!action) return;
+  if (action === "deal" || action === "profile" || action === "guidance") {
+    openJourneyPanel(action);
+    return;
+  }
+  if (action === "screen") {
+    void runDealScreening();
+    return;
+  }
+  if (action === "analyze") {
+    void runDealAnalysis();
+    return;
+  }
+  if (action === "save") {
+    const analysis = latestAnalysis();
+    if (!analysis) return void runDealAnalysis();
+    saveAnalysisToShortlist(analysis);
+    renderShortlist();
+    setSystemState("System ready", `${analysisSubject(analysis)} saved to your shortlist.`);
+    return;
+  }
+  if (action === "shortlist") {
+    openShortlistPanel();
+    return;
+  }
+  if (action === "journal") {
+    const analysis = latestAnalysis();
+    if (analysis) void createJournalDecision(analysis);
+    else void openJournalPanel();
+    return;
+  }
+  if (action === "reports") {
+    void openReportsPanel();
+    return;
+  }
+  if (action === "brief") void copySessionBrief();
 }
 
 function ownerMarketTokenValue() {
@@ -3967,6 +4018,7 @@ function addDealAnalysis(analysis, sources = [], intelligence = {}) {
   const message = document.createElement("article");
   const analysisId = crypto.randomUUID();
   analysisRegistry.set(analysisId, analysis);
+  latestAnalysisId = analysisId;
   message.dataset.analysisId = analysisId;
   const verdictClass = String(analysis.verdict || "investigate").toLowerCase();
   const stageMarkup = (analysis.stages || []).map((stage) => `
@@ -4093,6 +4145,7 @@ function addDealAnalysis(analysis, sources = [], intelligence = {}) {
   transcript.append(message);
   const messageTop = message.getBoundingClientRect().top - transcript.getBoundingClientRect().top + transcript.scrollTop;
   transcript.scrollTop = Math.max(0, messageTop - 6);
+  renderDealJourney();
 }
 
 function renderSession(session) {
@@ -4194,6 +4247,77 @@ function renderContextReadiness() {
     `;
   }).join("");
   renderExperienceLock();
+  renderDealJourney();
+}
+
+function latestAnalysis() {
+  return latestAnalysisId ? analysisRegistry.get(latestAnalysisId) || null : null;
+}
+
+function journeyStepClass(step) {
+  if (step.status === "done") return "done";
+  if (step.status === "active") return "active";
+  if (step.status === "blocked") return "blocked";
+  return "pending";
+}
+
+function renderDealJourney() {
+  if (!dealJourney) return;
+  const deal = contextPanelReadiness("deal");
+  const profile = contextPanelReadiness("profile");
+  const guidance = contextPanelReadiness("guidance");
+  const analysis = latestAnalysis();
+  const shortlistCount = readShortlist().length;
+  const hasAnalysis = Boolean(analysis);
+  const hasSavedReport = Boolean(analysis?.savedReportId);
+  const guidanceReady = guidance.percent >= 60;
+  const steps = [
+    {
+      label: "Context",
+      status: deal.percent >= 50 && profile.percent >= 34 ? "done" : "active",
+      detail: `${deal.percent}% deal / ${profile.percent}% profile`
+    },
+    {
+      label: "Screen",
+      status: hasAnalysis ? "done" : deal.percent >= 34 ? "active" : "blocked",
+      detail: deal.percent >= 34 ? "quick read ready" : "needs area or price"
+    },
+    {
+      label: "Report",
+      status: hasAnalysis ? "done" : deal.percent >= 50 ? "active" : "pending",
+      detail: hasAnalysis ? `${analysis.verdict || "Analysed"} / ${analysis.averageScore || 0}` : "formal scorecard"
+    },
+    {
+      label: "Decide",
+      status: hasAnalysis && (shortlistCount || hasSavedReport) ? "active" : "pending",
+      detail: shortlistCount ? `${shortlistCount} shortlisted` : hasSavedReport ? "journal ready" : "save or journal"
+    }
+  ];
+  let action = { label: "ADD DEAL", type: "deal", detail: "Start with area/project, price, rent, and concern." };
+  if (deal.percent < 50) action = { label: "ADD DEAL", type: "deal", detail: `Missing ${deal.missing.slice(0, 2).join(", ") || "deal context"}.` };
+  else if (profile.percent < 34) action = { label: "ADD PROFILE", type: "profile", detail: `Missing ${profile.missing.slice(0, 2).join(", ") || "financial profile"}.` };
+  else if (!guidanceReady) action = { label: "SET STYLE", type: "guidance", detail: "Tune how direct, short, or guided Apex should be." };
+  else if (!hasAnalysis && deal.percent < 80) action = { label: "SCREEN", type: "screen", detail: "Do a fast mentor check before full report." };
+  else if (!hasAnalysis) action = { label: "ANALYSE", type: "analyze", detail: "Run the full Apex scorecard." };
+  else if (!shortlistCount) action = { label: "SAVE", type: "save", detail: "Keep this report for comparison." };
+  else if (shortlistCount >= 2) action = { label: "COMPARE", type: "shortlist", detail: "Open the shortlist and compare weak links." };
+  else if (authenticatedUser && hasSavedReport) action = { label: "JOURNAL", type: "journal", detail: "Lock the pre-purchase thesis." };
+  else action = { label: "BRIEF", type: "brief", detail: "Copy the current context and Apex view." };
+
+  dealJourney.innerHTML = `
+    <div class="dealJourneyHeader">
+      <span><small>APEX DEAL JOURNEY</small><b>${escapeHtml(action.detail)}</b></span>
+      <button type="button" data-journey-action="${escapeHtml(action.type)}">${escapeHtml(action.label)}</button>
+    </div>
+    <div class="dealJourneySteps">
+      ${steps.map((step, index) => `
+        <button class="${escapeHtml(journeyStepClass(step))}" type="button" data-journey-action="${escapeHtml(index === 0 ? "deal" : index === 1 ? "screen" : index === 2 ? "analyze" : "shortlist")}">
+          <i>${escapeHtml(String(index + 1))}</i>
+          <span><b>${escapeHtml(step.label)}</b><small>${escapeHtml(step.detail)}</small></span>
+        </button>
+      `).join("")}
+    </div>
+  `;
 }
 
 function renderExperienceLock() {
@@ -4830,7 +4954,9 @@ async function createSession() {
   window.localStorage.setItem(sessionKey, sessionId);
   setSessionState("READY");
   transcript.innerHTML = "";
+  latestAnalysisId = "";
   document.body.classList.remove("conversationActive");
+  renderDealJourney();
   return result.session;
 }
 
@@ -4839,7 +4965,9 @@ async function resetChat() {
   setSystemState("Resetting", "Clearing the current conversation.");
   const currentSessionId = sessionId;
   transcript.innerHTML = "";
+  latestAnalysisId = "";
   document.body.classList.remove("conversationActive");
+  renderDealJourney();
   window.localStorage.removeItem(sessionKey);
   sessionId = null;
 
@@ -5271,6 +5399,10 @@ for (const container of [transcript, memoryList]) {
 shortlistList.addEventListener("click", (event) => {
   const button = event.target.closest("[data-shortlist-action]");
   if (button) handleShortlistAction(button);
+});
+dealJourney?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-journey-action]");
+  if (button) handleJourneyAction(button);
 });
 contextReadiness?.addEventListener("click", (event) => {
   const button = event.target.closest("[data-readiness-panel]");
