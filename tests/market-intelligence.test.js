@@ -188,10 +188,26 @@ test("owner market observations add dated trends and freshness warnings to Apex 
   assert.equal(createdCase.response.status, 201);
   assert.equal(createdCase.payload.case.projectName, "Evidence Residence");
 
+  const updatedCase = await request(baseUrl, `/api/owner/development-cases/${createdCase.payload.case.id}`, {
+    method: "PATCH",
+    owner: true,
+    body: {
+      ownerVerdict: "Updated view: shortlist only after confirming current rent, management, and the 2.5km supply set.",
+      verdict: "watch",
+      confidence: "medium",
+      rating: 76
+    }
+  });
+  assert.equal(updatedCase.response.status, 200);
+  assert.equal(updatedCase.payload.case.verdict, "watch");
+  assert.match(updatedCase.payload.case.ownerVerdict, /Updated view/);
+
   const cases = await request(baseUrl, "/api/owner/development-cases?q=Evidence", { owner: true });
   assert.equal(cases.response.status, 200);
   assert.equal(cases.payload.summary.matched, 1);
-  assert.equal(cases.payload.cases[0].verdict, "shortlist");
+  assert.equal(cases.payload.cases[0].verdict, "watch");
+  assert.equal(cases.payload.summary.coverage.projects, 1);
+  assert.equal(cases.payload.summary.coverage.incomplete, 0);
 
   const caseStatus = await request(baseUrl, "/api/jarvis/status");
   assert.equal(caseStatus.payload.ownerMarket.developmentCases, 1);
@@ -267,7 +283,7 @@ test("owner market observations add dated trends and freshness warnings to Apex 
   assert.equal(deal.payload.analysis.marketIntelligence.summary.matched, 3);
   assert.equal(deal.payload.analysis.marketIntelligence.summary.stale, 1);
   assert.equal(deal.payload.analysis.caseIntelligence.version, "case-v1");
-  assert.equal(deal.payload.analysis.caseIntelligence.status, "tracked");
+  assert.equal(deal.payload.analysis.caseIntelligence.status, "watch");
   assert.equal(deal.payload.analysis.caseIntelligence.matched, 1);
   assert.equal(deal.payload.analysis.caseIntelligence.cases[0].projectName, "Evidence Residence");
   assert.ok(deal.payload.analysis.marketIntelligence.trends.some((trend) => trend.metricType === "rent" && trend.direction === "up"));

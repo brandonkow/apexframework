@@ -600,6 +600,7 @@ The Development Case Library stores owner-written opinions on specific projects,
 - A case note is a founder judgment layer, not a public user memory and not a universal framework rule.
 - Only the owner token can create, edit, or delete cases. Normal users can benefit from matched case intelligence in chat and Deal Reports, but they cannot write to the shared case library.
 - Each case should state the project, area, buyer/tenant fit, strengths, weaknesses, management/JMB view, resident profile, supply threat, rental outlook, resale outlook, verdict, confidence, rating, and source basis.
+- The owner case console should allow editing and should surface coverage gaps so thin notes do not look as strong as complete founder cases.
 - Matched cases can sharpen V7 market/project confidence and V10 final-command challenge mode.
 - A matched case must remain subordinate to current transaction, rental, financing, legal, site, and supply evidence. A strong old case cannot approve a weak current deal.
 - An avoid case should create a founder-warning lane that requires new evidence before Apex allows the user to override the older opinion.

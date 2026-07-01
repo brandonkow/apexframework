@@ -35,6 +35,13 @@ Every request below requires `x-estatelab-owner-token`.
 
 Listing supports `q`, `area`, `verdict`, and `limit` query parameters.
 
+The list response includes a coverage summary so the owner can see whether the library is still thin:
+
+- Unique projects and areas covered.
+- High-confidence cases.
+- Stale cases older than one year.
+- Incomplete cases missing management, supply, rental, resale, or source-basis notes.
+
 ## Frontend Use
 
 1. Open the account panel.
@@ -42,12 +49,15 @@ Listing supports `q`, `area`, `verdict`, and `limit` query parameters.
 3. Enter the same owner token used for Market and Evidence.
 4. Add a case directly, or link it to a tracked Market project.
 5. Use filters to review the case library.
+6. Press **EDIT** on an existing case when site visits, rental evidence, management feedback, or supply conditions change.
 
 When a chat question or Deal Report matches a case, Apex adds a Case Library section and a `CASE` source label.
 
 ## Decision Discipline
 
 Case intelligence is an opinion layer. It can challenge or support a deal, but it cannot replace current proof.
+
+Treat each case as a living founder view. Update the existing case when the core opinion changes; add a new market observation when only the evidence date or metric changes.
 
 Apex should still require live evidence for:
 

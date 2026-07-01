@@ -159,6 +159,9 @@ const ownerCaseVerdictFilter = document.querySelector("#ownerCaseVerdictFilter")
 const ownerCaseList = document.querySelector("#ownerCaseList");
 const ownerCaseMetrics = document.querySelector("#ownerCaseMetrics");
 const ownerCaseMessage = document.querySelector("#ownerCaseMessage");
+const ownerCaseFormTitle = document.querySelector("#ownerCaseFormTitle");
+const ownerCaseSubmit = document.querySelector("#ownerCaseSubmit");
+const ownerCaseCancelEdit = document.querySelector("#ownerCaseCancelEdit");
 const ownerEvidenceAccess = document.querySelector("#ownerEvidenceAccess");
 const ownerEvidenceToken = document.querySelector("#ownerEvidenceToken");
 const ownerEvidenceClearToken = document.querySelector("#ownerEvidenceClearToken");
@@ -247,6 +250,8 @@ let billingState = null;
 let billingPlans = [];
 let ownerMarketEnabled = false;
 let ownerMarketProjects = [];
+let ownerCaseItems = [];
+let ownerCaseEditingId = "";
 let memorySettingsLoading = false;
 let pendingTrustAction = "";
 
@@ -2832,6 +2837,14 @@ function renderOwnerCaseProjectOptions(projects = ownerMarketProjects) {
 function ownerCaseMarkup(item) {
   const detail = [item.area, item.state, item.propertyType, item.priceSegment].filter(Boolean).join(" / ") || "No project detail";
   const summary = item.ownerVerdict || item.strengths || item.weaknesses || "No founder verdict recorded.";
+  const gapCount = [
+    item.managementView,
+    item.residentProfile,
+    item.supplyThreat,
+    item.rentalOutlook,
+    item.resaleOutlook,
+    item.sourceBasis
+  ].filter((value) => !String(value || "").trim()).length;
   return `
     <article class="ownerCaseItem ${escapeHtml(item.verdict || "watch")}" data-owner-case="${escapeHtml(item.id)}">
       <header>
@@ -2843,20 +2856,28 @@ function ownerCaseMarkup(item) {
         <span>${escapeHtml(item.rating || 0)}/100</span>
         <span>${escapeHtml(item.sourceBasis || "No source basis")}</span>
         <span>${escapeHtml(item.observedAt ? marketDateText(item.observedAt) : "No date")}</span>
+        ${gapCount ? `<span>${escapeHtml(gapCount)} gaps</span>` : "<span>complete</span>"}
       </div>
-      <button type="button" data-owner-case-action="delete" data-owner-case-id="${escapeHtml(item.id)}">DELETE</button>
+      <div class="ownerCaseItemActions">
+        <button type="button" data-owner-case-action="edit" data-owner-case-id="${escapeHtml(item.id)}">EDIT</button>
+        <button type="button" data-owner-case-action="delete" data-owner-case-id="${escapeHtml(item.id)}">DELETE</button>
+      </div>
     </article>
   `;
 }
 
 function renderOwnerCases(payload = {}) {
   const cases = Array.isArray(payload.cases) ? payload.cases : [];
+  ownerCaseItems = cases;
   const summary = payload.summary || {};
+  const coverage = summary.coverage || {};
   ownerCaseSummary.innerHTML = `
     <span><b>${escapeHtml(summary.total ?? cases.length)}</b> CASES</span>
     <span><b>${escapeHtml(summary.shortlist || 0)}</b> SHORTLIST</span>
     <span><b>${escapeHtml(summary.strong_buy || 0)}</b> STRONG BUY</span>
     <span><b>${escapeHtml(summary.avoid || 0)}</b> AVOID</span>
+    <span><b>${escapeHtml(coverage.areas || 0)}</b> AREAS</span>
+    <span><b>${escapeHtml(coverage.incomplete || 0)}</b> GAPS</span>
   `;
   ownerCaseMetrics.textContent = `${summary.matched ?? cases.length} matched case note${(summary.matched ?? cases.length) === 1 ? "" : "s"}`;
   ownerCaseList.innerHTML = cases.length
@@ -2894,43 +2915,99 @@ function selectedOwnerCaseProject() {
   return ownerMarketProjects.find((project) => project.id === ownerCaseProject.value);
 }
 
-async function createOwnerCase() {
+function ownerCasePayload() {
   const linkedProject = selectedOwnerCaseProject();
   const projectName = ownerCaseProjectName.value.trim() || linkedProject?.name || "";
-  if (!projectName) return ownerCaseProjectName.focus();
-  setOwnerCaseMessage("Adding development case...");
-  await ownerCaseRequest("/api/owner/development-cases", {
-    method: "POST",
-    body: JSON.stringify({
-      projectId: ownerCaseProject.value,
-      projectName,
-      area: ownerCaseArea.value.trim() || linkedProject?.area || "",
-      state: ownerCaseState.value.trim() || linkedProject?.state || "",
-      propertyType: ownerCaseType.value.trim() || linkedProject?.propertyType || "",
-      developer: ownerCaseDeveloper.value.trim() || linkedProject?.developer || "",
-      priceSegment: ownerCasePriceSegment.value.trim(),
-      targetBuyer: ownerCaseTargetBuyer.value.trim(),
-      targetTenant: ownerCaseTargetTenant.value.trim(),
-      strengths: ownerCaseStrengths.value.trim(),
-      weaknesses: ownerCaseWeaknesses.value.trim(),
-      managementView: ownerCaseManagement.value.trim(),
-      residentProfile: ownerCaseResident.value.trim(),
-      supplyThreat: ownerCaseSupply.value.trim(),
-      rentalOutlook: ownerCaseRental.value.trim(),
-      resaleOutlook: ownerCaseResale.value.trim(),
-      ownerVerdict: ownerCaseOwnerVerdict.value.trim(),
-      verdict: ownerCaseVerdict.value,
-      confidence: ownerCaseConfidence.value,
-      rating: ownerCaseRating.value.trim(),
-      observedAt: ownerCaseObservedAt.value || new Date().toISOString(),
-      sourceBasis: ownerCaseSourceBasis.value.trim(),
-      tags: ownerCaseTags.value.split(",").map((item) => item.trim()).filter(Boolean)
-    })
-  });
+  return {
+    projectId: ownerCaseProject.value,
+    projectName,
+    area: ownerCaseArea.value.trim() || linkedProject?.area || "",
+    state: ownerCaseState.value.trim() || linkedProject?.state || "",
+    propertyType: ownerCaseType.value.trim() || linkedProject?.propertyType || "",
+    developer: ownerCaseDeveloper.value.trim() || linkedProject?.developer || "",
+    priceSegment: ownerCasePriceSegment.value.trim(),
+    targetBuyer: ownerCaseTargetBuyer.value.trim(),
+    targetTenant: ownerCaseTargetTenant.value.trim(),
+    strengths: ownerCaseStrengths.value.trim(),
+    weaknesses: ownerCaseWeaknesses.value.trim(),
+    managementView: ownerCaseManagement.value.trim(),
+    residentProfile: ownerCaseResident.value.trim(),
+    supplyThreat: ownerCaseSupply.value.trim(),
+    rentalOutlook: ownerCaseRental.value.trim(),
+    resaleOutlook: ownerCaseResale.value.trim(),
+    ownerVerdict: ownerCaseOwnerVerdict.value.trim(),
+    verdict: ownerCaseVerdict.value,
+    confidence: ownerCaseConfidence.value,
+    rating: ownerCaseRating.value.trim(),
+    observedAt: ownerCaseObservedAt.value || new Date().toISOString(),
+    sourceBasis: ownerCaseSourceBasis.value.trim(),
+    tags: ownerCaseTags.value.split(",").map((item) => item.trim()).filter(Boolean)
+  };
+}
+
+function clearOwnerCaseEditMode() {
+  ownerCaseEditingId = "";
   ownerCaseForm.reset();
   ownerCaseObservedAt.value = new Date().toISOString().slice(0, 10);
+  ownerCaseFormTitle.textContent = "Add Development Opinion";
+  ownerCaseSubmit.textContent = "ADD CASE";
+  ownerCaseCancelEdit.hidden = true;
+}
+
+function fillOwnerCaseForm(item) {
+  ownerCaseEditingId = item.id || "";
+  ownerCaseProject.value = item.projectId || "";
+  ownerCaseProjectName.value = item.projectName || "";
+  ownerCaseArea.value = item.area || "";
+  ownerCaseState.value = item.state || "";
+  ownerCaseType.value = item.propertyType || "";
+  ownerCaseDeveloper.value = item.developer || "";
+  ownerCasePriceSegment.value = item.priceSegment || "";
+  ownerCaseVerdict.value = item.verdict || "watch";
+  ownerCaseConfidence.value = item.confidence || "medium";
+  ownerCaseRating.value = item.rating || "";
+  ownerCaseObservedAt.value = item.observedAt ? String(item.observedAt).slice(0, 10) : new Date().toISOString().slice(0, 10);
+  ownerCaseTags.value = Array.isArray(item.tags) ? item.tags.join(", ") : "";
+  ownerCaseTargetBuyer.value = item.targetBuyer || "";
+  ownerCaseTargetTenant.value = item.targetTenant || "";
+  ownerCaseStrengths.value = item.strengths || "";
+  ownerCaseWeaknesses.value = item.weaknesses || "";
+  ownerCaseManagement.value = item.managementView || "";
+  ownerCaseResident.value = item.residentProfile || "";
+  ownerCaseSupply.value = item.supplyThreat || "";
+  ownerCaseRental.value = item.rentalOutlook || "";
+  ownerCaseResale.value = item.resaleOutlook || "";
+  ownerCaseOwnerVerdict.value = item.ownerVerdict || "";
+  ownerCaseSourceBasis.value = item.sourceBasis || "";
+  ownerCaseFormTitle.textContent = `Edit ${item.projectName || "Development Case"}`;
+  ownerCaseSubmit.textContent = "SAVE CASE";
+  ownerCaseCancelEdit.hidden = false;
+  ownerCaseForm.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  setOwnerCaseMessage("Editing existing development case. Save to update, or cancel edit.");
+}
+
+function editOwnerCase(button) {
+  const id = button.getAttribute("data-owner-case-id");
+  const item = ownerCaseItems.find((caseItem) => caseItem.id === id);
+  if (!item) return setOwnerCaseMessage("Case not found in the current filtered list. Refresh and try again.", "warning");
+  fillOwnerCaseForm(item);
+}
+
+async function saveOwnerCase() {
+  const payload = ownerCasePayload();
+  if (!payload.projectName) return ownerCaseProjectName.focus();
+  const editing = Boolean(ownerCaseEditingId);
+  setOwnerCaseMessage(editing ? "Updating development case..." : "Adding development case...");
+  const endpoint = editing
+    ? `/api/owner/development-cases/${encodeURIComponent(ownerCaseEditingId)}`
+    : "/api/owner/development-cases";
+  await ownerCaseRequest(endpoint, {
+    method: editing ? "PATCH" : "POST",
+    body: JSON.stringify(payload)
+  });
+  clearOwnerCaseEditMode();
   await loadOwnerCases();
-  setOwnerCaseMessage("Development case added. Apex can now match it in answers and deal reports.");
+  setOwnerCaseMessage(editing ? "Development case updated." : "Development case added. Apex can now match it in answers and deal reports.");
 }
 
 async function deleteOwnerCase(button) {
@@ -2945,6 +3022,7 @@ async function deleteOwnerCase(button) {
   button.disabled = true;
   try {
     await ownerCaseRequest(`/api/owner/development-cases/${encodeURIComponent(id)}`, { method: "DELETE" });
+    if (ownerCaseEditingId === id) clearOwnerCaseEditMode();
     await loadOwnerCases();
     setOwnerCaseMessage("Development case deleted.");
   } catch (error) {
@@ -4775,11 +4853,14 @@ ownerEvidenceClearToken.addEventListener("click", () => {
 });
 ownerCaseForm.addEventListener("submit", (event) => {
   event.preventDefault();
-  const button = ownerCaseForm.querySelector("button[type='submit']");
-  button.disabled = true;
-  createOwnerCase().catch((error) => setOwnerCaseMessage(error.message || "Development case could not be added.", "danger")).finally(() => {
-    button.disabled = false;
+  ownerCaseSubmit.disabled = true;
+  saveOwnerCase().catch((error) => setOwnerCaseMessage(error.message || "Development case could not be saved.", "danger")).finally(() => {
+    ownerCaseSubmit.disabled = false;
   });
+});
+ownerCaseCancelEdit.addEventListener("click", () => {
+  clearOwnerCaseEditMode();
+  setOwnerCaseMessage("Edit cancelled.");
 });
 ownerCaseProject.addEventListener("change", () => {
   const project = selectedOwnerCaseProject();
@@ -4794,8 +4875,10 @@ ownerCaseRefresh.addEventListener("click", () => void loadOwnerCases().catch((er
 ownerCaseFilter.addEventListener("input", () => void loadOwnerCases().catch(() => {}));
 ownerCaseVerdictFilter.addEventListener("change", () => void loadOwnerCases().catch((error) => setOwnerCaseMessage(error.message || "Development case library could not be loaded.", "danger")));
 ownerCaseList.addEventListener("click", (event) => {
-  const button = event.target.closest("[data-owner-case-action='delete']");
-  if (button) void deleteOwnerCase(button);
+  const button = event.target.closest("[data-owner-case-action]");
+  const action = button?.getAttribute("data-owner-case-action");
+  if (action === "edit") editOwnerCase(button);
+  if (action === "delete") void deleteOwnerCase(button);
 });
 ownerEvidenceForm.addEventListener("submit", (event) => {
   event.preventDefault();

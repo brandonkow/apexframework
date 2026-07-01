@@ -2579,6 +2579,49 @@ function developmentCaseSources(caseIntelligence) {
   }));
 }
 
+function developmentCaseCoverage(cases = [], now = Date.now()) {
+  const areas = new Set();
+  const projects = new Set();
+  let highConfidence = 0;
+  let stale = 0;
+  let incomplete = 0;
+  let missingManagement = 0;
+  let missingSupply = 0;
+  let missingRental = 0;
+  let missingResale = 0;
+  for (const item of cases) {
+    if (item.projectName) projects.add(item.projectName.toLowerCase());
+    if (item.area) areas.add(item.area.toLowerCase());
+    if (item.confidence === "high") highConfidence += 1;
+    const observedAt = Date.parse(item.observedAt || "");
+    if (Number.isFinite(observedAt) && Math.floor((now - observedAt) / 86400000) > 365) stale += 1;
+    const gaps = [
+      item.managementView,
+      item.residentProfile,
+      item.supplyThreat,
+      item.rentalOutlook,
+      item.resaleOutlook,
+      item.sourceBasis
+    ].filter((value) => !String(value || "").trim());
+    if (gaps.length) incomplete += 1;
+    if (!String(item.managementView || "").trim()) missingManagement += 1;
+    if (!String(item.supplyThreat || "").trim()) missingSupply += 1;
+    if (!String(item.rentalOutlook || "").trim()) missingRental += 1;
+    if (!String(item.resaleOutlook || "").trim()) missingResale += 1;
+  }
+  return {
+    projects: projects.size,
+    areas: areas.size,
+    highConfidence,
+    stale,
+    incomplete,
+    missingManagement,
+    missingSupply,
+    missingRental,
+    missingResale
+  };
+}
+
 function developmentCaseIntelligenceForPrompt(caseIntelligence) {
   if (!caseIntelligence?.cases?.length) return "No matching owner development case.";
   return [
@@ -9526,6 +9569,7 @@ async function router(req, res) {
         matched: cases.length,
         returned: Math.min(cases.length, limit),
         total: db.knowledge.developmentCases.length,
+        coverage: developmentCaseCoverage(cases),
         ...counts
       }
     });

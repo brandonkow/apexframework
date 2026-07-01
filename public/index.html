@@ -289,7 +289,7 @@
 
           <div class="ownerCaseWorkspace">
             <form id="ownerCaseForm" class="ownerCaseForm" autocomplete="off">
-              <header><small>CASE NOTE</small><b>Add Development Opinion</b></header>
+              <header><small>CASE NOTE</small><b id="ownerCaseFormTitle">Add Development Opinion</b></header>
               <div class="ownerCaseGrid">
                 <label>Linked Project
                   <select id="ownerCaseProject">
@@ -333,7 +333,10 @@
                 <label class="ownerCaseWide">Founder Verdict<textarea id="ownerCaseOwnerVerdict" maxlength="1200" placeholder="Your final opinion on this development and what Apex should remember..."></textarea></label>
                 <label class="ownerCaseWide">Source Basis<input id="ownerCaseSourceBasis" maxlength="500" placeholder="Site visit, agent feedback, Brickz, auction, management office..." /></label>
               </div>
-              <button class="ownerCasePrimary" type="submit">ADD CASE</button>
+              <div class="ownerCaseFormActions">
+                <button id="ownerCaseSubmit" class="ownerCasePrimary" type="submit">ADD CASE</button>
+                <button id="ownerCaseCancelEdit" type="button" hidden>CANCEL EDIT</button>
+              </div>
             </form>
 
             <section class="ownerCaseListWrap">
