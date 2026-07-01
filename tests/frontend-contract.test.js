@@ -59,6 +59,7 @@ test("frontend selectors and stylesheet structure stay valid", async () => {
   assert.match(html, /id="billingGuardrail"[\s\S]*?Plan changes report access only/, "V6.5 needs an account-level monetization guardrail.");
   assert.match(html, /id="reportsPanel"[\s\S]*?DEAL REPORTS[\s\S]*?id="reportsList"/, "Signed-in accounts need private report history.");
   assert.match(html, /id="journalPanel"[\s\S]*?DECISION JOURNAL[\s\S]*?id="journalEditor"/, "Signed-in accounts need an inline decision journal.");
+  assert.match(html, /id="ownerIntelToggle"[\s\S]*?OWNER/, "The owner intelligence command center must be reachable from the account surface.");
   assert.match(html, /id="ownerMarketToggle"[\s\S]*?MARKET/, "The owner market console must be reachable from the account surface.");
   assert.match(html, /id="ownerCaseToggle"[\s\S]*?CASES/, "The owner development case library must be reachable from the account surface.");
   assert.match(html, /id="ownerEvidenceToggle"[\s\S]*?EVIDENCE/, "The V8 evidence vault must be reachable from the account surface.");
@@ -66,6 +67,7 @@ test("frontend selectors and stylesheet structure stay valid", async () => {
   assert.match(html, /id="trustPanel"[\s\S]*?V6\.0 TRUST BOUNDARY[\s\S]*?WHAT APEX CAN AND CANNOT DO/, "The v6 trust boundary needs an inline workspace.");
   assert.match(html, /Normal users can submit chat and card context only[\s\S]*?cannot change the shared Apex knowledge base/, "The v6 trust boundary must preserve owner-controlled knowledge rules.");
   assert.match(html, /id="trustAcceptance"[\s\S]*?FORMAL DEAL REPORTS[\s\S]*?id="trustAccept"/, "V6.1 needs an acknowledgement checkpoint before formal reports.");
+  assert.match(html, /id="ownerIntelPanel"[\s\S]*?OWNER INTELLIGENCE CONSOLE[\s\S]*?id="ownerIntelCoverage"[\s\S]*?id="ownerIntelActions"/, "Owner intelligence needs a unified coverage dashboard and next-action surface.");
   assert.match(html, /id="ownerMarketPanel"[\s\S]*?MARKET CONSOLE[\s\S]*?id="ownerMarketToken"/, "V2 needs an owner-token-gated market console.");
   assert.match(html, /id="ownerProjectForm"[\s\S]*?id="ownerObservationForm"[\s\S]*?id="ownerObservationList"/, "The market console needs project and observation entry surfaces.");
   assert.match(html, /id="ownerCasePanel"[\s\S]*?DEVELOPMENT CASE LIBRARY[\s\S]*?id="ownerCaseForm"[\s\S]*?id="ownerCaseSubmit"[\s\S]*?id="ownerCaseCancelEdit"[\s\S]*?id="ownerCaseList"/, "The development case library needs owner-token-gated entry, edit, and review surfaces.");
@@ -84,6 +86,8 @@ test("frontend selectors and stylesheet structure stay valid", async () => {
   assert.match(app, /focusFirstMissingContextField\(panelName\)/, "V5.3 readiness chips must open the right card and focus missing context.");
   assert.match(app, /function renderDealJourney[\s\S]*?APEX DEAL JOURNEY[\s\S]*?data-journey-action/, "The Deal Journey must convert scattered tools into one guided next-action flow.");
   assert.match(app, /function handleJourneyAction[\s\S]*?runDealScreening\(\)[\s\S]*?runDealAnalysis\(\)[\s\S]*?openShortlistPanel\(\)/, "Journey actions must route to existing screen, analyse, and compare flows.");
+  assert.match(app, /function renderOwnerIntelligence[\s\S]*?ownerIntelLanes[\s\S]*?ownerIntelCoverage/, "Owner intelligence must render coverage lanes and project-level coverage rows.");
+  assert.match(app, /function loadOwnerIntelligence[\s\S]*?\/api\/owner\/market\/projects[\s\S]*?\/api\/owner\/development-cases[\s\S]*?\/api\/owner\/documents/, "Owner intelligence must unify market projects, cases, observations, and evidence documents.");
   assert.match(app, /contextCoreFieldKeys[\s\S]*?function renderContextAssist[\s\S]*?data-context-field-mode/, "Expanded cards must default to guided essentials before exposing advanced fields.");
   assert.match(app, /function markContextFieldDepth[\s\S]*?contextAdvanced[\s\S]*?applyContextFieldMode/, "Context fields must be classified into core and advanced groups at boot.");
   assert.match(app, /function dealScreeningPrompt[\s\S]*?Run Apex Deal Screening Mode[\s\S]*?Ask at most 3 next questions/, "The quick screening path must generate a short mentor-style prompt from current cards.");
@@ -272,6 +276,8 @@ test("frontend selectors and stylesheet structure stay valid", async () => {
   assert.match(styles, /\.reportsOpen \.transcript[\s\S]*?display:\s*none;/, "The report history must replace chat content instead of opening a popup.");
   assert.match(styles, /\.journalOpen \.transcript[\s\S]*?display:\s*none;/, "The decision journal must replace chat content instead of opening a popup.");
   assert.match(styles, /\.ownerMarketOpen \.transcript[\s\S]*?display:\s*none;/, "The owner market console must replace chat content instead of opening a popup.");
+  assert.match(styles, /\.ownerIntelPanel[\s\S]*?\.ownerIntelLanes[\s\S]*?\.ownerIntelCoverage/, "The owner intelligence command center needs styled coverage lanes and dashboard rows.");
+  assert.match(styles, /\.ownerIntelOpen \.transcript[\s\S]*?display:\s*none;/, "The owner intelligence command center must replace chat content instead of opening a popup.");
   assert.match(styles, /\.ownerMarketPanel[\s\S]*?\.ownerMarketWorkspace[\s\S]*?grid-template-columns:/, "The v2 market console needs a styled owner workspace.");
   assert.match(styles, /\.ownerMarketLists[\s\S]*?\.ownerObservationList[\s\S]*?overflow-y:\s*auto;/, "Market observation lists must stay scrollable.");
   assert.match(styles, /\.ownerCaseOpen \.transcript[\s\S]*?display:\s*none;/, "The owner case library must replace chat content instead of opening a popup.");

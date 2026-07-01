@@ -2072,6 +2072,38 @@ button {
   display: none;
 }
 
+.ownerIntelPanel {
+  display: grid;
+  min-height: 0;
+  max-height: min(82dvh, 780px);
+  width: min(1040px, 100%);
+  margin: 0 auto;
+  grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
+  gap: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(103, 229, 255, 0.24);
+  border-radius: 12px;
+  padding: 13px;
+  background: linear-gradient(135deg, rgba(90, 231, 255, 0.1), transparent 28%), rgba(2, 13, 21, 0.94);
+  box-shadow: 0 0 38px rgba(28, 190, 221, 0.09), inset 0 0 28px rgba(28, 190, 221, 0.04);
+  backdrop-filter: blur(18px);
+}
+
+.ownerIntelPanel[hidden] {
+  display: none;
+}
+
+.ownerIntelOpen .transcript,
+.ownerIntelOpen .contextDeck,
+.ownerIntelOpen .contextReadiness,
+.ownerIntelOpen .dealJourney,
+.ownerIntelOpen .experienceLock,
+.ownerIntelOpen .aiDisclosure,
+.ownerIntelOpen .commandBar,
+.ownerIntelOpen .utilityBar {
+  display: none;
+}
+
 .ownerMarketOpen .transcript,
 .ownerMarketOpen .contextDeck,
 .ownerMarketOpen .contextReadiness,
@@ -2106,6 +2138,9 @@ button {
 }
 
 .ownerMarketHeader,
+.ownerIntelHeader,
+.ownerIntelCoverageWrap > header,
+.ownerIntelNext header,
 .ownerMarketForm header,
 .ownerMarketLists > section > header,
 .ownerMarketItem header,
@@ -2120,6 +2155,8 @@ button {
 }
 
 .ownerMarketHeader > span,
+.ownerIntelHeader > span,
+.ownerIntelCoverageWrap > header > span,
 .ownerMarketItem header > span,
 .ownerEvidenceHeader > span,
 .ownerEvidenceItem header > span,
@@ -2129,6 +2166,9 @@ button {
 }
 
 .ownerMarketHeader small,
+.ownerIntelHeader small,
+.ownerIntelCoverageWrap small,
+.ownerIntelNext small,
 .ownerMarketForm small,
 .ownerMarketLists small,
 .ownerMarketItem small,
@@ -2144,6 +2184,9 @@ button {
 }
 
 .ownerMarketHeader b,
+.ownerIntelHeader b,
+.ownerIntelCoverageWrap header b,
+.ownerIntelNext header b,
 .ownerMarketForm header b,
 .ownerMarketLists header b,
 .ownerMarketItem header b,
@@ -2158,6 +2201,10 @@ button {
 }
 
 .ownerMarketHeader button,
+.ownerIntelHeader button,
+.ownerIntelAccess button,
+.ownerIntelCoverageWrap button,
+.ownerIntelActions button,
 .ownerMarketAccess button,
 .ownerMarketForm button,
 .ownerMarketFilters button,
@@ -2178,6 +2225,7 @@ button {
 }
 
 .ownerMarketPrimary,
+.ownerIntelAccess button[type="submit"],
 .ownerMarketAccess button[type="submit"],
 .ownerEvidencePrimary,
 .ownerEvidenceAccess button[type="submit"] {
@@ -2186,6 +2234,10 @@ button {
 }
 
 .ownerMarketHeader button:hover,
+.ownerIntelHeader button:hover,
+.ownerIntelAccess button:hover,
+.ownerIntelCoverageWrap button:hover,
+.ownerIntelActions button:hover,
 .ownerMarketAccess button:hover,
 .ownerMarketForm button:hover,
 .ownerMarketFilters button:hover,
@@ -2200,6 +2252,12 @@ button {
 }
 
 .ownerMarketIntro,
+.ownerIntelIntro,
+.ownerIntelMessage,
+.ownerIntelEmpty,
+.ownerIntelCoverageItem p,
+.ownerIntelNext p,
+.ownerIntelLanes p,
 .ownerMarketMessage,
 .ownerMarketEmpty,
 .ownerMarketItem p,
@@ -2217,6 +2275,10 @@ button {
   color: #ef9999;
 }
 
+.ownerIntelMessage[data-tone="danger"] {
+  color: #ef9999;
+}
+
 .ownerEvidenceMessage[data-tone="danger"] {
   color: #ef9999;
 }
@@ -2225,10 +2287,15 @@ button {
   color: #d7b970;
 }
 
+.ownerIntelMessage[data-tone="warning"] {
+  color: #d7b970;
+}
+
 .ownerEvidenceMessage[data-tone="warning"] {
   color: #d7b970;
 }
 
+.ownerIntelAccess,
 .ownerMarketAccess,
 .ownerMarketFilters,
 .ownerEvidenceAccess {
@@ -2239,6 +2306,7 @@ button {
 }
 
 .ownerMarketAccess label,
+.ownerIntelAccess label,
 .ownerEvidenceAccess label {
   display: grid;
   gap: 4px;
@@ -2248,6 +2316,7 @@ button {
 }
 
 .ownerMarketAccess input,
+.ownerIntelAccess input,
 .ownerEvidenceAccess input,
 .ownerMarketFilters input,
 .ownerMarketFilters select,
@@ -2275,6 +2344,7 @@ button {
 }
 
 .ownerMarketAccess input:focus,
+.ownerIntelAccess input:focus,
 .ownerEvidenceAccess input:focus,
 .ownerMarketFilters input:focus,
 .ownerMarketFilters select:focus,
@@ -2287,6 +2357,7 @@ button {
 }
 
 .ownerMarketSummary,
+.ownerIntelSummary,
 .ownerEvidenceSummary {
   display: flex;
   gap: 8px;
@@ -2294,6 +2365,8 @@ button {
 }
 
 .ownerMarketSummary span,
+.ownerIntelSummary span,
+.ownerIntelCoverageItem div span,
 .ownerMarketMeta span,
 .ownerEvidenceSummary span,
 .ownerEvidenceMeta span {
@@ -2306,17 +2379,108 @@ button {
 }
 
 .ownerMarketSummary b,
+.ownerIntelSummary b,
 .ownerEvidenceSummary b {
   color: var(--cyan);
   font-weight: 500;
 }
 
 .ownerMarketWorkspace,
+.ownerIntelWorkspace,
 .ownerEvidenceWorkspace {
   display: grid;
   min-height: 0;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+
+.ownerIntelLanes {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.ownerIntelLanes article,
+.ownerIntelCoverageWrap,
+.ownerIntelNext {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  border: 1px solid rgba(103, 229, 255, 0.12);
+  border-radius: 10px;
+  padding: 11px;
+  background: rgba(1, 12, 19, 0.58);
+}
+
+.ownerIntelLanes article.ready {
+  border-left: 2px solid #70e6b3;
+}
+
+.ownerIntelLanes article.warning,
+.ownerIntelCoverageItem.partial,
+.ownerIntelCoverageItem.stale {
+  border-left-color: #d0ad69;
+}
+
+.ownerIntelLanes article.missing,
+.ownerIntelCoverageItem.missing {
+  border-left-color: #e68e8e;
+}
+
+.ownerIntelLanes b {
+  color: var(--cyan-bright);
+  font-size: 0.72rem;
+  font-weight: 500;
+}
+
+.ownerIntelWorkspace {
+  grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.65fr);
+}
+
+.ownerIntelCoverage {
+  display: grid;
+  min-height: 0;
+  gap: 8px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.ownerIntelCoverageItem {
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(103, 229, 255, 0.14);
+  border-left: 2px solid #70e6b3;
+  border-radius: 10px;
+  padding: 10px;
+  background: rgba(1, 12, 19, 0.66);
+}
+
+.ownerIntelCoverageItem header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ownerIntelCoverageItem header > span {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.ownerIntelCoverageItem header em {
+  color: var(--cyan);
+  font-size: 0.5rem;
+  font-style: normal;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ownerIntelCoverageItem div,
+.ownerIntelActions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
 .ownerMarketForm,
@@ -7546,6 +7710,7 @@ button {
   .memoryOpen .assistantStage,
   .reportsOpen .assistantStage,
   .journalOpen .assistantStage,
+  .ownerIntelOpen .assistantStage,
   .ownerMarketOpen .assistantStage,
   .ownerEvidenceOpen .assistantStage,
   .ownerCaseOpen .assistantStage,
@@ -7558,6 +7723,7 @@ button {
   .memoryOpen .identity,
   .reportsOpen .identity,
   .journalOpen .identity,
+  .ownerIntelOpen .identity,
   .ownerMarketOpen .identity,
   .ownerEvidenceOpen .identity,
   .ownerCaseOpen .identity,
@@ -7742,6 +7908,10 @@ button {
     max-height: calc(100dvh - 104px);
   }
 
+  .ownerIntelPanel {
+    max-height: calc(100dvh - 104px);
+  }
+
   .ownerMarketPanel {
     max-height: calc(100dvh - 104px);
   }
@@ -7771,11 +7941,14 @@ button {
     min-height: 40px;
   }
 
+  .ownerIntelAccess,
   .ownerMarketAccess,
   .ownerEvidenceAccess,
   .ownerCaseAccess,
   .ownerMarketFilters,
   .ownerCaseFilters,
+  .ownerIntelWorkspace,
+  .ownerIntelLanes,
   .ownerMarketWorkspace,
   .ownerEvidenceWorkspace,
   .ownerCaseWorkspace,
@@ -7786,6 +7959,9 @@ button {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .ownerIntelAccess button,
+  .ownerIntelCoverageWrap button,
+  .ownerIntelActions button,
   .ownerMarketAccess button,
   .ownerEvidenceAccess button,
   .ownerCaseAccess button,

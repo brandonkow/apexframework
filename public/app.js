@@ -107,6 +107,19 @@ const journalResult = document.querySelector("#journalResult");
 const journalLesson = document.querySelector("#journalLesson");
 const journalSaveReview = document.querySelector("#journalSaveReview");
 const journalMessage = document.querySelector("#journalMessage");
+const ownerIntelToggle = document.querySelector("#ownerIntelToggle");
+const ownerIntelPanel = document.querySelector("#ownerIntelPanel");
+const ownerIntelClose = document.querySelector("#ownerIntelClose");
+const ownerIntelAccess = document.querySelector("#ownerIntelAccess");
+const ownerIntelToken = document.querySelector("#ownerIntelToken");
+const ownerIntelClearToken = document.querySelector("#ownerIntelClearToken");
+const ownerIntelSummary = document.querySelector("#ownerIntelSummary");
+const ownerIntelLanes = document.querySelector("#ownerIntelLanes");
+const ownerIntelCoverage = document.querySelector("#ownerIntelCoverage");
+const ownerIntelNextTitle = document.querySelector("#ownerIntelNextTitle");
+const ownerIntelNextDetail = document.querySelector("#ownerIntelNextDetail");
+const ownerIntelActions = document.querySelector("#ownerIntelActions");
+const ownerIntelMessage = document.querySelector("#ownerIntelMessage");
 const ownerMarketToggle = document.querySelector("#ownerMarketToggle");
 const ownerMarketPanel = document.querySelector("#ownerMarketPanel");
 const ownerMarketClose = document.querySelector("#ownerMarketClose");
@@ -569,6 +582,7 @@ function renderAuthState(user) {
     closeMemoryPanel();
     closeReportsPanel();
     closeJournalPanel();
+    closeOwnerIntelligencePanel();
     closeOwnerMarketPanel();
     closeOwnerCasePanel();
     closeOwnerEvidencePanel();
@@ -593,6 +607,7 @@ function openAuthPanel() {
   closeMemoryPanel();
   closeReportsPanel();
   closeJournalPanel();
+  closeOwnerIntelligencePanel();
   closeOwnerMarketPanel();
   closeOwnerCasePanel();
   closeOwnerEvidencePanel();
@@ -627,6 +642,7 @@ function openTrustPanel(action = "") {
   closeMemoryPanel();
   closeReportsPanel();
   closeJournalPanel();
+  closeOwnerIntelligencePanel();
   closeOwnerMarketPanel();
   closeOwnerCasePanel();
   closeOwnerEvidencePanel();
@@ -1653,6 +1669,7 @@ async function openMemoryPanel() {
   closeAuthPanel();
   closeReportsPanel();
   closeJournalPanel();
+  closeOwnerIntelligencePanel();
   closeOwnerMarketPanel();
   closeOwnerCasePanel();
   closeOwnerEvidencePanel();
@@ -1818,6 +1835,7 @@ async function openReportsPanel() {
   closeAuthPanel();
   closeMemoryPanel();
   closeJournalPanel();
+  closeOwnerIntelligencePanel();
   closeOwnerMarketPanel();
   closeOwnerCasePanel();
   closeOwnerEvidencePanel();
@@ -1901,6 +1919,7 @@ async function openJournalPanel(decisionId = "") {
   closeAuthPanel();
   closeMemoryPanel();
   closeReportsPanel();
+  closeOwnerIntelligencePanel();
   closeOwnerMarketPanel();
   closeOwnerCasePanel();
   closeOwnerEvidencePanel();
@@ -2198,6 +2217,7 @@ function openShortlistPanel() {
   closeMemoryPanel();
   closeReportsPanel();
   closeJournalPanel();
+  closeOwnerIntelligencePanel();
   closeOwnerMarketPanel();
   closeOwnerCasePanel();
   closeOwnerEvidencePanel();
@@ -2761,6 +2781,37 @@ function setOwnerEvidenceMessage(message, tone = "") {
   ownerEvidenceMessage.dataset.tone = tone;
 }
 
+function setOwnerIntelMessage(message, tone = "") {
+  ownerIntelMessage.textContent = message || "";
+  ownerIntelMessage.dataset.tone = tone;
+}
+
+function syncOwnerTokens(token) {
+  const clean = String(token || "").trim();
+  ownerIntelToken.value = clean;
+  ownerMarketToken.value = clean;
+  ownerCaseToken.value = clean;
+  ownerEvidenceToken.value = clean;
+  if (clean) window.localStorage.setItem(ownerMarketTokenKey, clean);
+  else window.localStorage.removeItem(ownerMarketTokenKey);
+}
+
+function ownerIntelTokenValue() {
+  return ownerIntelToken.value.trim() || window.localStorage.getItem(ownerMarketTokenKey) || "";
+}
+
+async function ownerIntelRequest(pathname, options = {}) {
+  const token = ownerIntelTokenValue();
+  if (!token) throw new Error("Paste and save the owner token first.");
+  return requestJson(pathname, {
+    ...options,
+    headers: {
+      "x-estatelab-owner-token": token,
+      ...(options.headers || {})
+    }
+  });
+}
+
 async function ownerMarketRequest(pathname, options = {}) {
   const token = ownerMarketTokenValue();
   if (!token) throw new Error("Paste and save the owner token first.");
@@ -2771,6 +2822,128 @@ async function ownerMarketRequest(pathname, options = {}) {
       ...(options.headers || {})
     }
   });
+}
+
+function ownerIntelProjectKey(value = "") {
+  return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function ownerIntelMatchesProject(text = "", project = {}) {
+  const haystack = ownerIntelProjectKey(text);
+  if (!haystack) return false;
+  return [project.name, project.area, ...(project.aliases || [])]
+    .map(ownerIntelProjectKey)
+    .filter(Boolean)
+    .some((needle) => haystack.includes(needle) || needle.includes(haystack));
+}
+
+function ownerIntelProjectRows(projects = [], cases = [], observations = [], documents = []) {
+  return projects.map((project) => {
+    const linkedCases = cases.filter((item) => item.projectId === project.id || ownerIntelMatchesProject(`${item.projectName} ${item.area}`, project));
+    const linkedObservations = observations.filter((item) => item.projectId === project.id || ownerIntelMatchesProject(`${item.projectName || item.project?.name || ""} ${item.area || item.project?.area || ""}`, project));
+    const linkedEvidence = documents.filter((item) => ownerIntelMatchesProject(`${item.title} ${item.filename} ${(item.tags || []).join(" ")}`, project));
+    const stale = linkedObservations.filter((item) => item.freshness?.status === "stale").length;
+    const hasCase = Boolean(linkedCases.length);
+    const hasFreshObservation = linkedObservations.some((item) => item.freshness?.status === "fresh");
+    const hasEvidence = Boolean(linkedEvidence.length);
+    const missing = [
+      hasCase ? "" : "case",
+      hasFreshObservation ? "" : "fresh signal",
+      hasEvidence ? "" : "evidence"
+    ].filter(Boolean);
+    const status = !hasCase ? "missing" : stale ? "stale" : hasFreshObservation && hasEvidence ? "ready" : "partial";
+    return { project, cases: linkedCases.length, observations: linkedObservations.length, evidence: linkedEvidence.length, stale, missing, status };
+  });
+}
+
+function ownerIntelLane(label, value, status, action) {
+  return `
+    <article class="${escapeHtml(status)}">
+      <small>${escapeHtml(label)}</small>
+      <b>${escapeHtml(value)}</b>
+      <p>${escapeHtml(action)}</p>
+    </article>
+  `;
+}
+
+function ownerIntelCoverageMarkup(row) {
+  const detail = [row.project.area, row.project.state, row.project.propertyType].filter(Boolean).join(" / ") || "No project detail";
+  return `
+    <article class="ownerIntelCoverageItem ${escapeHtml(row.status)}">
+      <header><span><small>${escapeHtml(detail)}</small><b>${escapeHtml(row.project.name)}</b></span><em>${escapeHtml(row.status)}</em></header>
+      <div>
+        <span>${escapeHtml(row.cases)} case</span>
+        <span>${escapeHtml(row.observations)} signal</span>
+        <span>${escapeHtml(row.evidence)} proof</span>
+        <span>${escapeHtml(row.stale)} stale</span>
+      </div>
+      <p>${escapeHtml(row.missing.length ? `Missing ${row.missing.join(", ")}.` : "Coverage is strong enough for project-aware Apex reasoning.")}</p>
+    </article>
+  `;
+}
+
+function renderOwnerIntelligence({ projects = {}, observations = {}, cases = {}, evidence = {} } = {}) {
+  const projectItems = Array.isArray(projects.projects) ? projects.projects : [];
+  const observationItems = Array.isArray(observations.observations) ? observations.observations : [];
+  const caseItems = Array.isArray(cases.cases) ? cases.cases : [];
+  const documents = Array.isArray(evidence.documents) ? evidence.documents : [];
+  const rows = ownerIntelProjectRows(projectItems, caseItems, observationItems, documents);
+  const missingCase = rows.filter((row) => row.cases === 0).length;
+  const staleObservation = observationItems.filter((item) => item.freshness?.status === "stale").length;
+  const noEvidence = rows.filter((row) => row.evidence === 0).length;
+  const complete = rows.filter((row) => row.status === "ready").length;
+  ownerIntelSummary.innerHTML = `
+    <span><b>${escapeHtml(projectItems.length)}</b> PROJECTS</span>
+    <span><b>${escapeHtml(cases.summary?.total ?? caseItems.length)}</b> CASES</span>
+    <span><b>${escapeHtml(observations.summary?.matched ?? observationItems.length)}</b> OBSERVATIONS</span>
+    <span><b>${escapeHtml(evidence.summary?.documents ?? documents.length)}</b> DOCUMENTS</span>
+    <span><b>${escapeHtml(complete)}</b> COMPLETE</span>
+  `;
+  ownerIntelLanes.innerHTML = [
+    ownerIntelLane("Project registry", `${projectItems.length} tracked`, projectItems.length ? "ready" : "missing", projectItems.length ? "Registry exists." : "Add projects before cases can be linked."),
+    ownerIntelLane("Founder cases", `${missingCase} missing`, missingCase ? "warning" : "ready", missingCase ? "Write founder opinion for unmatched projects." : "Case coverage is broad."),
+    ownerIntelLane("Market freshness", `${staleObservation} stale`, staleObservation ? "warning" : observationItems.length ? "ready" : "missing", staleObservation ? "Re-check old observations." : observationItems.length ? "Signals are current enough." : "Add dated ground signals."),
+    ownerIntelLane("Evidence vault", `${noEvidence} unbacked`, noEvidence ? "warning" : documents.length ? "ready" : "missing", noEvidence ? "Attach proof to important projects." : documents.length ? "Evidence exists." : "Add source proof.")
+  ].join("");
+  const rankedRows = rows.sort((left, right) => {
+    const order = { missing: 0, stale: 1, partial: 2, ready: 3 };
+    return order[left.status] - order[right.status] || right.missing.length - left.missing.length;
+  });
+  ownerIntelCoverage.innerHTML = rankedRows.length
+    ? rankedRows.slice(0, 10).map(ownerIntelCoverageMarkup).join("")
+    : '<p class="ownerIntelEmpty">No projects loaded yet. Start by adding tracked projects in the Market console.</p>';
+
+  let next = { title: "Add project registry", detail: "Apex needs tracked projects before owner intelligence can become project-specific.", action: "market" };
+  if (missingCase) next = { title: "Write missing case opinions", detail: `${missingCase} tracked project${missingCase === 1 ? "" : "s"} do not have founder case notes yet.`, action: "cases" };
+  else if (staleObservation) next = { title: "Refresh stale market signals", detail: `${staleObservation} observation${staleObservation === 1 ? " is" : "s are"} stale and should be re-verified.`, action: "market" };
+  else if (noEvidence) next = { title: "Attach evidence proof", detail: `${noEvidence} project${noEvidence === 1 ? "" : "s"} have no obvious evidence document match.`, action: "evidence" };
+  else if (projectItems.length) next = { title: "Coverage looks healthy", detail: "Keep adding dated observations and update case notes when the market changes.", action: "refresh" };
+  ownerIntelNextTitle.textContent = next.title;
+  ownerIntelNextDetail.textContent = next.detail;
+  ownerIntelActions.innerHTML = `
+    <button type="button" data-owner-intel-action="${escapeHtml(next.action)}">DO NEXT</button>
+    <button type="button" data-owner-intel-action="market">PROJECTS / SIGNALS</button>
+    <button type="button" data-owner-intel-action="cases">CASES</button>
+    <button type="button" data-owner-intel-action="evidence">EVIDENCE</button>
+  `;
+}
+
+async function loadOwnerIntelligence() {
+  if (!ownerIntelTokenValue()) {
+    renderOwnerIntelligence();
+    setOwnerIntelMessage(ownerMarketEnabled ? "Owner API is enabled. Token required." : "Owner API may be disabled. Set the owner token on Render if this fails.", "warning");
+    return null;
+  }
+  setOwnerIntelMessage("Loading owner intelligence coverage...");
+  const [projects, observations, cases, evidence] = await Promise.all([
+    ownerIntelRequest("/api/owner/market/projects"),
+    ownerIntelRequest("/api/owner/market/observations?limit=500"),
+    ownerIntelRequest("/api/owner/development-cases?limit=500"),
+    ownerIntelRequest("/api/owner/documents")
+  ]);
+  renderOwnerIntelligence({ projects, observations, cases, evidence });
+  setOwnerIntelMessage("Owner intelligence coverage loaded.");
+  return { projects, observations, cases, evidence };
 }
 
 async function ownerCaseRequest(pathname, options = {}) {
@@ -3219,11 +3392,41 @@ function closeOwnerEvidencePanel() {
   document.body.classList.remove("ownerEvidenceOpen");
 }
 
+function closeOwnerIntelligencePanel() {
+  ownerIntelPanel.hidden = true;
+  ownerIntelToggle.setAttribute("aria-expanded", "false");
+  document.body.classList.remove("ownerIntelOpen");
+}
+
+async function openOwnerIntelligencePanel() {
+  closeAuthPanel();
+  closeMemoryPanel();
+  closeReportsPanel();
+  closeJournalPanel();
+  closeOwnerIntelligencePanel();
+  closeOwnerMarketPanel();
+  closeOwnerCasePanel();
+  closeOwnerEvidencePanel();
+  closeTrustPanel();
+  closeShortlistPanel();
+  collapseContextPanels();
+  ownerIntelPanel.hidden = false;
+  ownerIntelToggle.setAttribute("aria-expanded", "true");
+  document.body.classList.add("ownerIntelOpen");
+  syncOwnerTokens(window.localStorage.getItem(ownerMarketTokenKey) || ownerIntelToken.value);
+  try {
+    await loadOwnerIntelligence();
+  } catch (error) {
+    setOwnerIntelMessage(error.message || "Owner intelligence console is unavailable.", "danger");
+  }
+}
+
 async function openOwnerCasePanel() {
   closeAuthPanel();
   closeMemoryPanel();
   closeReportsPanel();
   closeJournalPanel();
+  closeOwnerIntelligencePanel();
   closeOwnerMarketPanel();
   closeOwnerEvidencePanel();
   closeTrustPanel();
@@ -3232,9 +3435,7 @@ async function openOwnerCasePanel() {
   ownerCasePanel.hidden = false;
   ownerCaseToggle.setAttribute("aria-expanded", "true");
   document.body.classList.add("ownerCaseOpen");
-  ownerCaseToken.value = window.localStorage.getItem(ownerMarketTokenKey) || "";
-  ownerMarketToken.value = ownerCaseToken.value;
-  ownerEvidenceToken.value = ownerCaseToken.value;
+  syncOwnerTokens(window.localStorage.getItem(ownerMarketTokenKey) || ownerCaseToken.value);
   ownerCaseObservedAt.value ||= new Date().toISOString().slice(0, 10);
   try {
     await loadOwnerCases();
@@ -3248,6 +3449,7 @@ async function openOwnerEvidencePanel() {
   closeMemoryPanel();
   closeReportsPanel();
   closeJournalPanel();
+  closeOwnerIntelligencePanel();
   closeOwnerMarketPanel();
   closeOwnerCasePanel();
   closeTrustPanel();
@@ -3256,8 +3458,7 @@ async function openOwnerEvidencePanel() {
   ownerEvidencePanel.hidden = false;
   ownerEvidenceToggle.setAttribute("aria-expanded", "true");
   document.body.classList.add("ownerEvidenceOpen");
-  ownerEvidenceToken.value = window.localStorage.getItem(ownerMarketTokenKey) || "";
-  ownerMarketToken.value = ownerEvidenceToken.value;
+  syncOwnerTokens(window.localStorage.getItem(ownerMarketTokenKey) || ownerEvidenceToken.value);
   try {
     await loadOwnerEvidence();
   } catch (error) {
@@ -3270,6 +3471,7 @@ async function openOwnerMarketPanel() {
   closeMemoryPanel();
   closeReportsPanel();
   closeJournalPanel();
+  closeOwnerIntelligencePanel();
   closeOwnerCasePanel();
   closeOwnerEvidencePanel();
   closeTrustPanel();
@@ -3278,7 +3480,7 @@ async function openOwnerMarketPanel() {
   ownerMarketPanel.hidden = false;
   ownerMarketToggle.setAttribute("aria-expanded", "true");
   document.body.classList.add("ownerMarketOpen");
-  ownerMarketToken.value = window.localStorage.getItem(ownerMarketTokenKey) || "";
+  syncOwnerTokens(window.localStorage.getItem(ownerMarketTokenKey) || ownerMarketToken.value);
   ownerObservationDate.value ||= new Date().toISOString().slice(0, 10);
   try {
     await loadOwnerMarket();
@@ -4928,6 +5130,7 @@ async function logout() {
     closeMemoryPanel();
     closeReportsPanel();
     closeJournalPanel();
+    closeOwnerIntelligencePanel();
     closeOwnerMarketPanel();
     closeOwnerCasePanel();
     closeOwnerEvidencePanel();
@@ -5207,6 +5410,17 @@ ownerMarketToggle.addEventListener("click", () => {
   else closeOwnerMarketPanel();
 });
 ownerMarketClose.addEventListener("click", closeOwnerMarketPanel);
+ownerIntelToggle.addEventListener("click", () => {
+  if (ownerIntelPanel.hidden) void openOwnerIntelligencePanel();
+  else closeOwnerIntelligencePanel();
+});
+ownerIntelClose.addEventListener("click", closeOwnerIntelligencePanel);
+ownerIntelPanel.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-owner-intel-action]");
+  if (!button || ownerIntelActions.contains(button) || ownerIntelCoverage.contains(button)) return;
+  const action = button.getAttribute("data-owner-intel-action");
+  if (action === "refresh") void loadOwnerIntelligence();
+});
 ownerCaseToggle.addEventListener("click", () => {
   if (ownerCasePanel.hidden) void openOwnerCasePanel();
   else closeOwnerCasePanel();
@@ -5227,33 +5441,46 @@ ownerMarketAccess.addEventListener("submit", (event) => {
   event.preventDefault();
   const token = ownerMarketToken.value.trim();
   if (!token) return ownerMarketToken.focus();
-  window.localStorage.setItem(ownerMarketTokenKey, token);
-  ownerEvidenceToken.value = token;
-  ownerCaseToken.value = token;
+  syncOwnerTokens(token);
   void loadOwnerMarket();
 });
 ownerMarketClearToken.addEventListener("click", () => {
-  window.localStorage.removeItem(ownerMarketTokenKey);
-  ownerMarketToken.value = "";
-  ownerEvidenceToken.value = "";
-  ownerCaseToken.value = "";
+  syncOwnerTokens("");
   renderOwnerMarket({}, {});
   setOwnerMarketMessage("Owner token cleared from this device.");
+});
+ownerIntelAccess.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const token = ownerIntelToken.value.trim();
+  if (!token) return ownerIntelToken.focus();
+  syncOwnerTokens(token);
+  void loadOwnerIntelligence();
+});
+ownerIntelClearToken.addEventListener("click", () => {
+  syncOwnerTokens("");
+  renderOwnerIntelligence();
+  setOwnerIntelMessage("Owner token cleared from this device.");
+});
+ownerIntelActions.addEventListener("click", (event) => {
+  const action = event.target.closest("[data-owner-intel-action]")?.getAttribute("data-owner-intel-action");
+  if (action === "refresh") void loadOwnerIntelligence();
+  if (action === "market") void openOwnerMarketPanel();
+  if (action === "cases") void openOwnerCasePanel();
+  if (action === "evidence") void openOwnerEvidencePanel();
+});
+ownerIntelCoverage.addEventListener("click", (event) => {
+  const action = event.target.closest("[data-owner-intel-action]")?.getAttribute("data-owner-intel-action");
+  if (action === "refresh") void loadOwnerIntelligence();
 });
 ownerCaseAccess.addEventListener("submit", (event) => {
   event.preventDefault();
   const token = ownerCaseToken.value.trim();
   if (!token) return ownerCaseToken.focus();
-  window.localStorage.setItem(ownerMarketTokenKey, token);
-  ownerMarketToken.value = token;
-  ownerEvidenceToken.value = token;
+  syncOwnerTokens(token);
   void loadOwnerCases();
 });
 ownerCaseClearToken.addEventListener("click", () => {
-  window.localStorage.removeItem(ownerMarketTokenKey);
-  ownerCaseToken.value = "";
-  ownerMarketToken.value = "";
-  ownerEvidenceToken.value = "";
+  syncOwnerTokens("");
   renderOwnerCases({});
   setOwnerCaseMessage("Owner token cleared from this device.");
 });
@@ -5261,16 +5488,11 @@ ownerEvidenceAccess.addEventListener("submit", (event) => {
   event.preventDefault();
   const token = ownerEvidenceToken.value.trim();
   if (!token) return ownerEvidenceToken.focus();
-  window.localStorage.setItem(ownerMarketTokenKey, token);
-  ownerMarketToken.value = token;
-  ownerCaseToken.value = token;
+  syncOwnerTokens(token);
   void loadOwnerEvidence();
 });
 ownerEvidenceClearToken.addEventListener("click", () => {
-  window.localStorage.removeItem(ownerMarketTokenKey);
-  ownerEvidenceToken.value = "";
-  ownerMarketToken.value = "";
-  ownerCaseToken.value = "";
+  syncOwnerTokens("");
   renderOwnerEvidence({});
   setOwnerEvidenceMessage("Owner token cleared from this device.");
 });
@@ -5449,6 +5671,7 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !memoryPanel.hidden) closeMemoryPanel();
   if (event.key === "Escape" && !reportsPanel.hidden) closeReportsPanel();
   if (event.key === "Escape" && !journalPanel.hidden) closeJournalPanel();
+  if (event.key === "Escape" && !ownerIntelPanel.hidden) closeOwnerIntelligencePanel();
   if (event.key === "Escape" && !ownerMarketPanel.hidden) closeOwnerMarketPanel();
   if (event.key === "Escape" && !ownerCasePanel.hidden) closeOwnerCasePanel();
   if (event.key === "Escape" && !ownerEvidencePanel.hidden) closeOwnerEvidencePanel();

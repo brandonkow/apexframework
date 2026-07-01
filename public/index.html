@@ -113,6 +113,7 @@
             <button id="memoryToggle" type="button" aria-expanded="false" aria-controls="memoryPanel" hidden>MEMORY</button>
             <button id="reportsToggle" type="button" aria-expanded="false" aria-controls="reportsPanel" hidden>REPORTS</button>
             <button id="journalToggle" type="button" aria-expanded="false" aria-controls="journalPanel" hidden>JOURNAL</button>
+            <button id="ownerIntelToggle" type="button" aria-expanded="false" aria-controls="ownerIntelPanel">OWNER</button>
             <button id="ownerMarketToggle" type="button" aria-expanded="false" aria-controls="ownerMarketPanel">MARKET</button>
             <button id="ownerCaseToggle" type="button" aria-expanded="false" aria-controls="ownerCasePanel">CASES</button>
             <button id="ownerEvidenceToggle" type="button" aria-expanded="false" aria-controls="ownerEvidencePanel">EVIDENCE</button>
@@ -268,6 +269,42 @@
             </fieldset>
             <p id="journalMessage" class="journalMessage" role="status"></p>
           </form>
+        </section>
+
+        <section id="ownerIntelPanel" class="ownerIntelPanel" aria-label="Owner intelligence command center" hidden>
+          <header class="ownerIntelHeader">
+            <span><small>OWNER COMMAND CENTER</small><b>OWNER INTELLIGENCE CONSOLE</b></span>
+            <button id="ownerIntelClose" type="button" aria-label="Close owner intelligence console">CLOSE</button>
+          </header>
+          <p class="ownerIntelIntro">One coverage view for your proprietary moat: project registry, founder case opinions, dated market signals, and evidence vault proof. Use it to decide what Apex still needs from you.</p>
+          <form id="ownerIntelAccess" class="ownerIntelAccess" autocomplete="off">
+            <label>Owner Token<input id="ownerIntelToken" type="password" placeholder="Uses the same owner token as Market / Cases / Evidence" autocomplete="off" /></label>
+            <button id="ownerIntelSaveToken" type="submit">LOAD</button>
+            <button id="ownerIntelClearToken" type="button">CLEAR</button>
+          </form>
+          <div id="ownerIntelSummary" class="ownerIntelSummary" aria-live="polite">
+            <span><b>0</b> PROJECTS</span>
+            <span><b>0</b> CASES</span>
+            <span><b>0</b> OBSERVATIONS</span>
+            <span><b>0</b> DOCUMENTS</span>
+          </div>
+          <div id="ownerIntelLanes" class="ownerIntelLanes"></div>
+          <div class="ownerIntelWorkspace">
+            <section class="ownerIntelCoverageWrap">
+              <header><span><small>COVERAGE DASHBOARD</small><b>Project-level readiness</b></span><button type="button" data-owner-intel-action="refresh">REFRESH</button></header>
+              <div id="ownerIntelCoverage" class="ownerIntelCoverage"></div>
+            </section>
+            <section class="ownerIntelNext">
+              <header><small>NEXT INPUT</small><b id="ownerIntelNextTitle">Load owner intelligence</b></header>
+              <p id="ownerIntelNextDetail">Paste your owner token to see which projects need case opinions, fresh observations, or evidence proof.</p>
+              <div id="ownerIntelActions" class="ownerIntelActions">
+                <button type="button" data-owner-intel-action="market">PROJECTS</button>
+                <button type="button" data-owner-intel-action="cases">CASES</button>
+                <button type="button" data-owner-intel-action="evidence">EVIDENCE</button>
+              </div>
+            </section>
+          </div>
+          <p id="ownerIntelMessage" class="ownerIntelMessage" role="status"></p>
         </section>
 
         <section id="ownerCasePanel" class="ownerCasePanel" aria-label="Owner development case library" hidden>
