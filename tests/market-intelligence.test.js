@@ -372,7 +372,40 @@ test("owner market observations add dated trends and freshness warnings to Apex 
   });
   assert.equal(restoredBackup.response.status, 200);
   assert.equal(restoredBackup.payload.restored, true);
+  assert.ok(restoredBackup.payload.snapshotId);
   assert.equal(restoredBackup.payload.counts.projects, 2);
+
+  const restoreHistory = await request(baseUrl, "/api/owner/restore/history", { owner: true });
+  assert.equal(restoreHistory.response.status, 200);
+  assert.equal(restoreHistory.payload.summary.events, 1);
+  assert.equal(restoreHistory.payload.summary.snapshots, 1);
+  assert.match(restoreHistory.payload.summary.currentVersionHash, /^[a-f0-9]{64}$/);
+  assert.match(restoreHistory.payload.summary.currentVersionShort, /^[a-f0-9]{12}$/);
+  assert.equal(restoreHistory.payload.events[0].type, "restore");
+  assert.equal(restoreHistory.payload.snapshots[0].state, undefined);
+  assert.equal(restoreHistory.payload.snapshots[0].id, restoredBackup.payload.snapshotId);
+  const rollbackPreview = await request(baseUrl, "/api/owner/restore/rollback", {
+    method: "POST",
+    owner: true,
+    body: { snapshotId: restoredBackup.payload.snapshotId, dryRun: true }
+  });
+  assert.equal(rollbackPreview.response.status, 200);
+  assert.equal(rollbackPreview.payload.confirmationPhrase, "ROLLBACK OWNER KNOWLEDGE");
+  const blockedRollback = await request(baseUrl, "/api/owner/restore/rollback", {
+    method: "POST",
+    owner: true,
+    body: { snapshotId: restoredBackup.payload.snapshotId, dryRun: false }
+  });
+  assert.equal(blockedRollback.response.status, 409);
+  const confirmedRollback = await request(baseUrl, "/api/owner/restore/rollback", {
+    method: "POST",
+    owner: true,
+    body: { snapshotId: restoredBackup.payload.snapshotId, dryRun: false, confirmRollback: "ROLLBACK OWNER KNOWLEDGE" }
+  });
+  assert.equal(confirmedRollback.response.status, 200);
+  assert.equal(confirmedRollback.payload.rollback, true);
+  assert.equal(confirmedRollback.payload.history.summary.events, 2);
+  assert.equal(confirmedRollback.payload.history.summary.snapshots, 2);
 
   const blockedDelete = await request(baseUrl, `/api/owner/market/projects/${projectId}`, { method: "DELETE", owner: true });
   assert.equal(blockedDelete.response.status, 409);

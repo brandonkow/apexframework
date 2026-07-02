@@ -1198,7 +1198,7 @@ function normalizeAuth(auth) {
 }
 
 function emptyKnowledge() {
-  return { version: 3, documents: [], chunks: [], retrievalEvents: [], projects: [], observations: [], developmentCases: [] };
+  return { version: 3, documents: [], chunks: [], retrievalEvents: [], projects: [], observations: [], developmentCases: [], ownerRestoreEvents: [], ownerRollbackSnapshots: [] };
 }
 
 const MARKET_METRIC_TYPES = new Set([
@@ -1327,6 +1327,42 @@ function normalizeDevelopmentCase(input = {}, projectIds = new Set()) {
   };
 }
 
+function cleanOwnerCounts(counts = {}) {
+  return Object.fromEntries([
+    "properties", "comps", "beliefs", "decisions", "answers", "projects",
+    "observations", "developmentCases", "documents", "chunks", "retrievalEvents"
+  ].map((key) => [key, Math.max(0, Math.floor(Number(counts?.[key] || 0)))]));
+}
+
+function normalizeOwnerRestoreEvent(event = {}) {
+  const type = ["restore", "rollback"].includes(event.type) ? event.type : "restore";
+  const id = cleanMarketText(event.id || randomUUID(), 100);
+  return {
+    id,
+    type,
+    createdAt: cleanMarketDate(event.createdAt, new Date().toISOString()),
+    snapshotId: cleanMarketText(event.snapshotId, 100),
+    restoredFromSnapshotId: cleanMarketText(event.restoredFromSnapshotId, 100),
+    sourceHash: cleanMarketText(event.sourceHash, 160),
+    sourceExportedAt: cleanMarketText(event.sourceExportedAt, 80),
+    before: cleanOwnerCounts(event.before),
+    after: cleanOwnerCounts(event.after),
+    notes: cleanMarketText(event.notes, 600)
+  };
+}
+
+function normalizeOwnerRollbackSnapshot(snapshot = {}) {
+  const state = snapshot?.state && typeof snapshot.state === "object" && !Array.isArray(snapshot.state) ? snapshot.state : null;
+  if (!state) return null;
+  return {
+    id: cleanMarketText(snapshot.id || randomUUID(), 100),
+    createdAt: cleanMarketDate(snapshot.createdAt, new Date().toISOString()),
+    reason: cleanMarketText(snapshot.reason || "owner-restore-snapshot", 120),
+    counts: cleanOwnerCounts(snapshot.counts),
+    state
+  };
+}
+
 function normalizeKnowledge(knowledge) {
   const documents = Array.isArray(knowledge?.documents)
     ? knowledge.documents.map((document) => ({
@@ -1383,7 +1419,13 @@ function normalizeKnowledge(knowledge) {
       .filter(Boolean)
       .slice(-2000)
     : [];
-  return { version: 3, documents, chunks, retrievalEvents, projects, observations, developmentCases };
+  const ownerRestoreEvents = Array.isArray(knowledge?.ownerRestoreEvents)
+    ? knowledge.ownerRestoreEvents.map(normalizeOwnerRestoreEvent).filter(Boolean).slice(-100)
+    : [];
+  const ownerRollbackSnapshots = Array.isArray(knowledge?.ownerRollbackSnapshots)
+    ? knowledge.ownerRollbackSnapshots.map(normalizeOwnerRollbackSnapshot).filter(Boolean).slice(-5)
+    : [];
+  return { version: 3, documents, chunks, retrievalEvents, projects, observations, developmentCases, ownerRestoreEvents, ownerRollbackSnapshots };
 }
 
 function normalizeBrain(brain) {
@@ -9066,6 +9108,93 @@ function publicOwnerKnowledgeRestorePreview(plan) {
   };
 }
 
+function ownerRollbackSnapshot(db, reason = "before-owner-restore") {
+  const state = ownerKnowledgeExport(db, { includeChunks: true });
+  return normalizeOwnerRollbackSnapshot({
+    id: randomUUID(),
+    createdAt: new Date().toISOString(),
+    reason,
+    counts: ownerKnowledgeCounts(db),
+    state
+  });
+}
+
+function ownerRestoreEvent({ type = "restore", snapshotId = "", restoredFromSnapshotId = "", source = {}, before = {}, after = {}, notes = "" } = {}) {
+  return normalizeOwnerRestoreEvent({
+    id: randomUUID(),
+    type,
+    createdAt: new Date().toISOString(),
+    snapshotId,
+    restoredFromSnapshotId,
+    sourceHash: source?.integrity?.hash || "",
+    sourceExportedAt: source?.exportedAt || "",
+    before,
+    after,
+    notes
+  });
+}
+
+function publicOwnerRollbackSnapshot(snapshot = {}) {
+  return {
+    id: snapshot.id,
+    createdAt: snapshot.createdAt,
+    reason: snapshot.reason,
+    counts: cleanOwnerCounts(snapshot.counts),
+    sourceHash: snapshot.state?.integrity?.hash || "",
+    sourceExportedAt: snapshot.state?.exportedAt || ""
+  };
+}
+
+function ownerKnowledgeVersionSummary(db) {
+  const payload = ownerKnowledgeExport(db, { includeChunks: true });
+  return {
+    hash: payload.integrity.hash,
+    shortHash: payload.integrity.hash.slice(0, 12),
+    counts: payload.counts
+  };
+}
+
+function ownerRestoreHistory(db) {
+  const knowledge = normalizeKnowledge(db.knowledge);
+  const version = ownerKnowledgeVersionSummary(db);
+  return {
+    summary: {
+      events: knowledge.ownerRestoreEvents.length,
+      snapshots: knowledge.ownerRollbackSnapshots.length,
+      latestEventAt: knowledge.ownerRestoreEvents.at(-1)?.createdAt || "",
+      latestSnapshotAt: knowledge.ownerRollbackSnapshots.at(-1)?.createdAt || "",
+      currentVersionHash: version.hash,
+      currentVersionShort: version.shortHash,
+      currentCounts: version.counts
+    },
+    events: knowledge.ownerRestoreEvents.slice().reverse(),
+    snapshots: knowledge.ownerRollbackSnapshots.slice().reverse().map(publicOwnerRollbackSnapshot)
+  };
+}
+
+function applyOwnerRestoredState(db, plan, { type = "restore", source = {}, restoredFromSnapshotId = "", notes = "" } = {}) {
+  const currentKnowledge = normalizeKnowledge(db.knowledge);
+  const snapshot = ownerRollbackSnapshot(db, type === "rollback" ? "before-owner-rollback" : "before-owner-restore");
+  const event = ownerRestoreEvent({
+    type,
+    snapshotId: snapshot.id,
+    restoredFromSnapshotId,
+    source,
+    before: ownerKnowledgeCounts(db),
+    after: plan.incoming,
+    notes
+  });
+  db.properties = plan.restored.properties;
+  db.comps = plan.restored.comps;
+  db.brain = plan.restored.brain;
+  db.knowledge = normalizeKnowledge({
+    ...plan.restored.knowledge,
+    ownerRestoreEvents: [...currentKnowledge.ownerRestoreEvents, event],
+    ownerRollbackSnapshots: [...currentKnowledge.ownerRollbackSnapshots, snapshot]
+  });
+  return { snapshot, event };
+}
+
 function isPublicApiRoute(method, pathname) {
   return (
     (method === "GET" && pathname === "/api/health")
@@ -9750,6 +9879,51 @@ async function router(req, res) {
     });
   }
 
+  if (req.method === "GET" && url.pathname === "/api/owner/restore/history") {
+    return send(res, 200, ownerRestoreHistory(db));
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/owner/restore/rollback") {
+    const body = await readBody(req);
+    const snapshotId = String(body.snapshotId || "").trim();
+    const knowledge = normalizeKnowledge(db.knowledge);
+    const snapshot = knowledge.ownerRollbackSnapshots.find((item) => item.id === snapshotId);
+    if (!snapshot) return send(res, 404, { error: "Rollback snapshot not found." });
+    const plan = ownerKnowledgeRestorePreview(db, snapshot.state);
+    if (!plan.valid) return send(res, 409, { ...publicOwnerKnowledgeRestorePreview(plan), error: "Rollback snapshot failed validation." });
+    const dryRun = body.dryRun !== false;
+    const confirmationPhrase = "ROLLBACK OWNER KNOWLEDGE";
+    if (dryRun) {
+      return send(res, 200, {
+        ...publicOwnerKnowledgeRestorePreview({ ...plan, confirmationPhrase }),
+        snapshot: publicOwnerRollbackSnapshot(snapshot)
+      });
+    }
+    if (String(body.confirmRollback || "").trim() !== confirmationPhrase) {
+      return send(res, 409, {
+        ...publicOwnerKnowledgeRestorePreview({ ...plan, confirmationPhrase }),
+        snapshot: publicOwnerRollbackSnapshot(snapshot),
+        error: `Type ${confirmationPhrase} to roll owner knowledge back to this snapshot.`
+      });
+    }
+    const applied = applyOwnerRestoredState(db, plan, {
+      type: "rollback",
+      source: snapshot.state,
+      restoredFromSnapshotId: snapshot.id,
+      notes: "Owner rollback applied from a stored pre-restore snapshot."
+    });
+    await writeDb(db);
+    return send(res, 200, {
+      restored: true,
+      rollback: true,
+      restoredAt: new Date().toISOString(),
+      restoredFromSnapshotId: snapshot.id,
+      newSnapshotId: applied.snapshot.id,
+      counts: ownerKnowledgeCounts(db),
+      history: ownerRestoreHistory(db)
+    });
+  }
+
   if (req.method === "POST" && url.pathname === "/api/owner/restore") {
     const body = await readBody(req);
     const plan = ownerKnowledgeRestorePreview(db, body);
@@ -9762,16 +9936,20 @@ async function router(req, res) {
         error: `Type ${plan.confirmationPhrase} to replace owner knowledge from this backup.`
       });
     }
-    db.properties = plan.restored.properties;
-    db.comps = plan.restored.comps;
-    db.brain = plan.restored.brain;
-    db.knowledge = plan.restored.knowledge;
+    const backup = body?.backup && typeof body.backup === "object" ? body.backup : body;
+    const applied = applyOwnerRestoredState(db, plan, {
+      type: "restore",
+      source: backup,
+      notes: "Owner backup restore replaced the active owner knowledge state."
+    });
     await writeDb(db);
     const restored = ownerKnowledgeCounts(db);
     return send(res, 200, {
       restored: true,
       restoredAt: new Date().toISOString(),
+      snapshotId: applied.snapshot.id,
       counts: restored,
+      history: ownerRestoreHistory(db),
       warning: "Owner knowledge was replaced from a validated backup. Re-test evidence retrieval if original uploaded files were stored outside the JSON backup."
     });
   }

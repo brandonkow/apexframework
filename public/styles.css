@@ -2093,6 +2093,7 @@ body.stageCompact:not(.conversationActive) .identity #assistantPrompt {
 .ownerIntelHeader button,
 .ownerIntelAccess button,
 .ownerIntelControls button,
+.ownerIntelRestoreLog button,
 .ownerIntelCoverageWrap button,
 .ownerIntelCoverageActions button,
 .ownerIntelActions button,
@@ -2131,6 +2132,7 @@ body.stageCompact:not(.conversationActive) .identity #assistantPrompt {
 .ownerIntelHeader button:hover,
 .ownerIntelAccess button:hover,
 .ownerIntelControls button:hover,
+.ownerIntelRestoreLog button:hover,
 .ownerIntelCoverageWrap button:hover,
 .ownerIntelCoverageActions button:hover,
 .ownerIntelActions button:hover,
@@ -2286,6 +2288,37 @@ body.stageCompact:not(.conversationActive) .identity #assistantPrompt {
   padding: 8px 12px;
   font-size: 0.66rem;
   letter-spacing: 0.08em;
+}
+
+.ownerIntelRestoreLog {
+  margin: 10px 0 12px;
+  border: 1px solid rgba(103, 229, 255, 0.14);
+  border-radius: 18px;
+  padding: 10px;
+  background: rgba(0, 13, 20, 0.58);
+}
+
+.ownerIntelRestoreLog header,
+.ownerIntelRestoreLog article {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+
+.ownerIntelRestoreLog article {
+  border-top: 1px solid rgba(103, 229, 255, 0.1);
+  padding-top: 8px;
+  margin-top: 8px;
+}
+
+.ownerIntelRestoreLog b,
+.ownerIntelRestoreLog em,
+.ownerIntelRestoreLog p {
+  display: block;
+  color: #9ecbd3;
+  font-size: 0.62rem;
+  line-height: 1.45;
 }
 
 .ownerIntelControls button[aria-pressed="true"] {

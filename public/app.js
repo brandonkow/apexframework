@@ -116,9 +116,11 @@ const ownerIntelControls = document.querySelector("#ownerIntelControls");
 const ownerIntelCopyBrief = document.querySelector("#ownerIntelCopyBrief");
 const ownerIntelExport = document.querySelector("#ownerIntelExport");
 const ownerIntelImport = document.querySelector("#ownerIntelImport");
+const ownerIntelRestoreHistory = document.querySelector("#ownerIntelRestoreHistory");
 const ownerIntelImportFile = document.querySelector("#ownerIntelImportFile");
 const ownerIntelRestorePhrase = document.querySelector("#ownerIntelRestorePhrase");
 const ownerIntelRestoreConfirm = document.querySelector("#ownerIntelRestoreConfirm");
+const ownerIntelRestoreLog = document.querySelector("#ownerIntelRestoreLog");
 const ownerIntelLanes = document.querySelector("#ownerIntelLanes");
 const ownerIntelCoverage = document.querySelector("#ownerIntelCoverage");
 const ownerIntelNextTitle = document.querySelector("#ownerIntelNextTitle");
@@ -254,6 +256,7 @@ const contextFieldModeKey = "apex.contextFieldMode.v1";
 const shortlistKey = "apex.shortlist.v1";
 const responseFeedbackKey = "apex.responseFeedback.v1";
 const ownerMarketTokenKey = "apex.ownerMarket.token";
+const ownerBackupMarkerKey = "apex.ownerKnowledge.lastBackup.v1";
 const trustBoundaryKey = "apex.trustBoundary.accepted.v1";
 const analysisRegistry = new Map();
 let voiceResponsesEnabled = true;
@@ -2876,6 +2879,38 @@ function ownerIntelProjectRows(projects = [], cases = [], observations = [], doc
   });
 }
 
+function readOwnerBackupMarker() {
+  try {
+    return JSON.parse(window.localStorage.getItem(ownerBackupMarkerKey) || "null") || null;
+  } catch {
+    return null;
+  }
+}
+
+function writeOwnerBackupMarker(backup = {}) {
+  const marker = {
+    exportedAt: backup.exportedAt || new Date().toISOString(),
+    versionHash: backup.integrity?.hash || "",
+    versionShort: backup.integrity?.hash ? backup.integrity.hash.slice(0, 12) : "",
+    counts: backup.counts || {}
+  };
+  window.localStorage.setItem(ownerBackupMarkerKey, JSON.stringify(marker));
+  return marker;
+}
+
+function ownerBackupReminder(currentVersionHash = "") {
+  const marker = readOwnerBackupMarker();
+  if (!marker?.exportedAt) return { status: "missing", label: "No local backup", action: "Download a backup after major owner-knowledge edits." };
+  const ageDays = Math.floor((Date.now() - Date.parse(marker.exportedAt)) / 86400000);
+  if (currentVersionHash && marker.versionHash && marker.versionHash !== currentVersionHash) {
+    return { status: "warning", label: "Backup outdated", action: "Current owner data changed after the last downloaded backup." };
+  }
+  if (Number.isFinite(ageDays) && ageDays > 14) {
+    return { status: "warning", label: `${ageDays} days old`, action: "Download a fresh backup this week." };
+  }
+  return { status: "ready", label: marker.versionShort ? `Saved ${marker.versionShort}` : "Backup recent", action: "Local backup marker matches the current browser record." };
+}
+
 function ownerIntelLane(label, value, status, action) {
   return `
     <article class="${escapeHtml(status)}">
@@ -3001,7 +3036,8 @@ async function exportOwnerKnowledgeBackup() {
     const backup = await ownerIntelRequest("/api/owner/export?chunks=true");
     const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
     downloadJsonFile(`apex-owner-knowledge-${stamp}.json`, backup);
-    setOwnerIntelMessage(`Owner backup downloaded: ${backup.counts?.projects || 0} projects, ${backup.counts?.observations || 0} observations, ${backup.counts?.developmentCases || 0} cases, ${backup.counts?.documents || 0} documents, ${backup.counts?.chunks || 0} chunks.`);
+    const marker = writeOwnerBackupMarker(backup);
+    setOwnerIntelMessage(`Owner backup downloaded: ${backup.counts?.projects || 0} projects, ${backup.counts?.observations || 0} observations, ${backup.counts?.developmentCases || 0} cases, ${backup.counts?.documents || 0} documents, ${backup.counts?.chunks || 0} chunks. Version ${marker.versionShort || "recorded"}.`);
   } finally {
     ownerIntelExport.disabled = false;
   }
@@ -3019,6 +3055,7 @@ async function previewOwnerKnowledgeRestore(file) {
   ownerIntelImport.disabled = true;
   ownerIntelRestorePhrase.hidden = true;
   ownerIntelRestorePhrase.value = "";
+  ownerIntelRestorePhrase.placeholder = "Type RESTORE OWNER KNOWLEDGE";
   ownerIntelRestoreConfirm.hidden = true;
   ownerIntelPendingRestore = null;
   try {
@@ -3071,10 +3108,65 @@ async function confirmOwnerKnowledgeRestore() {
     ownerIntelRestorePhrase.hidden = true;
     ownerIntelRestoreConfirm.hidden = true;
     await loadOwnerIntelligence();
+    if (!ownerIntelRestoreLog.hidden) renderOwnerRestoreHistory(result.history || {});
     setOwnerIntelMessage(`Owner knowledge restored: ${result.counts?.projects || 0} projects, ${result.counts?.observations || 0} observations, ${result.counts?.developmentCases || 0} cases, ${result.counts?.documents || 0} documents.`, "warning");
   } finally {
     ownerIntelRestoreConfirm.disabled = false;
   }
+}
+
+function ownerRestoreCountsText(counts = {}) {
+  return `${counts.projects || 0} projects / ${counts.observations || 0} signals / ${counts.developmentCases || 0} cases / ${counts.documents || 0} docs`;
+}
+
+function renderOwnerRestoreHistory(payload = {}) {
+  const snapshots = Array.isArray(payload.snapshots) ? payload.snapshots : [];
+  const events = Array.isArray(payload.events) ? payload.events : [];
+  const versionShort = payload.summary?.currentVersionShort || "";
+  ownerIntelRestoreLog.hidden = false;
+  ownerIntelRestoreLog.innerHTML = `
+    <header><span><small>OWNER DATA SAFETY${versionShort ? ` / VERSION ${escapeHtml(versionShort)}` : ""}</small><b>${escapeHtml(snapshots.length)} rollback snapshot${snapshots.length === 1 ? "" : "s"}</b></span><em>${escapeHtml(events.length)} event${events.length === 1 ? "" : "s"}</em></header>
+    ${snapshots.length ? snapshots.map((snapshot) => `
+      <article>
+        <span><small>${escapeHtml(snapshot.reason || "snapshot")}</small><b>${escapeHtml(ownerRestoreCountsText(snapshot.counts))}</b><em>${escapeHtml(snapshot.createdAt || "")}</em></span>
+        <button type="button" data-owner-rollback-snapshot="${escapeHtml(snapshot.id)}">ROLLBACK</button>
+      </article>
+    `).join("") : '<p class="ownerIntelEmpty">No rollback snapshots yet. Apex creates one before every confirmed restore or rollback.</p>'}
+    ${events.length ? `<p>Latest: ${escapeHtml(events[0].type || "restore")} / ${escapeHtml(events[0].createdAt || "")}</p>` : ""}
+  `;
+}
+
+async function loadOwnerRestoreHistory() {
+  if (!ownerIntelTokenValue()) return ownerIntelToken.focus();
+  ownerIntelPendingRestore = null;
+  ownerIntelRestoreConfirm.hidden = true;
+  ownerIntelRestorePhrase.value = "";
+  ownerIntelRestorePhrase.placeholder = "Type ROLLBACK OWNER KNOWLEDGE";
+  setOwnerIntelMessage("Loading owner restore log...");
+  const history = await ownerIntelRequest("/api/owner/restore/history");
+  renderOwnerRestoreHistory(history);
+  ownerIntelRestorePhrase.hidden = !(history.snapshots || []).length;
+  setOwnerIntelMessage(`Restore log loaded: ${history.summary?.snapshots || 0} rollback snapshots, ${history.summary?.events || 0} restore events.`);
+}
+
+async function rollbackOwnerKnowledgeSnapshot(snapshotId) {
+  if (!snapshotId) return;
+  const confirmRollback = ownerIntelRestorePhrase.value.trim();
+  if (confirmRollback !== "ROLLBACK OWNER KNOWLEDGE") {
+    ownerIntelRestorePhrase.hidden = false;
+    ownerIntelRestorePhrase.placeholder = "Type ROLLBACK OWNER KNOWLEDGE";
+    ownerIntelRestorePhrase.focus();
+    return setOwnerIntelMessage("Type ROLLBACK OWNER KNOWLEDGE before rolling back to this snapshot.", "warning");
+  }
+  setOwnerIntelMessage("Rolling owner knowledge back to selected snapshot...");
+  const result = await ownerIntelRequest("/api/owner/restore/rollback", {
+    method: "POST",
+    body: JSON.stringify({ snapshotId, dryRun: false, confirmRollback })
+  });
+  ownerIntelRestorePhrase.value = "";
+  await loadOwnerIntelligence();
+  renderOwnerRestoreHistory(result.history || {});
+  setOwnerIntelMessage(`Owner knowledge rolled back: ${result.counts?.projects || 0} projects, ${result.counts?.observations || 0} observations, ${result.counts?.developmentCases || 0} cases.`, "warning");
 }
 
 function ownerAdminPlanOptions(selected) {
@@ -3172,7 +3264,7 @@ async function saveOwnerAdminUser(button) {
   }
 }
 
-function renderOwnerIntelligence({ projects = {}, observations = {}, cases = {}, evidence = {} } = {}) {
+function renderOwnerIntelligence({ projects = {}, observations = {}, cases = {}, evidence = {}, history = {} } = {}) {
   const projectItems = Array.isArray(projects.projects) ? projects.projects : [];
   const observationItems = Array.isArray(observations.observations) ? observations.observations : [];
   const caseItems = Array.isArray(cases.cases) ? cases.cases : [];
@@ -3187,6 +3279,7 @@ function renderOwnerIntelligence({ projects = {}, observations = {}, cases = {},
   const noEvidence = rows.filter((row) => row.evidence === 0).length;
   const complete = rows.filter((row) => row.status === "ready").length;
   const score = ownerIntelCoverageScore(rows);
+  const backupReminder = ownerBackupReminder(history.summary?.currentVersionHash || "");
   ownerIntelSnapshot = {
     rows,
     score,
@@ -3194,7 +3287,9 @@ function renderOwnerIntelligence({ projects = {}, observations = {}, cases = {},
     caseCount: cases.summary?.total ?? caseItems.length,
     observationCount: observations.summary?.matched ?? observationItems.length,
     documentCount: evidence.summary?.documents ?? documents.length,
-    complete
+    complete,
+    currentVersionShort: history.summary?.currentVersionShort || "",
+    backupReminder
   };
   ownerIntelSummary.innerHTML = `
     <span><b>${escapeHtml(score)}%</b> COVERAGE</span>
@@ -3208,7 +3303,8 @@ function renderOwnerIntelligence({ projects = {}, observations = {}, cases = {},
     ownerIntelLane("Project registry", `${projectItems.length} tracked`, projectItems.length ? "ready" : "missing", projectItems.length ? "Registry exists." : "Add projects before cases can be linked."),
     ownerIntelLane("Founder cases", `${missingCase} missing`, missingCase ? "warning" : "ready", missingCase ? "Write founder opinion for unmatched projects." : "Case coverage is broad."),
     ownerIntelLane("Market freshness", `${staleObservation} stale`, staleObservation ? "warning" : observationItems.length ? "ready" : "missing", staleObservation ? "Re-check old observations." : observationItems.length ? "Signals are current enough." : "Add dated ground signals."),
-    ownerIntelLane("Evidence vault", `${noEvidence} unbacked`, noEvidence ? "warning" : documents.length ? "ready" : "missing", noEvidence ? "Attach proof to important projects." : documents.length ? "Evidence exists." : "Add source proof.")
+    ownerIntelLane("Evidence vault", `${noEvidence} unbacked`, noEvidence ? "warning" : documents.length ? "ready" : "missing", noEvidence ? "Attach proof to important projects." : documents.length ? "Evidence exists." : "Add source proof."),
+    ownerIntelLane("Backup rhythm", backupReminder.label, backupReminder.status, backupReminder.action)
   ].join("");
   renderOwnerIntelCoverageRows(rows);
 
@@ -3234,15 +3330,16 @@ async function loadOwnerIntelligence() {
     return null;
   }
   setOwnerIntelMessage("Loading owner intelligence coverage...");
-  const [projects, observations, cases, evidence] = await Promise.all([
+  const [projects, observations, cases, evidence, history] = await Promise.all([
     ownerIntelRequest("/api/owner/market/projects"),
     ownerIntelRequest("/api/owner/market/observations?limit=500"),
     ownerIntelRequest("/api/owner/development-cases?limit=500"),
-    ownerIntelRequest("/api/owner/documents")
+    ownerIntelRequest("/api/owner/documents"),
+    ownerIntelRequest("/api/owner/restore/history")
   ]);
-  renderOwnerIntelligence({ projects, observations, cases, evidence });
+  renderOwnerIntelligence({ projects, observations, cases, evidence, history });
   setOwnerIntelMessage("Owner intelligence coverage loaded.");
-  return { projects, observations, cases, evidence };
+  return { projects, observations, cases, evidence, history };
 }
 
 async function ownerCaseRequest(pathname, options = {}) {
@@ -5871,6 +5968,8 @@ ownerIntelClearToken.addEventListener("click", () => {
   ownerIntelRestorePhrase.value = "";
   ownerIntelRestorePhrase.hidden = true;
   ownerIntelRestoreConfirm.hidden = true;
+  ownerIntelRestoreLog.hidden = true;
+  ownerIntelRestoreLog.innerHTML = "";
   renderOwnerIntelligence();
   renderOwnerAdminUsers([]);
   setOwnerIntelMessage("Owner token cleared from this device.");
@@ -5884,8 +5983,13 @@ ownerIntelControls.addEventListener("click", (event) => {
 ownerIntelCopyBrief.addEventListener("click", () => void copyOwnerIntelBrief());
 ownerIntelExport.addEventListener("click", () => void exportOwnerKnowledgeBackup().catch((error) => setOwnerIntelMessage(error.message || "Owner backup could not be exported.", "danger")));
 ownerIntelImport.addEventListener("click", () => ownerIntelImportFile.click());
+ownerIntelRestoreHistory.addEventListener("click", () => void loadOwnerRestoreHistory().catch((error) => setOwnerIntelMessage(error.message || "Restore log could not be loaded.", "danger")));
 ownerIntelImportFile.addEventListener("change", () => void previewOwnerKnowledgeRestore(ownerIntelImportFile.files?.[0]).catch((error) => setOwnerIntelMessage(error.message || "Owner backup could not be validated.", "danger")));
 ownerIntelRestoreConfirm.addEventListener("click", () => void confirmOwnerKnowledgeRestore().catch((error) => setOwnerIntelMessage(error.message || "Owner backup could not be restored.", "danger")));
+ownerIntelRestoreLog.addEventListener("click", (event) => {
+  const snapshotId = event.target.closest("[data-owner-rollback-snapshot]")?.getAttribute("data-owner-rollback-snapshot");
+  if (snapshotId) void rollbackOwnerKnowledgeSnapshot(snapshotId).catch((error) => setOwnerIntelMessage(error.message || "Rollback could not be completed.", "danger"));
+});
 ownerAdminLoad.addEventListener("click", () => void loadOwnerAdminUsers().catch((error) => setOwnerIntelMessage(error.message || "User control could not be loaded.", "danger")));
 ownerAdminList.addEventListener("click", (event) => {
   const button = event.target.closest("[data-owner-admin-action='save']");
