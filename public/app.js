@@ -193,6 +193,7 @@ const ownerEvidenceSourceUrl = document.querySelector("#ownerEvidenceSourceUrl")
 const ownerEvidenceTags = document.querySelector("#ownerEvidenceTags");
 const ownerEvidenceText = document.querySelector("#ownerEvidenceText");
 const ownerEvidenceRefresh = document.querySelector("#ownerEvidenceRefresh");
+const ownerEvidenceFilter = document.querySelector("#ownerEvidenceFilter");
 const ownerEvidenceList = document.querySelector("#ownerEvidenceList");
 const ownerEvidenceMetrics = document.querySelector("#ownerEvidenceMetrics");
 const ownerEvidenceMessage = document.querySelector("#ownerEvidenceMessage");
@@ -278,6 +279,7 @@ let ownerIntelFilter = "all";
 let ownerIntelSnapshot = null;
 let ownerCaseItems = [];
 let ownerCaseEditingId = "";
+let ownerEvidenceDocuments = [];
 let memorySettingsLoading = false;
 let pendingTrustAction = "";
 let latestAnalysisId = "";
@@ -3184,9 +3186,33 @@ function ownerEvidenceMarkup(document) {
   `;
 }
 
+function ownerEvidenceFilterMatches(document, query) {
+  if (!query) return true;
+  const text = [
+    document.title,
+    document.filename,
+    document.sourceUrl,
+    document.status,
+    document.indexMode,
+    ...(document.tags || [])
+  ].join(" ").toLowerCase();
+  return query.split(/\s+/).filter(Boolean).every((term) => text.includes(term));
+}
+
+function renderOwnerEvidenceDocuments() {
+  const query = ownerEvidenceFilter.value.trim().toLowerCase();
+  const filtered = ownerEvidenceDocuments.filter((document) => ownerEvidenceFilterMatches(document, query));
+  ownerEvidenceList.innerHTML = filtered.length
+    ? filtered.map(ownerEvidenceMarkup).join("")
+    : ownerEvidenceDocuments.length
+      ? '<p class="ownerEvidenceEmpty">No evidence documents match this filter.</p>'
+      : '<p class="ownerEvidenceEmpty">No evidence documents yet. Add the first transaction, rent, financing, legal, or site proof above.</p>';
+}
+
 function renderOwnerEvidence(payload = {}) {
   const documents = Array.isArray(payload.documents) ? payload.documents : [];
   const summary = payload.summary || {};
+  ownerEvidenceDocuments = documents;
   ownerEvidenceSummary.innerHTML = `
     <span><b>${escapeHtml(summary.documents || documents.length)}</b> DOCUMENTS</span>
     <span><b>${escapeHtml(summary.indexed || 0)}</b> INDEXED</span>
@@ -3194,9 +3220,7 @@ function renderOwnerEvidence(payload = {}) {
     <span>${escapeHtml(summary.embeddingProvider ? "EMBEDDINGS ON" : "LEXICAL SEARCH")}</span>
   `;
   ownerEvidenceMetrics.textContent = `${summary.chunks || 0} indexed chunks`;
-  ownerEvidenceList.innerHTML = documents.length
-    ? documents.map(ownerEvidenceMarkup).join("")
-    : '<p class="ownerEvidenceEmpty">No evidence documents yet. Add the first transaction, rent, financing, legal, or site proof above.</p>';
+  renderOwnerEvidenceDocuments();
 }
 
 async function loadOwnerEvidence() {
@@ -5803,6 +5827,7 @@ ownerEvidenceAccess.addEventListener("submit", (event) => {
 });
 ownerEvidenceClearToken.addEventListener("click", () => {
   syncOwnerTokens("");
+  ownerEvidenceFilter.value = "";
   renderOwnerEvidence({});
   setOwnerEvidenceMessage("Owner token cleared from this device.");
 });
@@ -5844,6 +5869,7 @@ ownerEvidenceForm.addEventListener("submit", (event) => {
   });
 });
 ownerEvidenceRefresh.addEventListener("click", () => void loadOwnerEvidence().catch((error) => setOwnerEvidenceMessage(error.message || "Evidence vault could not be loaded.", "danger")));
+ownerEvidenceFilter.addEventListener("input", renderOwnerEvidenceDocuments);
 ownerEvidenceList.addEventListener("click", (event) => {
   const button = event.target.closest("[data-owner-evidence-action='delete']");
   if (button) void deleteOwnerEvidenceDocument(button);

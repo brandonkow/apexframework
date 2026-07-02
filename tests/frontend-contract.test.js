@@ -74,7 +74,7 @@ test("frontend selectors and stylesheet structure stay valid", async () => {
   assert.match(html, /id="ownerProjectForm"[\s\S]*?id="ownerObservationForm"[\s\S]*?id="ownerObservationList"/, "The market console needs project and observation entry surfaces.");
   assert.match(html, /id="ownerMarketImportForm"[\s\S]*?id="ownerMarketImportText"[\s\S]*?IMPORT JSON/, "The owner market console needs a guarded bulk JSON import surface.");
   assert.match(html, /id="ownerCasePanel"[\s\S]*?DEVELOPMENT CASE LIBRARY[\s\S]*?id="ownerCaseForm"[\s\S]*?id="ownerCaseSubmit"[\s\S]*?id="ownerCaseCancelEdit"[\s\S]*?id="ownerCaseList"/, "The development case library needs owner-token-gated entry, edit, and review surfaces.");
-  assert.match(html, /id="ownerEvidencePanel"[\s\S]*?EVIDENCE VAULT[\s\S]*?id="ownerEvidenceForm"[\s\S]*?id="ownerEvidenceList"/, "V8 needs an owner-token-gated evidence vault.");
+  assert.match(html, /id="ownerEvidencePanel"[\s\S]*?EVIDENCE VAULT[\s\S]*?id="ownerEvidenceForm"[\s\S]*?id="ownerEvidenceFilter"[\s\S]*?id="ownerEvidenceList"/, "V8 needs an owner-token-gated evidence vault with searchable proof documents.");
   assert.doesNotMatch(html, /ESTATELAB \/ JARVIS|<b>J<\/b>/, "Legacy visible branding must not return.");
   assert.doesNotMatch(html, />[^<]*(EstateLab|Jarvis)[^<]*</i, "Visible HTML copy must use Apex branding only.");
   assert.match(app, /function brandVisibleText[\s\S]*?EstateLab[\s\S]*?Jarvis/, "Rendered text must scrub legacy branding from retrieved knowledge.");
@@ -188,6 +188,7 @@ test("frontend selectors and stylesheet structure stay valid", async () => {
   assert.match(app, /caseIntelligence: analysis\.caseIntelligence/, "Shortlisted deals must preserve matched development case intelligence.");
   assert.match(app, /caseIntelligenceMarkup\(analysis\.caseIntelligence\)/, "On-screen reports must show matched development case intelligence.");
   assert.match(app, /function renderOwnerEvidence[\s\S]*?\/api\/owner\/documents/, "The V8 evidence vault must load owner documents.");
+  assert.match(app, /let ownerEvidenceDocuments[\s\S]*?function renderOwnerEvidenceDocuments[\s\S]*?ownerEvidenceFilter\.addEventListener\("input"/, "The evidence vault must filter loaded proof documents without another server request.");
   assert.match(app, /function createOwnerEvidence[\s\S]*?\/api\/owner\/documents/, "The V8 evidence vault must create owner evidence documents.");
   assert.match(app, /function documentIntelligenceMarkup[\s\S]*?V8\.1 - V8\.10 DOCUMENT INTELLIGENCE[\s\S]*?documentActionQueue/, "V8.1-V8.10 must render as one compact report stack.");
   assert.match(app, /function documentIntelligenceText[\s\S]*?V8 document intelligence stack/, "Copied reports must include the V8.1-V8.10 stack.");
@@ -298,6 +299,7 @@ test("frontend selectors and stylesheet structure stay valid", async () => {
   assert.match(styles, /\.ownerCaseFormActions[\s\S]*?\.ownerCaseItemActions/, "The owner case library needs styled edit and delete actions.");
   assert.match(styles, /\.ownerEvidenceOpen \.transcript[\s\S]*?display:\s*none;/, "The evidence vault must replace chat content instead of opening a popup.");
   assert.match(styles, /\.ownerEvidencePanel[\s\S]*?\.ownerEvidenceWorkspace[\s\S]*?grid-template-columns:/, "The v8 evidence vault needs a styled owner workspace.");
+  assert.match(styles, /\.ownerEvidenceFilter[\s\S]*?focus/, "The evidence vault filter must use the owner input styling.");
   assert.match(styles, /\.analysisMarketPulse[\s\S]*?overflow-wrap:\s*anywhere;/, "Market observations must remain readable without overflowing the report.");
   assert.match(styles, /\.analysisCaseIntelligence[\s\S]*?\.caseIntelligenceCards[\s\S]*?\.caseActionQueue/, "Development case intelligence must have styled report cards.");
   assert.match(styles, /\.analysisOverview[\s\S]*?grid-template-columns:/, "The v1.1 report needs an organized readiness and scorecard overview.");
