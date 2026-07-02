@@ -79,7 +79,9 @@ ESTATELAB_PG_POOL_MAX=5
 
 `ESTATELAB_OWNER_TOKEN` protects the owner-only APIs. Public chat endpoints remain accessible without this token. Legacy environment-variable and API-route names remain unchanged to preserve deployment compatibility. Use a long random secret; the server logs a startup warning when the token is missing, short, or left at the placeholder value.
 
-`ESTATELAB_TRUST_PROXY` controls whether rate limiting keys on the `X-Forwarded-For` header. Keep it `true` behind Render or any reverse proxy; set it to `false` only when clients connect to the Node process directly, so forged headers cannot bypass request limits.
+`ESTATELAB_TRUST_PROXY` controls whether rate limiting keys on the `X-Forwarded-For` header. Keep it `true` behind Render or any reverse proxy; set it to `false` only when clients connect to the Node process directly, so forged headers cannot bypass request limits. When trusted, `ESTATELAB_TRUSTED_PROXY_HOPS` (default `1`) selects the address appended by your own proxy, counting from the right of the header, so client-prepended entries are ignored.
+
+`ESTATELAB_AUTH_DEBUG_TOKENS` is ignored whenever `NODE_ENV=production` (the bundled `render.yaml` sets this), so verification and reset tokens can never be echoed in production API responses.
 
 `ESTATELAB_DATA_DIR` controls the JSON fallback and PostgreSQL migration source. If the folder is empty on first start, Apex Analytic seeds it from the bundled `data/db.json`.
 

@@ -141,6 +141,22 @@ test("JSON store remains a working local fallback", async (t) => {
   assert.equal(updated.properties.length, 2);
 });
 
+test("JSON store rejects stale writes with a storage conflict", async (t) => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "estatelab-json-conflict-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const store = new JsonStateStore(path.join(directory, "db.json"));
+  await store.init(sampleState());
+  const first = await store.read();
+  const second = await store.read();
+  first.properties.push({ id: "property-2" });
+  await store.write(first);
+  second.properties.push({ id: "property-3" });
+  await assert.rejects(() => store.write(second), StorageConflictError);
+  const surviving = await store.read();
+  assert.equal(surviving.properties.length, 2);
+  assert.ok(surviving.properties.some((property) => property.id === "property-2"));
+});
+
 test("PostgreSQL store writes normalized state inside one transaction", async () => {
   const client = new FakeClient((text) => {
     if (text.includes("SELECT revision") && text.includes("FOR UPDATE")) return { rows: [{ revision: "0" }] };

@@ -43,8 +43,10 @@ const OPENAI_TIMEOUT_MS = Math.max(5000, Number(globalThis.process?.env?.OPENAI_
 const EMAIL_WEBHOOK_URL = String(globalThis.process?.env?.ESTATELAB_EMAIL_WEBHOOK_URL || "").trim();
 const EMAIL_WEBHOOK_SECRET = String(globalThis.process?.env?.ESTATELAB_EMAIL_WEBHOOK_SECRET || "").trim();
 const REQUIRE_EMAIL_VERIFICATION = String(globalThis.process?.env?.ESTATELAB_REQUIRE_EMAIL_VERIFICATION || "false").toLowerCase() === "true";
-const AUTH_DEBUG_TOKENS = String(globalThis.process?.env?.ESTATELAB_AUTH_DEBUG_TOKENS || "false").toLowerCase() === "true";
+const AUTH_DEBUG_TOKENS = String(globalThis.process?.env?.ESTATELAB_AUTH_DEBUG_TOKENS || "false").toLowerCase() === "true"
+  && String(globalThis.process?.env?.NODE_ENV || "").toLowerCase() !== "production";
 const TRUST_PROXY = String(globalThis.process?.env?.ESTATELAB_TRUST_PROXY || "true").toLowerCase() !== "false";
+const TRUSTED_PROXY_HOPS = Math.max(1, Number(globalThis.process?.env?.ESTATELAB_TRUSTED_PROXY_HOPS || 1));
 const AUTH_COOKIE = "estatelab_session";
 const AUTH_SESSION_DAYS = Math.max(1, Number(globalThis.process?.env?.ESTATELAB_AUTH_SESSION_DAYS || 30));
 const BILLING_ENFORCEMENT = String(globalThis.process?.env?.APEX_BILLING_ENFORCEMENT || "false").toLowerCase() === "true";
@@ -2100,8 +2102,19 @@ function claimJarvisSession(session, actor, clientId) {
 }
 
 function authRateKey(req) {
-  const forwarded = TRUST_PROXY ? String(req.headers["x-forwarded-for"] || "").split(",")[0].trim() : "";
-  return (forwarded || String(req.socket?.remoteAddress || "unknown")).slice(0, 100);
+  if (TRUST_PROXY) {
+    const chain = String(req.headers["x-forwarded-for"] || "")
+      .split(",")
+      .map((part) => part.trim())
+      .filter(Boolean);
+    if (chain.length) {
+      // Only the hop(s) our own proxy appends are trustworthy; everything to the
+      // left is client-controlled, so count from the right to stop XFF spoofing.
+      const index = Math.max(0, chain.length - TRUSTED_PROXY_HOPS);
+      return (chain[index] || chain[chain.length - 1]).slice(0, 100);
+    }
+  }
+  return String(req.socket?.remoteAddress || "unknown").slice(0, 100);
 }
 
 function allowAuthAttempt(req) {

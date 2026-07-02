@@ -8,6 +8,12 @@ The same questions are now built into the app as owner thinking questions, so th
 can be answered directly through the Second Brain flow and become part of the
 framework's knowledge base.
 
+A companion document, `docs/FRAMEWORK_ENHANCEMENT_QUESTIONS.md`, drills into several
+of these gaps (off-plan purchases, auction acquisition, taxation, financing
+structures, strata governance, flood risk, foreign-buyer rules) with stage-level
+sub-questions. Use this document for the practitioner interview pass and the
+companion document when converting answers into stage rules and evidence gates.
+
 ## 1. What the v1 framework already covers well
 
 The existing belief set and corpus are strong across the full pre-purchase decision path:
