@@ -2898,7 +2898,14 @@ function writeOwnerBackupMarker(backup = {}) {
   return marker;
 }
 
-function ownerBackupReminder(currentVersionHash = "") {
+function ownerBackupReminder(currentVersionHash = "", serverBackup = {}) {
+  if (serverBackup?.status && serverBackup.status !== "missing") {
+    return {
+      status: serverBackup.status === "ready" ? "ready" : "warning",
+      label: serverBackup.label || "Server backup record",
+      action: serverBackup.action || "Server backup ledger is tracking owner exports."
+    };
+  }
   const marker = readOwnerBackupMarker();
   if (!marker?.exportedAt) return { status: "missing", label: "No local backup", action: "Download a backup after major owner-knowledge edits." };
   const ageDays = Math.floor((Date.now() - Date.parse(marker.exportedAt)) / 86400000);
@@ -3037,10 +3044,29 @@ async function exportOwnerKnowledgeBackup() {
     const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
     downloadJsonFile(`apex-owner-knowledge-${stamp}.json`, backup);
     const marker = writeOwnerBackupMarker(backup);
-    setOwnerIntelMessage(`Owner backup downloaded: ${backup.counts?.projects || 0} projects, ${backup.counts?.observations || 0} observations, ${backup.counts?.developmentCases || 0} cases, ${backup.counts?.documents || 0} documents, ${backup.counts?.chunks || 0} chunks. Version ${marker.versionShort || "recorded"}.`);
+    let ledgerText = "";
+    try {
+      const ledger = await recordOwnerBackupEvent(backup);
+      ledgerText = ` Server ledger: ${ledger.ledger?.label || "recorded"}.`;
+    } catch {
+      ledgerText = " Server ledger could not be updated.";
+    }
+    setOwnerIntelMessage(`Owner backup downloaded: ${backup.counts?.projects || 0} projects, ${backup.counts?.observations || 0} observations, ${backup.counts?.developmentCases || 0} cases, ${backup.counts?.documents || 0} documents, ${backup.counts?.chunks || 0} chunks. Version ${marker.versionShort || "recorded"}.${ledgerText}`);
   } finally {
     ownerIntelExport.disabled = false;
   }
+}
+
+async function recordOwnerBackupEvent(backup = {}) {
+  return ownerIntelRequest("/api/owner/backup/events", {
+    method: "POST",
+    body: JSON.stringify({
+      backupHash: backup.integrity?.hash || "",
+      exportedAt: backup.exportedAt || new Date().toISOString(),
+      counts: backup.counts || {},
+      source: "owner-console"
+    })
+  });
 }
 
 function ownerRestorePreviewMessage(plan = {}) {
@@ -3123,9 +3149,10 @@ function renderOwnerRestoreHistory(payload = {}) {
   const snapshots = Array.isArray(payload.snapshots) ? payload.snapshots : [];
   const events = Array.isArray(payload.events) ? payload.events : [];
   const versionShort = payload.summary?.currentVersionShort || "";
+  const backup = payload.backup || {};
   ownerIntelRestoreLog.hidden = false;
   ownerIntelRestoreLog.innerHTML = `
-    <header><span><small>OWNER DATA SAFETY${versionShort ? ` / VERSION ${escapeHtml(versionShort)}` : ""}</small><b>${escapeHtml(snapshots.length)} rollback snapshot${snapshots.length === 1 ? "" : "s"}</b></span><em>${escapeHtml(events.length)} event${events.length === 1 ? "" : "s"}</em></header>
+    <header><span><small>OWNER DATA SAFETY${versionShort ? ` / VERSION ${escapeHtml(versionShort)}` : ""}</small><b>${escapeHtml(snapshots.length)} rollback snapshot${snapshots.length === 1 ? "" : "s"}</b><em>${escapeHtml(backup.label || "No server backup record")}</em></span><em>${escapeHtml(events.length)} event${events.length === 1 ? "" : "s"}</em></header>
     ${snapshots.length ? snapshots.map((snapshot) => `
       <article>
         <span><small>${escapeHtml(snapshot.reason || "snapshot")}</small><b>${escapeHtml(ownerRestoreCountsText(snapshot.counts))}</b><em>${escapeHtml(snapshot.createdAt || "")}</em></span>
@@ -3279,7 +3306,7 @@ function renderOwnerIntelligence({ projects = {}, observations = {}, cases = {},
   const noEvidence = rows.filter((row) => row.evidence === 0).length;
   const complete = rows.filter((row) => row.status === "ready").length;
   const score = ownerIntelCoverageScore(rows);
-  const backupReminder = ownerBackupReminder(history.summary?.currentVersionHash || "");
+  const backupReminder = ownerBackupReminder(history.summary?.currentVersionHash || "", history.backup || {});
   ownerIntelSnapshot = {
     rows,
     score,

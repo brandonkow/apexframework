@@ -95,6 +95,7 @@ test("frontend selectors and stylesheet structure stay valid", async () => {
   assert.match(app, /function ownerIntelBriefText[\s\S]*?APEX OWNER INTELLIGENCE BRIEF[\s\S]*?copyOwnerIntelBrief/, "Owner intelligence must export a copyable operating brief.");
   assert.match(app, /function exportOwnerKnowledgeBackup[\s\S]*?\/api\/owner\/export\?chunks=true[\s\S]*?downloadJsonFile/, "Owner intelligence must download a restorable private owner knowledge backup with chunks.");
   assert.match(app, /ownerBackupMarkerKey[\s\S]*?function ownerBackupReminder[\s\S]*?Backup rhythm/, "Owner intelligence must track local backup rhythm against current owner knowledge.");
+  assert.match(app, /function recordOwnerBackupEvent[\s\S]*?\/api\/owner\/backup\/events[\s\S]*?backupHash/, "Owner intelligence must record successful backup downloads in the server ledger.");
   assert.match(app, /function previewOwnerKnowledgeRestore[\s\S]*?\/api\/owner\/restore[\s\S]*?dryRun:\s*true/, "Owner intelligence must validate backup restore files before enabling restore.");
   assert.match(app, /function confirmOwnerKnowledgeRestore[\s\S]*?ownerIntelRestorePhrase\.value\.trim\(\)[\s\S]*?RESTORE OWNER KNOWLEDGE[\s\S]*?\/api\/owner\/restore/, "Owner intelligence restore must require the typed explicit confirmation phrase.");
   assert.match(app, /function loadOwnerRestoreHistory[\s\S]*?\/api\/owner\/restore\/history[\s\S]*?renderOwnerRestoreHistory/, "Owner intelligence must expose restore history and rollback snapshots.");
@@ -179,6 +180,7 @@ test("frontend selectors and stylesheet structure stay valid", async () => {
   assert.match(server, /engineVersion:\s*"Apex v10\.10"/, "New formal analyses must expose the V10.10 engine label.");
   assert.match(server, /function ownerKnowledgeExport[\s\S]*?owner-knowledge-backup[\s\S]*?\/api\/owner\/export/, "Owner-controlled knowledge needs a token-gated JSON backup endpoint.");
   assert.match(server, /function ownerKnowledgeRestorePreview[\s\S]*?RESTORE OWNER KNOWLEDGE[\s\S]*?\/api\/owner\/restore/, "Owner-controlled knowledge needs a guarded restore preview endpoint.");
+  assert.match(server, /function ownerBackupLedger[\s\S]*?ownerBackupEvents[\s\S]*?\/api\/owner\/backup\/events/, "Owner-controlled backups need a server-side export ledger.");
   assert.match(server, /function ownerKnowledgeVersionSummary[\s\S]*?currentVersionHash[\s\S]*?\/api\/owner\/restore\/history/, "Owner-controlled restore history must expose safe snapshot summaries and current version fingerprint.");
   assert.match(server, /\/api\/owner\/restore\/rollback[\s\S]*?ROLLBACK OWNER KNOWLEDGE/, "Owner-controlled rollback must require an explicit confirmation phrase.");
   assert.match(app, /function developmentIntelligenceMarkup[\s\S]*?V7\.1 - V7\.10 DEVELOPMENT INTELLIGENCE[\s\S]*?developmentActionQueue/, "V7.1-V7.10 must render as one compact report stack.");

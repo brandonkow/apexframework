@@ -1198,7 +1198,7 @@ function normalizeAuth(auth) {
 }
 
 function emptyKnowledge() {
-  return { version: 3, documents: [], chunks: [], retrievalEvents: [], projects: [], observations: [], developmentCases: [], ownerRestoreEvents: [], ownerRollbackSnapshots: [] };
+  return { version: 3, documents: [], chunks: [], retrievalEvents: [], projects: [], observations: [], developmentCases: [], ownerRestoreEvents: [], ownerRollbackSnapshots: [], ownerBackupEvents: [] };
 }
 
 const MARKET_METRIC_TYPES = new Set([
@@ -1363,6 +1363,21 @@ function normalizeOwnerRollbackSnapshot(snapshot = {}) {
   };
 }
 
+function normalizeOwnerBackupEvent(event = {}) {
+  const backupHash = cleanMarketText(event.backupHash || event.hash || event.sourceHash, 160);
+  if (!/^[a-f0-9]{64}$/i.test(backupHash)) return null;
+  return {
+    id: cleanMarketText(event.id || randomUUID(), 100),
+    createdAt: cleanMarketDate(event.createdAt, new Date().toISOString()),
+    exportedAt: cleanMarketDate(event.exportedAt, new Date().toISOString()),
+    backupHash: backupHash.toLowerCase(),
+    backupShort: backupHash.slice(0, 12).toLowerCase(),
+    counts: cleanOwnerCounts(event.counts),
+    source: cleanMarketText(event.source || "owner-console", 80),
+    notes: cleanMarketText(event.notes, 500)
+  };
+}
+
 function normalizeKnowledge(knowledge) {
   const documents = Array.isArray(knowledge?.documents)
     ? knowledge.documents.map((document) => ({
@@ -1425,7 +1440,10 @@ function normalizeKnowledge(knowledge) {
   const ownerRollbackSnapshots = Array.isArray(knowledge?.ownerRollbackSnapshots)
     ? knowledge.ownerRollbackSnapshots.map(normalizeOwnerRollbackSnapshot).filter(Boolean).slice(-5)
     : [];
-  return { version: 3, documents, chunks, retrievalEvents, projects, observations, developmentCases, ownerRestoreEvents, ownerRollbackSnapshots };
+  const ownerBackupEvents = Array.isArray(knowledge?.ownerBackupEvents)
+    ? knowledge.ownerBackupEvents.map(normalizeOwnerBackupEvent).filter(Boolean).slice(-100)
+    : [];
+  return { version: 3, documents, chunks, retrievalEvents, projects, observations, developmentCases, ownerRestoreEvents, ownerRollbackSnapshots, ownerBackupEvents };
 }
 
 function normalizeBrain(brain) {
@@ -9154,9 +9172,47 @@ function ownerKnowledgeVersionSummary(db) {
   };
 }
 
+function ownerBackupLedger(db) {
+  const knowledge = normalizeKnowledge(db.knowledge);
+  const version = ownerKnowledgeVersionSummary(db);
+  const events = knowledge.ownerBackupEvents.slice().sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+  const latest = events[0] || null;
+  let status = "missing";
+  let label = "No server backup record";
+  let action = "Download a backup from the Owner Console.";
+  if (latest) {
+    const ageDays = Math.max(0, Math.floor((Date.now() - Date.parse(latest.createdAt)) / 86400000));
+    if (latest.backupHash !== version.hash) {
+      status = "warning";
+      label = "Backup outdated";
+      action = "Current owner knowledge changed after the latest recorded backup.";
+    } else if (Number.isFinite(ageDays) && ageDays > 14) {
+      status = "warning";
+      label = `${ageDays} days old`;
+      action = "Download a fresh owner backup this week.";
+    } else {
+      status = "ready";
+      label = `Saved ${latest.backupShort}`;
+      action = "Latest recorded backup matches the current owner-knowledge version.";
+    }
+  }
+  return {
+    status,
+    label,
+    action,
+    latest,
+    events: events.slice(0, 20),
+    totalEvents: knowledge.ownerBackupEvents.length,
+    currentVersionHash: version.hash,
+    currentVersionShort: version.shortHash,
+    currentCounts: version.counts
+  };
+}
+
 function ownerRestoreHistory(db) {
   const knowledge = normalizeKnowledge(db.knowledge);
   const version = ownerKnowledgeVersionSummary(db);
+  const backup = ownerBackupLedger(db);
   return {
     summary: {
       events: knowledge.ownerRestoreEvents.length,
@@ -9165,8 +9221,12 @@ function ownerRestoreHistory(db) {
       latestSnapshotAt: knowledge.ownerRollbackSnapshots.at(-1)?.createdAt || "",
       currentVersionHash: version.hash,
       currentVersionShort: version.shortHash,
-      currentCounts: version.counts
+      currentCounts: version.counts,
+      backupStatus: backup.status,
+      backupLabel: backup.label,
+      latestBackupAt: backup.latest?.createdAt || ""
     },
+    backup,
     events: knowledge.ownerRestoreEvents.slice().reverse(),
     snapshots: knowledge.ownerRollbackSnapshots.slice().reverse().map(publicOwnerRollbackSnapshot)
   };
@@ -9190,7 +9250,8 @@ function applyOwnerRestoredState(db, plan, { type = "restore", source = {}, rest
   db.knowledge = normalizeKnowledge({
     ...plan.restored.knowledge,
     ownerRestoreEvents: [...currentKnowledge.ownerRestoreEvents, event],
-    ownerRollbackSnapshots: [...currentKnowledge.ownerRollbackSnapshots, snapshot]
+    ownerRollbackSnapshots: [...currentKnowledge.ownerRollbackSnapshots, snapshot],
+    ownerBackupEvents: currentKnowledge.ownerBackupEvents
   });
   return { snapshot, event };
 }
@@ -9876,6 +9937,30 @@ async function router(req, res) {
     return send(res, 200, ownerKnowledgeExport(db, { includeChunks }), {
       ...jsonHeaders,
       "Content-Disposition": "attachment; filename=\"apex-owner-export.json\""
+    });
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/owner/backup/events") {
+    return send(res, 200, ownerBackupLedger(db));
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/owner/backup/events") {
+    const body = await readBody(req);
+    const event = normalizeOwnerBackupEvent({
+      backupHash: body.backupHash || body.integrityHash || body.hash,
+      exportedAt: body.exportedAt,
+      counts: body.counts,
+      source: body.source || "owner-console",
+      notes: body.notes || ""
+    });
+    if (!event) return send(res, 400, { error: "Backup event requires a valid SHA-256 backup hash." });
+    db.knowledge = normalizeKnowledge(db.knowledge);
+    db.knowledge.ownerBackupEvents.push(event);
+    db.knowledge = normalizeKnowledge(db.knowledge);
+    await writeDb(db);
+    return send(res, 201, {
+      event,
+      ledger: ownerBackupLedger(db)
     });
   }
 

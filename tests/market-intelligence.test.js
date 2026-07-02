@@ -319,7 +319,7 @@ test("owner market observations add dated trends and freshness warnings to Apex 
 
   const deniedExport = await request(baseUrl, "/api/owner/export");
   assert.equal(deniedExport.response.status, 403);
-  const ownerExport = await request(baseUrl, "/api/owner/export", { owner: true });
+  const ownerExport = await request(baseUrl, "/api/owner/export?chunks=true", { owner: true });
   assert.equal(ownerExport.response.status, 200);
   assert.equal(ownerExport.payload.exportType, "owner-knowledge-backup");
   assert.equal(ownerExport.payload.counts.projects, 2);
@@ -329,6 +329,26 @@ test("owner market observations add dated trends and freshness warnings to Apex 
   assert.match(ownerExport.payload.integrity.hash, /^[a-f0-9]{64}$/);
   assert.ok(Array.isArray(ownerExport.payload.knowledge.projects));
   assert.ok(Array.isArray(ownerExport.payload.knowledge.developmentCases));
+
+  const deniedBackupLedger = await request(baseUrl, "/api/owner/backup/events");
+  assert.equal(deniedBackupLedger.response.status, 403);
+  const initialBackupLedger = await request(baseUrl, "/api/owner/backup/events", { owner: true });
+  assert.equal(initialBackupLedger.response.status, 200);
+  assert.equal(initialBackupLedger.payload.status, "missing");
+  const recordedBackup = await request(baseUrl, "/api/owner/backup/events", {
+    method: "POST",
+    owner: true,
+    body: {
+      backupHash: ownerExport.payload.integrity.hash,
+      exportedAt: ownerExport.payload.exportedAt,
+      counts: ownerExport.payload.counts,
+      source: "test"
+    }
+  });
+  assert.equal(recordedBackup.response.status, 201);
+  assert.equal(recordedBackup.payload.event.backupHash, ownerExport.payload.integrity.hash);
+  assert.equal(recordedBackup.payload.ledger.status, "ready");
+  assert.equal(recordedBackup.payload.ledger.latest.backupShort, ownerExport.payload.integrity.hash.slice(0, 12));
 
   const deniedRestore = await request(baseUrl, "/api/owner/restore", {
     method: "POST",
@@ -381,6 +401,8 @@ test("owner market observations add dated trends and freshness warnings to Apex 
   assert.equal(restoreHistory.payload.summary.snapshots, 1);
   assert.match(restoreHistory.payload.summary.currentVersionHash, /^[a-f0-9]{64}$/);
   assert.match(restoreHistory.payload.summary.currentVersionShort, /^[a-f0-9]{12}$/);
+  assert.equal(restoreHistory.payload.summary.backupStatus, "ready");
+  assert.equal(restoreHistory.payload.backup.latest.backupHash, ownerExport.payload.integrity.hash);
   assert.equal(restoreHistory.payload.events[0].type, "restore");
   assert.equal(restoreHistory.payload.snapshots[0].state, undefined);
   assert.equal(restoreHistory.payload.snapshots[0].id, restoredBackup.payload.snapshotId);
