@@ -88,6 +88,8 @@ test("frontend selectors and stylesheet structure stay valid", async () => {
   assert.match(app, /function handleJourneyAction[\s\S]*?runDealScreening\(\)[\s\S]*?runDealAnalysis\(\)[\s\S]*?openShortlistPanel\(\)/, "Journey actions must route to existing screen, analyse, and compare flows.");
   assert.match(app, /function renderOwnerIntelligence[\s\S]*?ownerIntelLanes[\s\S]*?ownerIntelCoverage/, "Owner intelligence must render coverage lanes and project-level coverage rows.");
   assert.match(app, /function loadOwnerIntelligence[\s\S]*?\/api\/owner\/market\/projects[\s\S]*?\/api\/owner\/development-cases[\s\S]*?\/api\/owner\/documents/, "Owner intelligence must unify market projects, cases, observations, and evidence documents.");
+  assert.match(app, /data-owner-intel-action="case"[\s\S]*?data-owner-intel-action="signal"[\s\S]*?data-owner-intel-action="proof"/, "Owner intelligence project rows must expose direct case, signal, and proof actions.");
+  assert.match(app, /function handleOwnerIntelProjectAction[\s\S]*?openOwnerCasePanel\(\)[\s\S]*?prefillOwnerCaseFromProject[\s\S]*?openOwnerMarketPanel\(\)[\s\S]*?prefillOwnerObservationFromProject[\s\S]*?openOwnerEvidencePanel\(\)[\s\S]*?prefillOwnerEvidenceFromProject/, "Owner intelligence actions must open the right owner workspace and prefill project context.");
   assert.match(app, /contextCoreFieldKeys[\s\S]*?function renderContextAssist[\s\S]*?data-context-field-mode/, "Expanded cards must default to guided essentials before exposing advanced fields.");
   assert.match(app, /function markContextFieldDepth[\s\S]*?contextAdvanced[\s\S]*?applyContextFieldMode/, "Context fields must be classified into core and advanced groups at boot.");
   assert.match(app, /function dealScreeningPrompt[\s\S]*?Run Apex Deal Screening Mode[\s\S]*?Ask at most 3 next questions/, "The quick screening path must generate a short mentor-style prompt from current cards.");
@@ -277,6 +279,7 @@ test("frontend selectors and stylesheet structure stay valid", async () => {
   assert.match(styles, /\.journalOpen \.transcript[\s\S]*?display:\s*none;/, "The decision journal must replace chat content instead of opening a popup.");
   assert.match(styles, /\.ownerMarketOpen \.transcript[\s\S]*?display:\s*none;/, "The owner market console must replace chat content instead of opening a popup.");
   assert.match(styles, /\.ownerIntelPanel[\s\S]*?\.ownerIntelLanes[\s\S]*?\.ownerIntelCoverage/, "The owner intelligence command center needs styled coverage lanes and dashboard rows.");
+  assert.match(styles, /\.ownerIntelCoverageActions[\s\S]*?button/, "Owner intelligence project-row actions need compact touch-friendly styling.");
   assert.match(styles, /\.ownerIntelOpen \.transcript[\s\S]*?display:\s*none;/, "The owner intelligence command center must replace chat content instead of opening a popup.");
   assert.match(styles, /\.ownerMarketPanel[\s\S]*?\.ownerMarketWorkspace[\s\S]*?grid-template-columns:/, "The v2 market console needs a styled owner workspace.");
   assert.match(styles, /\.ownerMarketLists[\s\S]*?\.ownerObservationList[\s\S]*?overflow-y:\s*auto;/, "Market observation lists must stay scrollable.");

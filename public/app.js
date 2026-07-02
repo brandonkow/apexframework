@@ -266,6 +266,7 @@ let billingState = null;
 let billingPlans = [];
 let ownerMarketEnabled = false;
 let ownerMarketProjects = [];
+let ownerIntelProjects = [];
 let ownerCaseItems = [];
 let ownerCaseEditingId = "";
 let memorySettingsLoading = false;
@@ -2869,7 +2870,7 @@ function ownerIntelLane(label, value, status, action) {
 function ownerIntelCoverageMarkup(row) {
   const detail = [row.project.area, row.project.state, row.project.propertyType].filter(Boolean).join(" / ") || "No project detail";
   return `
-    <article class="ownerIntelCoverageItem ${escapeHtml(row.status)}">
+    <article class="ownerIntelCoverageItem ${escapeHtml(row.status)}" data-owner-intel-project="${escapeHtml(row.project.id)}">
       <header><span><small>${escapeHtml(detail)}</small><b>${escapeHtml(row.project.name)}</b></span><em>${escapeHtml(row.status)}</em></header>
       <div>
         <span>${escapeHtml(row.cases)} case</span>
@@ -2878,6 +2879,11 @@ function ownerIntelCoverageMarkup(row) {
         <span>${escapeHtml(row.stale)} stale</span>
       </div>
       <p>${escapeHtml(row.missing.length ? `Missing ${row.missing.join(", ")}.` : "Coverage is strong enough for project-aware Apex reasoning.")}</p>
+      <div class="ownerIntelCoverageActions">
+        <button type="button" data-owner-intel-action="case" data-owner-intel-project="${escapeHtml(row.project.id)}">CASE</button>
+        <button type="button" data-owner-intel-action="signal" data-owner-intel-project="${escapeHtml(row.project.id)}">SIGNAL</button>
+        <button type="button" data-owner-intel-action="proof" data-owner-intel-project="${escapeHtml(row.project.id)}">PROOF</button>
+      </div>
     </article>
   `;
 }
@@ -2887,6 +2893,10 @@ function renderOwnerIntelligence({ projects = {}, observations = {}, cases = {},
   const observationItems = Array.isArray(observations.observations) ? observations.observations : [];
   const caseItems = Array.isArray(cases.cases) ? cases.cases : [];
   const documents = Array.isArray(evidence.documents) ? evidence.documents : [];
+  ownerIntelProjects = projectItems;
+  ownerMarketProjects = projectItems;
+  renderOwnerProjectOptions(projectItems);
+  renderOwnerCaseProjectOptions(projectItems);
   const rows = ownerIntelProjectRows(projectItems, caseItems, observationItems, documents);
   const missingCase = rows.filter((row) => row.cases === 0).length;
   const staleObservation = observationItems.filter((item) => item.freshness?.status === "stale").length;
@@ -3486,6 +3496,84 @@ async function openOwnerMarketPanel() {
     await loadOwnerMarket();
   } catch (error) {
     setOwnerMarketMessage(error.message || "Owner market console is unavailable.", "danger");
+  }
+}
+
+function ownerIntelSlug(value = "") {
+  return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "project";
+}
+
+function ownerIntelProjectById(projectId = "") {
+  const id = String(projectId || "");
+  return ownerIntelProjects.find((project) => project.id === id)
+    || ownerMarketProjects.find((project) => project.id === id)
+    || null;
+}
+
+function fillIfBlank(element, value) {
+  if (element && !element.value && value) element.value = value;
+}
+
+function selectProjectOption(select, projectId) {
+  if (!select || !projectId) return;
+  if (Array.from(select.options).some((option) => option.value === projectId)) select.value = projectId;
+}
+
+function ownerIntelProjectTagText(project) {
+  return [project.name, project.area, project.state, project.propertyType].filter(Boolean).join(", ");
+}
+
+function prefillOwnerCaseFromProject(project) {
+  selectProjectOption(ownerCaseProject, project.id);
+  fillIfBlank(ownerCaseProjectName, project.name);
+  fillIfBlank(ownerCaseArea, project.area);
+  fillIfBlank(ownerCaseState, project.state);
+  fillIfBlank(ownerCaseType, project.propertyType);
+  fillIfBlank(ownerCaseDeveloper, project.developer);
+  fillIfBlank(ownerCaseSourceBasis, "Owner console action queue");
+  ownerCaseProjectName.scrollIntoView({ behavior: "smooth", block: "center" });
+  ownerCaseOwnerVerdict.focus();
+  setOwnerCaseMessage(`Case note prepared for ${project.name}. Add your founder judgment, then save.`);
+}
+
+function prefillOwnerObservationFromProject(project) {
+  selectProjectOption(ownerObservationProject, project.id);
+  fillIfBlank(ownerObservationArea, project.area);
+  fillIfBlank(ownerObservationSourceType, "owner ground check");
+  fillIfBlank(ownerObservationNotes, `${project.name}: update the latest rental, resale, supply, management, or site signal.`);
+  ownerObservationDate.value ||= new Date().toISOString().slice(0, 10);
+  ownerObservationProject.scrollIntoView({ behavior: "smooth", block: "center" });
+  ownerObservationMetric.focus();
+  setOwnerMarketMessage(`Market signal prepared for ${project.name}. Choose the metric and add the latest evidence.`);
+}
+
+function prefillOwnerEvidenceFromProject(project) {
+  fillIfBlank(ownerEvidenceTitle, `${project.name} evidence proof`);
+  fillIfBlank(ownerEvidenceFilename, `${ownerIntelSlug(project.name)}-evidence.md`);
+  fillIfBlank(ownerEvidenceTags, ownerIntelProjectTagText(project));
+  fillIfBlank(ownerEvidenceText, `Project: ${project.name}\nArea: ${project.area || "Not recorded"}\nEvidence type:\nSource/date:\nNotes:\n`);
+  ownerEvidenceTitle.scrollIntoView({ behavior: "smooth", block: "center" });
+  ownerEvidenceText.focus();
+  setOwnerEvidenceMessage(`Evidence shell prepared for ${project.name}. Paste the proof, source, and date before saving.`);
+}
+
+async function handleOwnerIntelProjectAction(action, projectId) {
+  const project = ownerIntelProjectById(projectId);
+  if (!project) {
+    setOwnerIntelMessage("Project could not be found. Refresh owner intelligence and try again.", "warning");
+    return;
+  }
+  if (action === "case") {
+    await openOwnerCasePanel();
+    prefillOwnerCaseFromProject(project);
+  }
+  if (action === "signal") {
+    await openOwnerMarketPanel();
+    prefillOwnerObservationFromProject(project);
+  }
+  if (action === "proof") {
+    await openOwnerEvidencePanel();
+    prefillOwnerEvidenceFromProject(project);
   }
 }
 
@@ -5469,8 +5557,10 @@ ownerIntelActions.addEventListener("click", (event) => {
   if (action === "evidence") void openOwnerEvidencePanel();
 });
 ownerIntelCoverage.addEventListener("click", (event) => {
-  const action = event.target.closest("[data-owner-intel-action]")?.getAttribute("data-owner-intel-action");
+  const button = event.target.closest("[data-owner-intel-action]");
+  const action = button?.getAttribute("data-owner-intel-action");
   if (action === "refresh") void loadOwnerIntelligence();
+  if (["case", "signal", "proof"].includes(action)) void handleOwnerIntelProjectAction(action, button.getAttribute("data-owner-intel-project"));
 });
 ownerCaseAccess.addEventListener("submit", (event) => {
   event.preventDefault();

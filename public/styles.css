@@ -2204,6 +2204,7 @@ button {
 .ownerIntelHeader button,
 .ownerIntelAccess button,
 .ownerIntelCoverageWrap button,
+.ownerIntelCoverageActions button,
 .ownerIntelActions button,
 .ownerMarketAccess button,
 .ownerMarketForm button,
@@ -2237,6 +2238,7 @@ button {
 .ownerIntelHeader button:hover,
 .ownerIntelAccess button:hover,
 .ownerIntelCoverageWrap button:hover,
+.ownerIntelCoverageActions button:hover,
 .ownerIntelActions button:hover,
 .ownerMarketAccess button:hover,
 .ownerMarketForm button:hover,
@@ -2477,10 +2479,17 @@ button {
 }
 
 .ownerIntelCoverageItem div,
+.ownerIntelCoverageActions,
 .ownerIntelActions {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
+}
+
+.ownerIntelCoverageActions button {
+  min-height: 28px;
+  padding: 0 10px;
+  font-size: 0.5rem;
 }
 
 .ownerMarketForm,
@@ -7961,6 +7970,7 @@ button {
 
   .ownerIntelAccess button,
   .ownerIntelCoverageWrap button,
+  .ownerIntelCoverageActions button,
   .ownerIntelActions button,
   .ownerMarketAccess button,
   .ownerEvidenceAccess button,
