@@ -317,6 +317,17 @@ test("owner market observations add dated trends and freshness warnings to Apex 
   assert.equal(batch.response.status, 201);
   assert.deepEqual(batch.payload.imported, { projects: 1, observations: 1 });
 
+  const deniedExport = await request(baseUrl, "/api/owner/export");
+  assert.equal(deniedExport.response.status, 403);
+  const ownerExport = await request(baseUrl, "/api/owner/export", { owner: true });
+  assert.equal(ownerExport.response.status, 200);
+  assert.equal(ownerExport.payload.exportType, "owner-knowledge-backup");
+  assert.equal(ownerExport.payload.counts.projects, 2);
+  assert.equal(ownerExport.payload.counts.observations, 4);
+  assert.equal(ownerExport.payload.counts.developmentCases, 1);
+  assert.ok(Array.isArray(ownerExport.payload.knowledge.projects));
+  assert.ok(Array.isArray(ownerExport.payload.knowledge.developmentCases));
+
   const blockedDelete = await request(baseUrl, `/api/owner/market/projects/${projectId}`, { method: "DELETE", owner: true });
   assert.equal(blockedDelete.response.status, 409);
   const cascadeDelete = await request(baseUrl, `/api/owner/market/projects/${projectId}?cascade=true`, { method: "DELETE", owner: true });

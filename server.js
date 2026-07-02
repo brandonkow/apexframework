@@ -8941,6 +8941,39 @@ function send(res, status, payload, headers = jsonHeaders) {
   res.end(typeof payload === "string" ? payload : JSON.stringify(payload));
 }
 
+function ownerKnowledgeExport(db, { includeChunks = false } = {}) {
+  const knowledge = normalizeKnowledge(db.knowledge);
+  const counts = {
+    projects: knowledge.projects.length,
+    observations: knowledge.observations.length,
+    developmentCases: knowledge.developmentCases.length,
+    documents: knowledge.documents.length,
+    chunks: knowledge.chunks.length,
+    retrievalEvents: knowledge.retrievalEvents.length
+  };
+  return {
+    app: "apex-analytic",
+    exportType: "owner-knowledge-backup",
+    format: "apex-analytic-owner-export.v1",
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    counts,
+    warning: "Owner backup only. Keep this file private; it may contain proprietary market observations, case opinions, source URLs, and evidence metadata.",
+    brain: db.brain,
+    properties: db.properties,
+    comps: db.comps,
+    knowledge: {
+      documents: knowledge.documents,
+      projects: knowledge.projects,
+      observations: knowledge.observations,
+      developmentCases: knowledge.developmentCases,
+      retrievalEvents: knowledge.retrievalEvents,
+      chunkCount: knowledge.chunks.length,
+      ...(includeChunks ? { chunks: knowledge.chunks.map(({ embedding, ...chunk }) => chunk) } : {})
+    }
+  };
+}
+
 function isPublicApiRoute(method, pathname) {
   return (
     (method === "GET" && pathname === "/api/health")
@@ -9619,21 +9652,7 @@ async function router(req, res) {
 
   if (req.method === "GET" && url.pathname === "/api/owner/export") {
     const includeChunks = String(url.searchParams.get("chunks") || "").toLowerCase() === "true";
-    return send(res, 200, {
-      exportedAt: new Date().toISOString(),
-      format: "apex-analytic-owner-export.v1",
-      brain: db.brain,
-      properties: db.properties,
-      comps: db.comps,
-      knowledge: {
-        documents: db.knowledge.documents,
-        projects: db.knowledge.projects,
-        observations: db.knowledge.observations,
-        developmentCases: db.knowledge.developmentCases,
-        chunkCount: db.knowledge.chunks.length,
-        ...(includeChunks ? { chunks: db.knowledge.chunks.map(({ embedding, ...chunk }) => chunk) } : {})
-      }
-    }, {
+    return send(res, 200, ownerKnowledgeExport(db, { includeChunks }), {
       ...jsonHeaders,
       "Content-Disposition": "attachment; filename=\"apex-owner-export.json\""
     });

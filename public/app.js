@@ -114,6 +114,7 @@ const ownerIntelClearToken = document.querySelector("#ownerIntelClearToken");
 const ownerIntelSummary = document.querySelector("#ownerIntelSummary");
 const ownerIntelControls = document.querySelector("#ownerIntelControls");
 const ownerIntelCopyBrief = document.querySelector("#ownerIntelCopyBrief");
+const ownerIntelExport = document.querySelector("#ownerIntelExport");
 const ownerIntelLanes = document.querySelector("#ownerIntelLanes");
 const ownerIntelCoverage = document.querySelector("#ownerIntelCoverage");
 const ownerIntelNextTitle = document.querySelector("#ownerIntelNextTitle");
@@ -2975,6 +2976,32 @@ async function copyOwnerIntelBrief() {
   setOwnerIntelMessage("Owner intelligence brief copied.");
 }
 
+function downloadJsonFile(filename, payload) {
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function exportOwnerKnowledgeBackup() {
+  if (!ownerIntelTokenValue()) return ownerIntelToken.focus();
+  ownerIntelExport.disabled = true;
+  try {
+    setOwnerIntelMessage("Preparing owner knowledge backup...");
+    const backup = await ownerIntelRequest("/api/owner/export");
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    downloadJsonFile(`apex-owner-knowledge-${stamp}.json`, backup);
+    setOwnerIntelMessage(`Owner backup downloaded: ${backup.counts?.projects || 0} projects, ${backup.counts?.observations || 0} observations, ${backup.counts?.developmentCases || 0} cases, ${backup.counts?.documents || 0} documents.`);
+  } finally {
+    ownerIntelExport.disabled = false;
+  }
+}
+
 function ownerAdminPlanOptions(selected) {
   const fallback = [
     { id: "free", name: "Free" },
@@ -5776,6 +5803,7 @@ ownerIntelControls.addEventListener("click", (event) => {
   renderOwnerIntelCoverageRows(ownerIntelSnapshot?.rows || []);
 });
 ownerIntelCopyBrief.addEventListener("click", () => void copyOwnerIntelBrief());
+ownerIntelExport.addEventListener("click", () => void exportOwnerKnowledgeBackup().catch((error) => setOwnerIntelMessage(error.message || "Owner backup could not be exported.", "danger")));
 ownerAdminLoad.addEventListener("click", () => void loadOwnerAdminUsers().catch((error) => setOwnerIntelMessage(error.message || "User control could not be loaded.", "danger")));
 ownerAdminList.addEventListener("click", (event) => {
   const button = event.target.closest("[data-owner-admin-action='save']");
