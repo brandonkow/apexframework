@@ -71,6 +71,7 @@ test("frontend selectors and stylesheet structure stay valid", async () => {
   assert.match(html, /id="ownerIntelControls"[\s\S]*?data-owner-intel-filter="missing"[\s\S]*?id="ownerIntelCopyBrief"/, "Owner intelligence needs coverage filters and a copyable operating brief.");
   assert.match(html, /id="ownerMarketPanel"[\s\S]*?MARKET CONSOLE[\s\S]*?id="ownerMarketToken"/, "V2 needs an owner-token-gated market console.");
   assert.match(html, /id="ownerProjectForm"[\s\S]*?id="ownerObservationForm"[\s\S]*?id="ownerObservationList"/, "The market console needs project and observation entry surfaces.");
+  assert.match(html, /id="ownerMarketImportForm"[\s\S]*?id="ownerMarketImportText"[\s\S]*?IMPORT JSON/, "The owner market console needs a guarded bulk JSON import surface.");
   assert.match(html, /id="ownerCasePanel"[\s\S]*?DEVELOPMENT CASE LIBRARY[\s\S]*?id="ownerCaseForm"[\s\S]*?id="ownerCaseSubmit"[\s\S]*?id="ownerCaseCancelEdit"[\s\S]*?id="ownerCaseList"/, "The development case library needs owner-token-gated entry, edit, and review surfaces.");
   assert.match(html, /id="ownerEvidencePanel"[\s\S]*?EVIDENCE VAULT[\s\S]*?id="ownerEvidenceForm"[\s\S]*?id="ownerEvidenceList"/, "V8 needs an owner-token-gated evidence vault.");
   assert.doesNotMatch(html, /ESTATELAB \/ JARVIS|<b>J<\/b>/, "Legacy visible branding must not return.");
@@ -89,6 +90,7 @@ test("frontend selectors and stylesheet structure stay valid", async () => {
   assert.match(app, /function handleJourneyAction[\s\S]*?runDealScreening\(\)[\s\S]*?runDealAnalysis\(\)[\s\S]*?openShortlistPanel\(\)/, "Journey actions must route to existing screen, analyse, and compare flows.");
   assert.match(app, /function renderOwnerIntelligence[\s\S]*?ownerIntelLanes[\s\S]*?ownerIntelCoverage/, "Owner intelligence must render coverage lanes and project-level coverage rows.");
   assert.match(app, /function loadOwnerIntelligence[\s\S]*?\/api\/owner\/market\/projects[\s\S]*?\/api\/owner\/development-cases[\s\S]*?\/api\/owner\/documents/, "Owner intelligence must unify market projects, cases, observations, and evidence documents.");
+  assert.match(app, /function importOwnerMarketBatch[\s\S]*?\/api\/owner\/market\/import[\s\S]*?ownerMarketImportForm\.addEventListener/, "The market console must wire bulk JSON imports to the owner import API.");
   assert.match(app, /function ownerIntelCoverageScore[\s\S]*?ownerIntelSnapshot[\s\S]*?renderOwnerIntelCoverageRows/, "Owner intelligence must compute a coverage score and render filtered project rows.");
   assert.match(app, /function ownerIntelBriefText[\s\S]*?APEX OWNER INTELLIGENCE BRIEF[\s\S]*?copyOwnerIntelBrief/, "Owner intelligence must export a copyable operating brief.");
   assert.match(app, /data-owner-intel-action="case"[\s\S]*?data-owner-intel-action="signal"[\s\S]*?data-owner-intel-action="proof"/, "Owner intelligence project rows must expose direct case, signal, and proof actions.");
@@ -286,6 +288,7 @@ test("frontend selectors and stylesheet structure stay valid", async () => {
   assert.match(styles, /\.ownerIntelCoverageActions[\s\S]*?button/, "Owner intelligence project-row actions need compact touch-friendly styling.");
   assert.match(styles, /\.ownerIntelOpen \.transcript[\s\S]*?display:\s*none;/, "The owner intelligence command center must replace chat content instead of opening a popup.");
   assert.match(styles, /\.ownerMarketPanel[\s\S]*?\.ownerMarketWorkspace[\s\S]*?grid-template-columns:/, "The v2 market console needs a styled owner workspace.");
+  assert.match(styles, /\.ownerMarketImport[\s\S]*?summary[\s\S]*?textarea/, "The owner market import surface must remain compact and styled.");
   assert.match(styles, /\.ownerMarketLists[\s\S]*?\.ownerObservationList[\s\S]*?overflow-y:\s*auto;/, "Market observation lists must stay scrollable.");
   assert.match(styles, /\.ownerCaseOpen \.transcript[\s\S]*?display:\s*none;/, "The owner case library must replace chat content instead of opening a popup.");
   assert.match(styles, /\.ownerCasePanel[\s\S]*?\.ownerCaseWorkspace[\s\S]*?grid-template-columns:/, "The owner case library needs a styled owner workspace.");

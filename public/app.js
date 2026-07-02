@@ -217,6 +217,8 @@ const ownerMarketAreaFilter = document.querySelector("#ownerMarketAreaFilter");
 const ownerMarketMetricFilter = document.querySelector("#ownerMarketMetricFilter");
 const ownerMarketFreshnessFilter = document.querySelector("#ownerMarketFreshnessFilter");
 const ownerMarketRefresh = document.querySelector("#ownerMarketRefresh");
+const ownerMarketImportForm = document.querySelector("#ownerMarketImportForm");
+const ownerMarketImportText = document.querySelector("#ownerMarketImportText");
 const ownerProjectCount = document.querySelector("#ownerProjectCount");
 const ownerObservationCount = document.querySelector("#ownerObservationCount");
 const ownerProjectList = document.querySelector("#ownerProjectList");
@@ -3712,6 +3714,30 @@ async function createOwnerObservation() {
   setOwnerMarketMessage("Observation added. Apex can now match it in chat and deal reports.");
 }
 
+async function importOwnerMarketBatch() {
+  const raw = ownerMarketImportText.value.trim();
+  if (!raw) return ownerMarketImportText.focus();
+  let payload;
+  try {
+    payload = JSON.parse(raw);
+  } catch {
+    throw new Error("Import must be valid JSON with projects and/or observations arrays.");
+  }
+  const projects = Array.isArray(payload.projects) ? payload.projects : [];
+  const observations = Array.isArray(payload.observations) ? payload.observations : [];
+  if (!projects.length && !observations.length) throw new Error("Import JSON must include at least one project or observation.");
+  if (projects.length + observations.length > 200) throw new Error("Each import is limited to 200 combined projects and observations.");
+  setOwnerMarketMessage("Importing owner market batch...");
+  const result = await ownerMarketRequest("/api/owner/market/import", {
+    method: "POST",
+    body: JSON.stringify({ projects, observations })
+  });
+  ownerMarketImportText.value = "";
+  await loadOwnerMarket();
+  const skipped = Array.isArray(result.skipped) ? result.skipped.length : 0;
+  setOwnerMarketMessage(`Imported ${result.imported?.projects || 0} project(s) and ${result.imported?.observations || 0} observation(s)${skipped ? `; ${skipped} skipped.` : "."}`, skipped ? "warning" : "");
+}
+
 async function deleteOwnerObservation(button) {
   const id = button.getAttribute("data-owner-market-id");
   if (!id) return;
@@ -5731,6 +5757,14 @@ ownerObservationForm.addEventListener("submit", (event) => {
   const button = ownerObservationForm.querySelector("button[type='submit']");
   button.disabled = true;
   createOwnerObservation().catch((error) => setOwnerMarketMessage(error.message || "Observation could not be added.", "danger")).finally(() => {
+    button.disabled = false;
+  });
+});
+ownerMarketImportForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const button = ownerMarketImportForm.querySelector("button[type='submit']");
+  button.disabled = true;
+  importOwnerMarketBatch().catch((error) => setOwnerMarketMessage(error.message || "Market batch could not be imported.", "danger")).finally(() => {
     button.disabled = false;
   });
 });

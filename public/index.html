@@ -533,6 +533,14 @@
             </form>
           </div>
 
+          <details class="ownerMarketImport">
+            <summary>BULK IMPORT PROJECTS / SIGNALS</summary>
+            <form id="ownerMarketImportForm" autocomplete="off">
+              <textarea id="ownerMarketImportText" maxlength="60000" placeholder='{"projects":[{"id":"queens","name":"Queens Waterfront","area":"Bayan Lepas","state":"Penang"}],"observations":[{"projectId":"queens","metricType":"rent","value":2800,"unit":"RM/month","observedAt":"2026-07-02","notes":"Agent feedback on achieved rent."}]}'></textarea>
+              <button type="submit">IMPORT JSON</button>
+            </form>
+          </details>
+
           <div class="ownerMarketFilters">
             <input id="ownerMarketAreaFilter" placeholder="Filter area..." />
             <select id="ownerMarketMetricFilter">

@@ -2209,6 +2209,7 @@ button {
 .ownerIntelActions button,
 .ownerMarketAccess button,
 .ownerMarketForm button,
+.ownerMarketImport button,
 .ownerMarketFilters button,
 .ownerMarketItem button,
 .ownerEvidenceHeader button,
@@ -2244,6 +2245,7 @@ button {
 .ownerIntelActions button:hover,
 .ownerMarketAccess button:hover,
 .ownerMarketForm button:hover,
+.ownerMarketImport button:hover,
 .ownerMarketFilters button:hover,
 .ownerMarketItem button:hover,
 .ownerEvidenceHeader button:hover,
@@ -2327,6 +2329,7 @@ button {
 .ownerMarketGrid input,
 .ownerMarketGrid select,
 .ownerMarketGrid textarea,
+.ownerMarketImport textarea,
 .ownerEvidenceGrid input,
 .ownerEvidenceGrid textarea {
   width: 100%;
@@ -2355,6 +2358,7 @@ button {
 .ownerMarketGrid input:focus,
 .ownerMarketGrid select:focus,
 .ownerMarketGrid textarea:focus,
+.ownerMarketImport textarea:focus,
 .ownerEvidenceGrid input:focus,
 .ownerEvidenceGrid textarea:focus {
   border-color: rgba(103, 229, 255, 0.48);
@@ -2507,6 +2511,7 @@ button {
 }
 
 .ownerMarketForm,
+.ownerMarketImport,
 .ownerEvidenceForm,
 .ownerEvidenceListWrap {
   display: grid;
@@ -2516,6 +2521,27 @@ button {
   border-radius: 10px;
   padding: 11px;
   background: rgba(1, 12, 19, 0.54);
+}
+
+.ownerMarketImport summary {
+  cursor: pointer;
+  color: var(--cyan);
+  font-size: 0.52rem;
+  letter-spacing: 0.14em;
+}
+
+.ownerMarketImport form {
+  display: grid;
+  gap: 8px;
+}
+
+.ownerMarketImport textarea {
+  min-height: 86px;
+  resize: vertical;
+}
+
+.ownerMarketImport button {
+  justify-self: start;
 }
 
 .ownerMarketGrid {
@@ -7988,6 +8014,7 @@ button {
   .ownerIntelCoverageActions button,
   .ownerIntelActions button,
   .ownerMarketAccess button,
+  .ownerMarketImport button,
   .ownerEvidenceAccess button,
   .ownerCaseAccess button,
   .ownerMarketFilters button,
