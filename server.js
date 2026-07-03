@@ -62,6 +62,7 @@ const ADVISOR_PRICE_RM = Math.max(1, Number(globalThis.process?.env?.APEX_ADVISO
 const AUTH_ATTEMPT_WINDOW_MS = 15 * 60 * 1000;
 const AUTH_ATTEMPT_LIMIT = 10;
 const MAX_JSON_BODY_BYTES = 8 * 1024 * 1024;
+const MAX_OWNER_RESTORE_BYTES = 64 * 1024 * 1024;
 const MAX_DOCUMENT_BYTES = 5 * 1024 * 1024;
 const DEFAULT_SESSION_TITLE = "New Apex Session";
 const scrypt = promisify(scryptCallback);
@@ -1370,12 +1371,14 @@ function normalizeOwnerRollbackSnapshot(snapshot = {}) {
 function normalizeOwnerBackupEvent(event = {}) {
   const backupHash = cleanMarketText(event.backupHash || event.hash || event.sourceHash, 160);
   if (!/^[a-f0-9]{64}$/i.test(backupHash)) return null;
+  const contentVersionHash = cleanMarketText(event.contentVersionHash, 160).toLowerCase();
   return {
     id: cleanMarketText(event.id || randomUUID(), 100),
     createdAt: cleanMarketDate(event.createdAt, new Date().toISOString()),
     exportedAt: cleanMarketDate(event.exportedAt, new Date().toISOString()),
     backupHash: backupHash.toLowerCase(),
     backupShort: backupHash.slice(0, 12).toLowerCase(),
+    contentVersionHash: /^[a-f0-9]{64}$/.test(contentVersionHash) ? contentVersionHash : "",
     counts: cleanOwnerCounts(event.counts),
     source: cleanMarketText(event.source || "owner-console", 80),
     notes: cleanMarketText(event.notes, 500)
@@ -1456,7 +1459,7 @@ function normalizeKnowledge(knowledge) {
     ? knowledge.ownerRestoreEvents.map(normalizeOwnerRestoreEvent).filter(Boolean).slice(-100)
     : [];
   const ownerRollbackSnapshots = Array.isArray(knowledge?.ownerRollbackSnapshots)
-    ? knowledge.ownerRollbackSnapshots.map(normalizeOwnerRollbackSnapshot).filter(Boolean).slice(-5)
+    ? knowledge.ownerRollbackSnapshots.map(normalizeOwnerRollbackSnapshot).filter(Boolean).slice(-3)
     : [];
   const ownerBackupEvents = Array.isArray(knowledge?.ownerBackupEvents)
     ? knowledge.ownerBackupEvents.map(normalizeOwnerBackupEvent).filter(Boolean).slice(-100)
@@ -8973,12 +8976,12 @@ async function retrieveJarvisAnswer(query, brain, session, context = {}, knowled
   return { answer: fallbackAnswer, sources, mode: "framework", retrievalMode: evidenceResult.mode, contextCoach };
 }
 
-async function readBody(req) {
+async function readBody(req, maxBytes = MAX_JSON_BODY_BYTES) {
   const chunks = [];
   let totalBytes = 0;
   for await (const chunk of req) {
     totalBytes += chunk.length;
-    if (totalBytes > MAX_JSON_BODY_BYTES) {
+    if (totalBytes > maxBytes) {
       const error = new Error("Request body is too large.");
       error.statusCode = 413;
       throw error;
@@ -9022,7 +9025,7 @@ function send(res, status, payload, headers = jsonHeaders) {
   res.end(typeof payload === "string" ? payload : JSON.stringify(payload));
 }
 
-function ownerKnowledgeExport(db, { includeChunks = false } = {}) {
+function ownerKnowledgeExport(db, { includeChunks = false, includeRetrievalEvents = true } = {}) {
   const knowledge = normalizeKnowledge(db.knowledge);
   const counts = {
     projects: knowledge.projects.length,
@@ -9032,6 +9035,7 @@ function ownerKnowledgeExport(db, { includeChunks = false } = {}) {
     chunks: knowledge.chunks.length,
     retrievalEvents: knowledge.retrievalEvents.length
   };
+  const contentHash = ownerContentVersionHash(db);
   const payload = {
     app: "apex-analytic",
     exportType: "owner-knowledge-backup",
@@ -9039,6 +9043,12 @@ function ownerKnowledgeExport(db, { includeChunks = false } = {}) {
     version: 1,
     exportedAt: new Date().toISOString(),
     counts,
+    contentVersion: {
+      algorithm: "sha256",
+      hash: contentHash,
+      shortHash: contentHash.slice(0, 12),
+      covers: "owner-authored content only, excluding retrieval analytics and ledgers"
+    },
     warning: "Owner backup only. Keep this file private; it may contain proprietary market observations, case opinions, source URLs, and evidence metadata.",
     brain: db.brain,
     properties: db.properties,
@@ -9048,7 +9058,7 @@ function ownerKnowledgeExport(db, { includeChunks = false } = {}) {
       projects: knowledge.projects,
       observations: knowledge.observations,
       developmentCases: knowledge.developmentCases,
-      retrievalEvents: knowledge.retrievalEvents,
+      retrievalEvents: includeRetrievalEvents ? knowledge.retrievalEvents : [],
       chunkCount: knowledge.chunks.length,
       ...(includeChunks ? { chunks: knowledge.chunks.map(({ embedding, ...chunk }) => chunk) } : {})
     }
@@ -9056,7 +9066,7 @@ function ownerKnowledgeExport(db, { includeChunks = false } = {}) {
   payload.integrity = {
     algorithm: "sha256",
     hash: ownerKnowledgeIntegrityHash(payload),
-    covers: "owner backup excluding exportedAt and integrity"
+    covers: "owner backup excluding exportedAt and integrity, hashed over canonical key-sorted JSON"
   };
   return payload;
 }
@@ -9078,9 +9088,38 @@ function ownerKnowledgeCounts(db) {
   };
 }
 
+function canonicalJson(value) {
+  if (value === null || typeof value !== "object") return JSON.stringify(value) ?? "null";
+  if (Array.isArray(value)) return `[${value.map((item) => canonicalJson(item === undefined ? null : item)).join(",")}]`;
+  const keys = Object.keys(value).filter((key) => value[key] !== undefined).sort();
+  return `{${keys.map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(",")}}`;
+}
+
 function ownerKnowledgeIntegrityHash(payload) {
+  // Canonical (key-sorted) hashing keeps the check stable across JSON
+  // round-trips that reorder object keys, such as PostgreSQL JSONB storage
+  // or re-saved backup files.
+  const { exportedAt, integrity, ...hashable } = payload || {};
+  return createHash("sha256").update(canonicalJson(hashable)).digest("hex");
+}
+
+function legacyOwnerKnowledgeIntegrityHash(payload) {
   const { exportedAt, integrity, ...hashable } = payload || {};
   return createHash("sha256").update(JSON.stringify(hashable)).digest("hex");
+}
+
+function ownerContentVersionHash(db) {
+  const knowledge = normalizeKnowledge(db.knowledge);
+  return createHash("sha256").update(canonicalJson({
+    brain: normalizeBrain(db.brain),
+    properties: Array.isArray(db.properties) ? db.properties : [],
+    comps: Array.isArray(db.comps) ? db.comps : [],
+    documents: knowledge.documents,
+    projects: knowledge.projects,
+    observations: knowledge.observations,
+    developmentCases: knowledge.developmentCases,
+    chunks: knowledge.chunks.map(({ embedding, ...chunk }) => chunk)
+  })).digest("hex");
 }
 
 function ownerKnowledgeRestorePreview(currentDb, rawBackup = {}) {
@@ -9095,7 +9134,8 @@ function ownerKnowledgeRestorePreview(currentDb, rawBackup = {}) {
   }
   const integrityHash = String(backup?.integrity?.hash || "");
   const calculatedHash = ownerKnowledgeIntegrityHash(backup);
-  if (integrityHash && integrityHash !== calculatedHash) {
+  const legacyHash = legacyOwnerKnowledgeIntegrityHash(backup);
+  if (integrityHash && integrityHash !== calculatedHash && integrityHash !== legacyHash) {
     errors.push("Backup integrity check failed. Export the owner backup again before restoring.");
   } else if (!integrityHash) {
     warnings.push("This backup has no integrity hash. Apex can preview it, but newer backups are safer.");
@@ -9148,7 +9188,7 @@ function publicOwnerKnowledgeRestorePreview(plan) {
 }
 
 function ownerRollbackSnapshot(db, reason = "before-owner-restore") {
-  const state = ownerKnowledgeExport(db, { includeChunks: true });
+  const state = ownerKnowledgeExport(db, { includeChunks: true, includeRetrievalEvents: false });
   return normalizeOwnerRollbackSnapshot({
     id: randomUUID(),
     createdAt: new Date().toISOString(),
@@ -9185,11 +9225,21 @@ function publicOwnerRollbackSnapshot(snapshot = {}) {
 }
 
 function ownerKnowledgeVersionSummary(db) {
-  const payload = ownerKnowledgeExport(db, { includeChunks: true });
+  // Versioning tracks owner-authored content only, so public chat analytics
+  // (retrieval events) cannot flip a fresh backup to "outdated".
+  const hash = ownerContentVersionHash(db);
+  const knowledge = normalizeKnowledge(db.knowledge);
   return {
-    hash: payload.integrity.hash,
-    shortHash: payload.integrity.hash.slice(0, 12),
-    counts: payload.counts
+    hash,
+    shortHash: hash.slice(0, 12),
+    counts: {
+      projects: knowledge.projects.length,
+      observations: knowledge.observations.length,
+      developmentCases: knowledge.developmentCases.length,
+      documents: knowledge.documents.length,
+      chunks: knowledge.chunks.length,
+      retrievalEvents: knowledge.retrievalEvents.length
+    }
   };
 }
 
@@ -9203,7 +9253,8 @@ function ownerBackupLedger(db) {
   let action = "Download a backup from the Owner Console.";
   if (latest) {
     const ageDays = Math.max(0, Math.floor((Date.now() - Date.parse(latest.createdAt)) / 86400000));
-    if (latest.backupHash !== version.hash) {
+    const recordedVersionHash = latest.contentVersionHash || latest.backupHash;
+    if (recordedVersionHash !== version.hash) {
       status = "warning";
       label = "Backup outdated";
       action = "Current owner knowledge changed after the latest recorded backup.";
@@ -10034,9 +10085,11 @@ async function router(req, res) {
 
   if (req.method === "POST" && url.pathname === "/api/owner/backup/events") {
     const body = await readBody(req);
+    const suppliedContentHash = String(body.contentVersionHash || "").trim().toLowerCase();
     const event = normalizeOwnerBackupEvent({
       backupHash: body.backupHash || body.integrityHash || body.hash,
       exportedAt: body.exportedAt,
+      contentVersionHash: /^[a-f0-9]{64}$/.test(suppliedContentHash) ? suppliedContentHash : ownerContentVersionHash(db),
       counts: body.counts,
       source: body.source || "owner-console",
       notes: body.notes || ""
@@ -10140,7 +10193,7 @@ async function router(req, res) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/owner/restore") {
-    const body = await readBody(req);
+    const body = await readBody(req, MAX_OWNER_RESTORE_BYTES);
     const plan = ownerKnowledgeRestorePreview(db, body);
     const dryRun = body.dryRun !== false;
     if (!plan.valid) return send(res, 400, publicOwnerKnowledgeRestorePreview(plan));

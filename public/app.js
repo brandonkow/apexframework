@@ -2889,10 +2889,11 @@ function readOwnerBackupMarker() {
 }
 
 function writeOwnerBackupMarker(backup = {}) {
+  const versionHash = backup.contentVersion?.hash || backup.integrity?.hash || "";
   const marker = {
     exportedAt: backup.exportedAt || new Date().toISOString(),
-    versionHash: backup.integrity?.hash || "",
-    versionShort: backup.integrity?.hash ? backup.integrity.hash.slice(0, 12) : "",
+    versionHash,
+    versionShort: versionHash ? versionHash.slice(0, 12) : "",
     counts: backup.counts || {}
   };
   window.localStorage.setItem(ownerBackupMarkerKey, JSON.stringify(marker));
@@ -3063,6 +3064,7 @@ async function recordOwnerBackupEvent(backup = {}) {
     method: "POST",
     body: JSON.stringify({
       backupHash: backup.integrity?.hash || "",
+      contentVersionHash: backup.contentVersion?.hash || "",
       exportedAt: backup.exportedAt || new Date().toISOString(),
       counts: backup.counts || {},
       source: "owner-console"

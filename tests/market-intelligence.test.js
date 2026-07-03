@@ -368,6 +368,17 @@ test("owner market observations add dated trends and freshness warnings to Apex 
   assert.equal(currentBackupReminder.response.status, 200);
   assert.equal(currentBackupReminder.payload.due, false);
 
+  const publicChat = await request(baseUrl, "/api/jarvis/query", {
+    method: "POST",
+    body: { query: "Is the Bayan Lepas rental market still healthy?" }
+  });
+  assert.equal(publicChat.response.status, 200);
+  const ledgerAfterChat = await request(baseUrl, "/api/owner/backup/events", { owner: true });
+  assert.equal(ledgerAfterChat.response.status, 200);
+  assert.equal(ledgerAfterChat.payload.status, "ready", "public chat analytics must not mark the owner backup as outdated");
+  const reminderAfterChat = await request(baseUrl, "/api/owner/backup/reminder", { owner: true });
+  assert.equal(reminderAfterChat.payload.due, false, "public chat analytics must not trigger backup reminders");
+
   const deniedRestore = await request(baseUrl, "/api/owner/restore", {
     method: "POST",
     body: { backup: ownerExport.payload, dryRun: true }
@@ -403,6 +414,18 @@ test("owner market observations add dated trends and freshness warnings to Apex 
   });
   assert.equal(tamperedRestore.response.status, 400);
   assert.match(tamperedRestore.payload.errors.join(" "), /integrity check failed/i);
+  const reorderKeys = (value) => Array.isArray(value)
+    ? value.map(reorderKeys)
+    : value && typeof value === "object"
+      ? Object.fromEntries(Object.keys(value).sort().reverse().map((key) => [key, reorderKeys(value[key])]))
+      : value;
+  const reorderedRestore = await request(baseUrl, "/api/owner/restore", {
+    method: "POST",
+    owner: true,
+    body: { backup: reorderKeys(ownerExport.payload), dryRun: true }
+  });
+  assert.equal(reorderedRestore.response.status, 200);
+  assert.equal(reorderedRestore.payload.valid, true, "key order changes from JSONB or re-saved files must not fail integrity");
   const restoredBackup = await request(baseUrl, "/api/owner/restore", {
     method: "POST",
     owner: true,
