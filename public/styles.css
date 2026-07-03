@@ -1971,7 +1971,7 @@ body.stageCompact:not(.conversationActive) .identity #assistantPrompt {
   max-height: min(82dvh, 780px);
   width: min(1040px, 100%);
   margin: 0 auto;
-  grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto auto auto auto minmax(0, 1fr) auto;
   gap: 10px;
   overflow: hidden;
   border: 1px solid rgba(103, 229, 255, 0.24);
@@ -2270,6 +2270,62 @@ body.stageCompact:not(.conversationActive) .identity #assistantPrompt {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.ownerIntelOps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  max-height: 190px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.ownerIntelOps article {
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  min-width: 0;
+  border: 1px solid rgba(103, 229, 255, 0.12);
+  border-left: 2px solid #70e6b3;
+  border-radius: 10px;
+  padding: 9px;
+  background: rgba(1, 12, 19, 0.58);
+}
+
+.ownerIntelOps article.warning {
+  border-left-color: #d0ad69;
+}
+
+.ownerIntelOps article.missing {
+  border-left-color: #e68e8e;
+}
+
+.ownerIntelOpsLead {
+  background: linear-gradient(135deg, rgba(103, 229, 255, 0.1), rgba(1, 12, 19, 0.62)) !important;
+}
+
+.ownerIntelOps small,
+.ownerIntelOps em {
+  color: #5d8c97;
+  font-size: 0.46rem;
+  font-style: normal;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.ownerIntelOps b {
+  color: var(--cyan-bright);
+  font-size: 0.66rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+}
+
+.ownerIntelOps p {
+  margin: 0;
+  color: #7ca8b0;
+  font-size: 0.58rem;
+  line-height: 1.4;
 }
 
 .ownerIntelControls {
@@ -8000,6 +8056,7 @@ body.stageCompact:not(.conversationActive) .identity #assistantPrompt {
   .ownerCaseAccess,
   .ownerMarketFilters,
   .ownerCaseFilters,
+  .ownerIntelOps,
   .ownerIntelWorkspace,
   .ownerIntelLanes,
   .ownerMarketWorkspace,

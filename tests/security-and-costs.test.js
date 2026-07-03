@@ -108,6 +108,23 @@ test("security hardening and Malaysian deal-cost engine", async (t) => {
     assert.equal(right.status, 200);
   });
 
+  await t.test("owner ops snapshot is private and reports production readiness", async () => {
+    const missing = await fetch(`${baseUrl}/api/owner/ops`);
+    assert.equal(missing.status, 403);
+    const response = await fetch(`${baseUrl}/api/owner/ops`, {
+      headers: { "x-estatelab-owner-token": OWNER_TOKEN }
+    });
+    assert.equal(response.status, 200);
+    const ops = await response.json();
+    assert.ok(["ready", "warning", "missing"].includes(ops.status));
+    assert.equal(ops.runtime.storage, "json");
+    assert.ok(Array.isArray(ops.checks));
+    assert.ok(ops.checks.some((check) => check.id === "storage"));
+    assert.ok(ops.checks.some((check) => check.id === "billing"));
+    assert.equal(ops.ai.configured, false);
+    assert.equal(ops.billing.enforcement, false);
+  });
+
   await t.test("deal-cost calculator returns tiered Malaysian estimates", async () => {
     const { response, payload } = await post(baseUrl, "/api/tools/deal-costs", {
       price: 500000,

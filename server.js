@@ -9347,6 +9347,129 @@ async function deliverOwnerBackupReminder(status, { force = false } = {}) {
   }
 }
 
+function ownerOpsCheck(id, label, status, detail, action = "") {
+  return { id, label, status, detail, action };
+}
+
+function ownerOpsSnapshot(db) {
+  const backup = ownerBackupReminderStatus(db);
+  const counts = ownerKnowledgeCounts(db);
+  const users = Array.isArray(db.auth?.users) ? db.auth.users : [];
+  const reportCount = users.reduce((sum, user) => sum + (Array.isArray(user.reports?.items) ? user.reports.items.length : 0), 0);
+  const strongOwnerToken = OWNER_TOKEN.length >= 24 && OWNER_TOKEN !== "change-this-before-using-owner-apis";
+  const billingCheckoutReady = Boolean(PRO_CHECKOUT_URL && ADVISOR_CHECKOUT_URL);
+  const billingWebhookReady = Boolean(BILLING_WEBHOOK_SECRET);
+  const emailWebhookReady = Boolean(EMAIL_WEBHOOK_URL);
+  const objectDirConfigured = Boolean(String(globalThis.process?.env?.ESTATELAB_OBJECT_DIR || "").trim());
+  const checks = [
+    ownerOpsCheck(
+      "owner-token",
+      "Owner token",
+      strongOwnerToken ? "ready" : "missing",
+      strongOwnerToken ? "Owner APIs are protected by a non-placeholder token." : "Owner APIs need a long secret token before production use.",
+      strongOwnerToken ? "Rotate only if exposed." : "Set ESTATELAB_OWNER_TOKEN in Render."
+    ),
+    ownerOpsCheck(
+      "storage",
+      "Storage durability",
+      stateStore.kind === "postgres" ? "ready" : "warning",
+      stateStore.kind === "postgres" ? "PostgreSQL is active for durable accounts, memory, reports, and owner data." : "JSON fallback is active; Render free filesystem can reset after restarts.",
+      stateStore.kind === "postgres" ? "Monitor database usage." : "Attach PostgreSQL before relying on real users."
+    ),
+    ownerOpsCheck(
+      "object-storage",
+      "Evidence originals",
+      objectDirConfigured ? "ready" : "warning",
+      objectDirConfigured ? "Owner evidence originals use a configured object directory." : "Evidence metadata and indexed text may remain, but uploaded original files rely on the default local path.",
+      objectDirConfigured ? "Back up original files with owner exports." : "Set ESTATELAB_OBJECT_DIR to persistent storage when evidence uploads matter."
+    ),
+    ownerOpsCheck(
+      "llm",
+      "AI reasoning",
+      LLM_API_KEY ? "ready" : "warning",
+      LLM_API_KEY ? `${LLM_PROVIDER === "openrouter" && OPENROUTER_FREE_ROUTING ? "OpenRouter free routing" : `${LLM_PROVIDER} reasoning`} is configured.` : "No external reasoning key is configured; Apex will rely on framework responses.",
+      LLM_API_KEY ? "Run a live chat smoke test after deploy." : "Set OPENROUTER_API_KEY or OPENAI_API_KEY when AI reasoning is needed."
+    ),
+    ownerOpsCheck(
+      "email",
+      "Email delivery",
+      REQUIRE_EMAIL_VERIFICATION && !emailWebhookReady ? "missing" : emailWebhookReady ? "ready" : "warning",
+      emailWebhookReady ? "Verification and reset delivery webhook is configured." : "Email webhook is not configured.",
+      REQUIRE_EMAIL_VERIFICATION && !emailWebhookReady ? "Disable mandatory verification or configure ESTATELAB_EMAIL_WEBHOOK_URL." : emailWebhookReady ? "Test a verification email before launch." : "Configure delivery before requiring verified accounts."
+    ),
+    ownerOpsCheck(
+      "billing",
+      "Billing readiness",
+      BILLING_ENFORCEMENT && (!billingWebhookReady || !billingCheckoutReady) ? "missing" : billingCheckoutReady && billingWebhookReady ? "ready" : "warning",
+      BILLING_ENFORCEMENT
+        ? "Billing enforcement is on."
+        : "Billing is visible but enforcement is off, which is safer until checkout and webhook are verified.",
+      billingCheckoutReady && billingWebhookReady ? "You can test paid plan upgrades." : "Set checkout URLs and APEX_BILLING_WEBHOOK_SECRET before enforcing paid limits."
+    ),
+    ownerOpsCheck(
+      "backup",
+      "Owner backup",
+      backup.ledger.status === "ready" ? "ready" : backup.ledger.status === "missing" ? "missing" : "warning",
+      backup.message,
+      backup.due ? "Export a fresh backup or send a reminder." : "Backup rhythm is current."
+    ),
+    ownerOpsCheck(
+      "backup-reminder",
+      "Backup reminder",
+      backup.configured ? "ready" : "warning",
+      backup.configured ? "External backup reminder webhook is configured." : "External backup reminder webhook is not configured.",
+      backup.configured ? "Use Render Cron or an automation tool to call the reminder endpoint." : "Set APEX_OWNER_BACKUP_WEBHOOK_URL if you want off-platform reminders."
+    )
+  ];
+  const missing = checks.filter((check) => check.status === "missing").length;
+  const warning = checks.filter((check) => check.status === "warning").length;
+  return {
+    generatedAt: new Date().toISOString(),
+    status: missing ? "missing" : warning ? "warning" : "ready",
+    summary: {
+      ready: checks.filter((check) => check.status === "ready").length,
+      warning,
+      missing
+    },
+    checks,
+    runtime: {
+      node: globalThis.process?.versions?.node || "",
+      environment: String(globalThis.process?.env?.NODE_ENV || "development"),
+      host: HOST,
+      port: PORT,
+      storage: stateStore.kind,
+      trustProxy: TRUST_PROXY
+    },
+    knowledge: {
+      counts,
+      users: users.length,
+      disabledUsers: users.filter((user) => user.disabledAt).length,
+      reports: reportCount
+    },
+    ai: {
+      provider: LLM_PROVIDER,
+      configured: Boolean(LLM_API_KEY),
+      openRouterFreeRouting: LLM_PROVIDER === "openrouter" && OPENROUTER_FREE_ROUTING,
+      lastResolvedModel: llmRuntime.resolvedModel ? "available" : "",
+      lastUsedAt: llmRuntime.lastUsedAt
+    },
+    email: {
+      webhookConfigured: emailWebhookReady,
+      requireVerification: REQUIRE_EMAIL_VERIFICATION,
+      debugTokens: AUTH_DEBUG_TOKENS
+    },
+    billing: {
+      enforcement: BILLING_ENFORCEMENT,
+      webhookConfigured: billingWebhookReady,
+      proCheckoutConfigured: Boolean(PRO_CHECKOUT_URL),
+      advisorCheckoutConfigured: Boolean(ADVISOR_CHECKOUT_URL),
+      proPriceRm: PRO_PRICE_RM,
+      advisorPriceRm: ADVISOR_PRICE_RM
+    },
+    backup
+  };
+}
+
 function ownerRestoreHistory(db) {
   const knowledge = normalizeKnowledge(db.knowledge);
   const version = ownerKnowledgeVersionSummary(db);
@@ -10077,6 +10200,10 @@ async function router(req, res) {
       ...jsonHeaders,
       "Content-Disposition": "attachment; filename=\"apex-owner-export.json\""
     });
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/owner/ops") {
+    return send(res, 200, ownerOpsSnapshot(db));
   }
 
   if (req.method === "GET" && url.pathname === "/api/owner/backup/events") {

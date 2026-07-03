@@ -289,12 +289,16 @@
             <span><b>0</b> OBSERVATIONS</span>
             <span><b>0</b> DOCUMENTS</span>
           </div>
+          <div id="ownerIntelOpsDashboard" class="ownerIntelOps" aria-live="polite">
+            <article class="warning"><small>PRODUCTION OPS</small><b>Token required</b><p>Load the owner console to check storage, AI, billing, backup, and launch readiness.</p></article>
+          </div>
           <div id="ownerIntelControls" class="ownerIntelControls" aria-label="Owner intelligence filters and export">
             <button type="button" data-owner-intel-filter="all" aria-pressed="true">ALL</button>
             <button type="button" data-owner-intel-filter="missing">MISSING</button>
             <button type="button" data-owner-intel-filter="stale">STALE</button>
             <button type="button" data-owner-intel-filter="partial">PARTIAL</button>
             <button type="button" data-owner-intel-filter="ready">READY</button>
+            <button id="ownerIntelOpsRefresh" type="button">OPS CHECK</button>
             <button id="ownerIntelCopyBrief" type="button">COPY BRIEF</button>
             <button id="ownerIntelExport" type="button">EXPORT BACKUP</button>
             <button id="ownerIntelImport" type="button">RESTORE BACKUP</button>

@@ -70,15 +70,15 @@ For OpenRouter:
 
 ```text
 OPENROUTER_API_KEY=sk-or-...
-LLM_MODEL=openrouter/auto
+OPENROUTER_FREE_ROUTING=true
 ```
 
-For repeatable investment analysis, replace `openrouter/auto` with the exact model slug chosen in OpenRouter. Every successful LLM reply returns `provider` and `model`. `GET /api/jarvis/status` reports both `configuredModel` and `resolvedModel`; the frontend displays the resolved model after a reply. With auto-routing, these values can differ by request.
+OpenRouter free routing lets the provider select an available free model at request time. Set `OPENROUTER_FREE_ROUTING=false` and provide an exact `LLM_MODEL` only when repeatability matters more than free routing. The server still records provider/model internally, but the public frontend uses model-neutral labels.
 
 Every assistant response also carries a persistent intelligence badge:
 
 - `FRAMEWORK ONLY`: the deterministic framework generated the response because no reasoning model answered.
-- `FRAMEWORK + DEEPSEEK`: DeepSeek successfully generated that response using the retrieved framework context.
+- `FRAMEWORK + AI`: an external reasoning model generated that response using the retrieved framework context.
 
 The badge belongs to the individual message and remains visible after refresh or cross-device session recovery.
 
@@ -86,13 +86,29 @@ The badge belongs to the individual message and remains visible after refresh or
 
 After a Render deployment:
 
-1. Check `/api/health`; `storage` should be `postgres` when `DATABASE_URL` is configured.
-2. Check `/api/jarvis/status`; confirm AI, audio, document, and account-delivery capability flags.
-3. Upload one small owner evidence file and confirm it reports `indexed`.
-4. Ask Apex Analytic a question containing distinctive terms from that file and confirm an `EVIDENCE` source appears.
-5. Review `/api/owner/retrieval/metrics`.
-6. Register a test member, verify the code, reset the password, and remove or disable the test account.
-7. Test voice once on desktop and once on mobile.
+1. Run `npm run smoke -- https://your-apex-service.onrender.com` from a trusted local terminal.
+2. Paste the owner token into the Owner console and run `OPS CHECK`.
+3. Check `/api/health`; `storage` should be `postgres` when `DATABASE_URL` is configured.
+4. Check `/api/jarvis/status`; confirm AI, audio, document, and account-delivery capability flags.
+5. Upload one small owner evidence file and confirm it reports `indexed`.
+6. Ask Apex Analytic a question containing distinctive terms from that file and confirm an `EVIDENCE` source appears.
+7. Review `/api/owner/retrieval/metrics`.
+8. Register a test member, verify the code, reset the password, and remove or disable the test account.
+9. Test voice once on desktop and once on mobile.
+
+## Owner Operations Snapshot
+
+`GET /api/owner/ops` is owner-token protected. It returns a model-neutral readiness snapshot for:
+
+- Owner-token strength
+- PostgreSQL versus JSON fallback storage
+- Evidence original-file storage
+- AI reasoning configuration
+- Email delivery and verification mode
+- Billing enforcement, checkout, and webhook readiness
+- Owner backup rhythm and external backup reminder setup
+
+Use the Owner console `OPS CHECK` button for the same view without calling the API manually. Treat `missing` as a launch blocker and `warning` as acceptable only when you deliberately chose that tradeoff, such as framework-only mode or billing enforcement off during testing.
 
 ## Capacity Boundaries
 

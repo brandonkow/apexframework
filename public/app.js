@@ -112,7 +112,9 @@ const ownerIntelAccess = document.querySelector("#ownerIntelAccess");
 const ownerIntelToken = document.querySelector("#ownerIntelToken");
 const ownerIntelClearToken = document.querySelector("#ownerIntelClearToken");
 const ownerIntelSummary = document.querySelector("#ownerIntelSummary");
+const ownerIntelOpsDashboard = document.querySelector("#ownerIntelOpsDashboard");
 const ownerIntelControls = document.querySelector("#ownerIntelControls");
+const ownerIntelOpsRefresh = document.querySelector("#ownerIntelOpsRefresh");
 const ownerIntelCopyBrief = document.querySelector("#ownerIntelCopyBrief");
 const ownerIntelExport = document.querySelector("#ownerIntelExport");
 const ownerIntelImport = document.querySelector("#ownerIntelImport");
@@ -2930,6 +2932,42 @@ function ownerIntelLane(label, value, status, action) {
   `;
 }
 
+function ownerOpsStatusText(status = "") {
+  if (status === "ready") return "READY";
+  if (status === "missing") return "BLOCKED";
+  if (status === "warning") return "CHECK";
+  return "UNKNOWN";
+}
+
+function ownerOpsCheckMarkup(check = {}) {
+  return `
+    <article class="${escapeHtml(check.status || "warning")}">
+      <small>${escapeHtml(check.label || "Ops check")}</small>
+      <b>${escapeHtml(ownerOpsStatusText(check.status))}</b>
+      <p>${escapeHtml(check.detail || "Status unavailable.")}</p>
+      ${check.action ? `<em>${escapeHtml(check.action)}</em>` : ""}
+    </article>
+  `;
+}
+
+function renderOwnerOps(ops = {}) {
+  const checks = Array.isArray(ops.checks) ? ops.checks : [];
+  if (!checks.length) {
+    ownerIntelOpsDashboard.innerHTML = '<article class="warning"><small>PRODUCTION OPS</small><b>Token required</b><p>Load the owner console to check storage, AI, billing, backup, and launch readiness.</p></article>';
+    return;
+  }
+  const summary = ops.summary || {};
+  ownerIntelOpsDashboard.innerHTML = `
+    <article class="ownerIntelOpsLead ${escapeHtml(ops.status || "warning")}">
+      <small>PRODUCTION OPS</small>
+      <b>${escapeHtml(ownerOpsStatusText(ops.status))}</b>
+      <p>${escapeHtml(summary.ready || 0)} ready / ${escapeHtml(summary.warning || 0)} warning / ${escapeHtml(summary.missing || 0)} blocked</p>
+      <em>${escapeHtml(ops.generatedAt || "")}</em>
+    </article>
+    ${checks.map(ownerOpsCheckMarkup).join("")}
+  `;
+}
+
 function ownerIntelCoverageScore(rows = []) {
   if (!rows.length) return 0;
   const total = rows.reduce((sum, row) => {
@@ -2991,16 +3029,23 @@ function ownerIntelBriefText() {
   const snapshot = ownerIntelSnapshot || {};
   const rows = ownerIntelSortRows(snapshot.rows || []);
   const score = snapshot.score || 0;
+  const ops = snapshot.ops || {};
+  const opsChecks = Array.isArray(ops.checks) ? ops.checks : [];
+  const opsGaps = opsChecks.filter((check) => check.status !== "ready");
   const lines = [
     "APEX OWNER INTELLIGENCE BRIEF",
     new Intl.DateTimeFormat("en-MY", { dateStyle: "medium", timeStyle: "short" }).format(new Date()),
     "",
     `Coverage score: ${score}%`,
+    `Production ops: ${ownerOpsStatusText(ops.status)} (${ops.summary?.ready || 0} ready / ${ops.summary?.warning || 0} warning / ${ops.summary?.missing || 0} blocked)`,
     `Projects: ${snapshot.projectCount || 0}`,
     `Cases: ${snapshot.caseCount || 0}`,
     `Observations: ${snapshot.observationCount || 0}`,
     `Evidence documents: ${snapshot.documentCount || 0}`,
     `Complete projects: ${snapshot.complete || 0}`,
+    "",
+    "Production gaps:",
+    ...(opsGaps.length ? opsGaps.slice(0, 8).map((check) => `- ${check.label}: ${ownerOpsStatusText(check.status)} / ${check.action || check.detail || "Review required."}`) : ["- None loaded or all clear."]),
     "",
     "Priority gaps:",
     ...(rows.length ? rows.slice(0, 10).map((row) => {
@@ -3087,6 +3132,20 @@ async function sendOwnerBackupReminder() {
     await loadOwnerIntelligence();
   } finally {
     ownerIntelBackupReminder.disabled = false;
+  }
+}
+
+async function refreshOwnerOps() {
+  if (!ownerIntelTokenValue()) return ownerIntelToken.focus();
+  ownerIntelOpsRefresh.disabled = true;
+  try {
+    setOwnerIntelMessage("Checking production operations...");
+    const ops = await ownerIntelRequest("/api/owner/ops");
+    ownerIntelSnapshot = { ...(ownerIntelSnapshot || {}), ops };
+    renderOwnerOps(ops);
+    setOwnerIntelMessage(`Production ops: ${ownerOpsStatusText(ops.status)}. ${ops.summary?.ready || 0} ready, ${ops.summary?.warning || 0} warning, ${ops.summary?.missing || 0} blocked.`, ops.status === "ready" ? "" : "warning");
+  } finally {
+    ownerIntelOpsRefresh.disabled = false;
   }
 }
 
@@ -3312,11 +3371,12 @@ async function saveOwnerAdminUser(button) {
   }
 }
 
-function renderOwnerIntelligence({ projects = {}, observations = {}, cases = {}, evidence = {}, history = {} } = {}) {
+function renderOwnerIntelligence({ projects = {}, observations = {}, cases = {}, evidence = {}, history = {}, ops = {} } = {}) {
   const projectItems = Array.isArray(projects.projects) ? projects.projects : [];
   const observationItems = Array.isArray(observations.observations) ? observations.observations : [];
   const caseItems = Array.isArray(cases.cases) ? cases.cases : [];
   const documents = Array.isArray(evidence.documents) ? evidence.documents : [];
+  renderOwnerOps(ops);
   ownerIntelProjects = projectItems;
   ownerMarketProjects = projectItems;
   renderOwnerProjectOptions(projectItems);
@@ -3337,10 +3397,12 @@ function renderOwnerIntelligence({ projects = {}, observations = {}, cases = {},
     documentCount: evidence.summary?.documents ?? documents.length,
     complete,
     currentVersionShort: history.summary?.currentVersionShort || "",
-    backupReminder
+    backupReminder,
+    ops
   };
   ownerIntelSummary.innerHTML = `
     <span><b>${escapeHtml(score)}%</b> COVERAGE</span>
+    <span><b>${escapeHtml(ownerOpsStatusText(ops.status))}</b> OPS</span>
     <span><b>${escapeHtml(projectItems.length)}</b> PROJECTS</span>
     <span><b>${escapeHtml(cases.summary?.total ?? caseItems.length)}</b> CASES</span>
     <span><b>${escapeHtml(observations.summary?.matched ?? observationItems.length)}</b> OBSERVATIONS</span>
@@ -3352,7 +3414,8 @@ function renderOwnerIntelligence({ projects = {}, observations = {}, cases = {},
     ownerIntelLane("Founder cases", `${missingCase} missing`, missingCase ? "warning" : "ready", missingCase ? "Write founder opinion for unmatched projects." : "Case coverage is broad."),
     ownerIntelLane("Market freshness", `${staleObservation} stale`, staleObservation ? "warning" : observationItems.length ? "ready" : "missing", staleObservation ? "Re-check old observations." : observationItems.length ? "Signals are current enough." : "Add dated ground signals."),
     ownerIntelLane("Evidence vault", `${noEvidence} unbacked`, noEvidence ? "warning" : documents.length ? "ready" : "missing", noEvidence ? "Attach proof to important projects." : documents.length ? "Evidence exists." : "Add source proof."),
-    ownerIntelLane("Backup rhythm", backupReminder.label, backupReminder.status, backupReminder.action)
+    ownerIntelLane("Backup rhythm", backupReminder.label, backupReminder.status, backupReminder.action),
+    ownerIntelLane("Production ops", ownerOpsStatusText(ops.status), ops.status || "warning", ops.summary ? `${ops.summary.ready || 0} ready, ${ops.summary.warning || 0} warning, ${ops.summary.missing || 0} blocked.` : "Load owner token to check launch readiness.")
   ].join("");
   renderOwnerIntelCoverageRows(rows);
 
@@ -3378,16 +3441,17 @@ async function loadOwnerIntelligence() {
     return null;
   }
   setOwnerIntelMessage("Loading owner intelligence coverage...");
-  const [projects, observations, cases, evidence, history] = await Promise.all([
+  const [projects, observations, cases, evidence, history, ops] = await Promise.all([
     ownerIntelRequest("/api/owner/market/projects"),
     ownerIntelRequest("/api/owner/market/observations?limit=500"),
     ownerIntelRequest("/api/owner/development-cases?limit=500"),
     ownerIntelRequest("/api/owner/documents"),
-    ownerIntelRequest("/api/owner/restore/history")
+    ownerIntelRequest("/api/owner/restore/history"),
+    ownerIntelRequest("/api/owner/ops")
   ]);
-  renderOwnerIntelligence({ projects, observations, cases, evidence, history });
+  renderOwnerIntelligence({ projects, observations, cases, evidence, history, ops });
   setOwnerIntelMessage("Owner intelligence coverage loaded.");
-  return { projects, observations, cases, evidence, history };
+  return { projects, observations, cases, evidence, history, ops };
 }
 
 async function ownerCaseRequest(pathname, options = {}) {
@@ -6028,6 +6092,7 @@ ownerIntelControls.addEventListener("click", (event) => {
   ownerIntelFilter = filter;
   renderOwnerIntelCoverageRows(ownerIntelSnapshot?.rows || []);
 });
+ownerIntelOpsRefresh.addEventListener("click", () => void refreshOwnerOps().catch((error) => setOwnerIntelMessage(error.message || "Production ops could not be checked.", "danger")));
 ownerIntelCopyBrief.addEventListener("click", () => void copyOwnerIntelBrief());
 ownerIntelExport.addEventListener("click", () => void exportOwnerKnowledgeBackup().catch((error) => setOwnerIntelMessage(error.message || "Owner backup could not be exported.", "danger")));
 ownerIntelImport.addEventListener("click", () => ownerIntelImportFile.click());

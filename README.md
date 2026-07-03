@@ -24,6 +24,8 @@ The public user experience is intentionally simple: users interact with one Apex
 - Free, Pro, and Advisor entitlements with monthly report metering, configurable checkout handoff, and a signed provider-neutral billing webhook.
 - Private cross-device Deal Report history for signed-in accounts.
 - Private Decision Journal with immutable thesis locking, outcome reviews, skill-versus-luck scoring, and relevant lesson recall in later conversations.
+- Owner-only production operations dashboard covering storage durability, AI reasoning, email delivery, billing readiness, backup rhythm, and launch blockers.
+- Production smoke-test script for checking a deployed Render service after each push.
 - Node.js backend with a single production database driver dependency (`pg`).
 - Public assistant endpoints for chat, session creation, and knowledge status.
 - Owner-protected APIs for property analysis, RAG querying, beliefs, decisions, and comparable data.
@@ -42,6 +44,14 @@ Then open:
 ```text
 http://localhost:3000
 ```
+
+Run a deployment smoke test against any live URL:
+
+```bash
+npm run smoke -- https://your-apex-service.onrender.com
+```
+
+Set `APEX_SMOKE_OWNER_TOKEN` before running the smoke test if you also want it to check the owner-only operations snapshot.
 
 ## Environment Variables
 
@@ -69,6 +79,8 @@ APEX_OWNER_BACKUP_WEBHOOK_URL=https://your-backup-reminder.example/hook
 APEX_OWNER_BACKUP_WEBHOOK_SECRET=your-backup-reminder-bearer-secret
 APEX_OWNER_BACKUP_REMINDER_DAYS=14
 APEX_OWNER_BACKUP_REMINDER_COOLDOWN_HOURS=24
+APEX_SMOKE_URL=https://your-apex-service.onrender.com
+APEX_SMOKE_OWNER_TOKEN=optional-owner-token-for-local-smoke-tests
 ESTATELAB_AUTH_DEBUG_TOKENS=false
 ESTATELAB_TRUST_PROXY=true
 APEX_BILLING_ENFORCEMENT=false
@@ -101,6 +113,8 @@ Embeddings and server voice use OpenAI-specific endpoints. When OpenRouter handl
 
 `APEX_OWNER_BACKUP_WEBHOOK_URL` is an optional owner-only backup reminder hook for Render Cron, Zapier, Make, Telegram, email, or any private automation endpoint. Owner-token calls to `POST /api/owner/backup/reminder` send a provider-neutral payload only when a backup is missing, outdated, older than `APEX_OWNER_BACKUP_REMINDER_DAYS`, or the request uses `force: true`. Set `APEX_OWNER_BACKUP_WEBHOOK_SECRET` to add a bearer credential and use `APEX_OWNER_BACKUP_REMINDER_COOLDOWN_HOURS` to avoid repeated reminders.
 
+`APEX_SMOKE_URL` and `APEX_SMOKE_OWNER_TOKEN` are local operator conveniences for `npm run smoke`. Do not set `APEX_SMOKE_OWNER_TOKEN` as a public browser variable; it is only read by the local Node smoke-test script.
+
 When AI mode is enabled, chat messages, approved private memories, relevant locked Decision Journal entries, and any Deal Card or Financial Profile context submitted with the message are sent to the configured provider for response generation. Public input is never promoted into Apex Analytic's owner-controlled knowledge base. Long-term memories and journal entries remain private to the signed-in account, and pending memory suggestions do not influence responses until the user approves them.
 
 Billing is provider-neutral. Keep `APEX_BILLING_ENFORCEMENT=false` until checkout and payment notifications are verified. Checkout URLs may use `{email}`, `{userId}`, and `{plan}` placeholders. A payment provider or automation must send signed subscription updates to `POST /api/billing/webhook`; see `docs/MONETIZATION.md` for the payload and launch sequence.
@@ -123,6 +137,7 @@ Render is the recommended first deployment target because it can run the Node se
 8. If you later add a paid persistent disk, move `ESTATELAB_DATA_DIR` and `ESTATELAB_OBJECT_DIR` onto that disk before relying on JSON/object persistence.
 9. Optionally configure `ESTATELAB_EMAIL_WEBHOOK_URL`, test delivery, and then set `ESTATELAB_REQUIRE_EMAIL_VERIFICATION=true`.
 10. Optionally configure `APEX_OWNER_BACKUP_WEBHOOK_URL` and call `POST /api/owner/backup/reminder` from Render Cron with the owner token header for off-platform backup reminders.
+11. After each deploy, run `npm run smoke -- https://your-apex-service.onrender.com` locally. Paste the owner token into the Owner console and check `OPS CHECK` before relying on production data.
 
 A free-safe `render.yaml` blueprint is included. It defines a Node web service in Singapore and a `/api/health` health check without requiring a paid persistent disk.
 
@@ -181,6 +196,7 @@ Owner-only:
 - Evidence document and retrieval-monitoring APIs
 - Market project, observation, freshness, trend, and batch-import APIs
 - User administration APIs
+- Production operations snapshot (`GET /api/owner/ops`)
 - Owner knowledge-base export (`GET /api/owner/export`, add `?chunks=true` to include indexed text)
 
 Owner-only calls require:
