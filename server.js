@@ -42,6 +42,10 @@ const OPENAI_SPEECH_VOICE = String(globalThis.process?.env?.OPENAI_SPEECH_VOICE 
 const OPENAI_TIMEOUT_MS = Math.max(5000, Number(globalThis.process?.env?.OPENAI_TIMEOUT_MS || 25000));
 const EMAIL_WEBHOOK_URL = String(globalThis.process?.env?.ESTATELAB_EMAIL_WEBHOOK_URL || "").trim();
 const EMAIL_WEBHOOK_SECRET = String(globalThis.process?.env?.ESTATELAB_EMAIL_WEBHOOK_SECRET || "").trim();
+const OWNER_BACKUP_WEBHOOK_URL = String(globalThis.process?.env?.APEX_OWNER_BACKUP_WEBHOOK_URL || "").trim();
+const OWNER_BACKUP_WEBHOOK_SECRET = String(globalThis.process?.env?.APEX_OWNER_BACKUP_WEBHOOK_SECRET || "").trim();
+const OWNER_BACKUP_REMINDER_DAYS = Math.max(1, Number(globalThis.process?.env?.APEX_OWNER_BACKUP_REMINDER_DAYS || 14));
+const OWNER_BACKUP_REMINDER_COOLDOWN_HOURS = Math.max(1, Number(globalThis.process?.env?.APEX_OWNER_BACKUP_REMINDER_COOLDOWN_HOURS || 24));
 const REQUIRE_EMAIL_VERIFICATION = String(globalThis.process?.env?.ESTATELAB_REQUIRE_EMAIL_VERIFICATION || "false").toLowerCase() === "true";
 const AUTH_DEBUG_TOKENS = String(globalThis.process?.env?.ESTATELAB_AUTH_DEBUG_TOKENS || "false").toLowerCase() === "true"
   && String(globalThis.process?.env?.NODE_ENV || "").toLowerCase() !== "production";
@@ -1198,7 +1202,7 @@ function normalizeAuth(auth) {
 }
 
 function emptyKnowledge() {
-  return { version: 3, documents: [], chunks: [], retrievalEvents: [], projects: [], observations: [], developmentCases: [], ownerRestoreEvents: [], ownerRollbackSnapshots: [], ownerBackupEvents: [] };
+  return { version: 3, documents: [], chunks: [], retrievalEvents: [], projects: [], observations: [], developmentCases: [], ownerRestoreEvents: [], ownerRollbackSnapshots: [], ownerBackupEvents: [], ownerBackupReminderEvents: [] };
 }
 
 const MARKET_METRIC_TYPES = new Set([
@@ -1378,6 +1382,20 @@ function normalizeOwnerBackupEvent(event = {}) {
   };
 }
 
+function normalizeOwnerBackupReminderEvent(event = {}) {
+  const status = ["sent", "skipped", "failed"].includes(event.status) ? event.status : "skipped";
+  return {
+    id: cleanMarketText(event.id || randomUUID(), 100),
+    createdAt: cleanMarketDate(event.createdAt, new Date().toISOString()),
+    status,
+    reason: cleanMarketText(event.reason, 120),
+    destination: cleanMarketText(event.destination, 160),
+    currentVersionHash: cleanMarketText(event.currentVersionHash, 160),
+    latestBackupAt: cleanMarketText(event.latestBackupAt, 80),
+    error: cleanMarketText(event.error, 500)
+  };
+}
+
 function normalizeKnowledge(knowledge) {
   const documents = Array.isArray(knowledge?.documents)
     ? knowledge.documents.map((document) => ({
@@ -1443,7 +1461,10 @@ function normalizeKnowledge(knowledge) {
   const ownerBackupEvents = Array.isArray(knowledge?.ownerBackupEvents)
     ? knowledge.ownerBackupEvents.map(normalizeOwnerBackupEvent).filter(Boolean).slice(-100)
     : [];
-  return { version: 3, documents, chunks, retrievalEvents, projects, observations, developmentCases, ownerRestoreEvents, ownerRollbackSnapshots, ownerBackupEvents };
+  const ownerBackupReminderEvents = Array.isArray(knowledge?.ownerBackupReminderEvents)
+    ? knowledge.ownerBackupReminderEvents.map(normalizeOwnerBackupReminderEvent).filter(Boolean).slice(-100)
+    : [];
+  return { version: 3, documents, chunks, retrievalEvents, projects, observations, developmentCases, ownerRestoreEvents, ownerRollbackSnapshots, ownerBackupEvents, ownerBackupReminderEvents };
 }
 
 function normalizeBrain(brain) {
@@ -9186,7 +9207,7 @@ function ownerBackupLedger(db) {
       status = "warning";
       label = "Backup outdated";
       action = "Current owner knowledge changed after the latest recorded backup.";
-    } else if (Number.isFinite(ageDays) && ageDays > 14) {
+    } else if (Number.isFinite(ageDays) && ageDays > OWNER_BACKUP_REMINDER_DAYS) {
       status = "warning";
       label = `${ageDays} days old`;
       action = "Download a fresh owner backup this week.";
@@ -9207,6 +9228,72 @@ function ownerBackupLedger(db) {
     currentVersionShort: version.shortHash,
     currentCounts: version.counts
   };
+}
+
+function ownerBackupReminderStatus(db) {
+  const knowledge = normalizeKnowledge(db.knowledge);
+  const ledger = ownerBackupLedger(db);
+  const latestReminder = knowledge.ownerBackupReminderEvents
+    .slice()
+    .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))[0] || null;
+  const due = ledger.status !== "ready";
+  const reason = due ? ledger.status : "current";
+  const lastSentAt = latestReminder?.status === "sent" ? latestReminder.createdAt : "";
+  const cooldownMs = OWNER_BACKUP_REMINDER_COOLDOWN_HOURS * 60 * 60 * 1000;
+  const withinCooldown = lastSentAt ? Date.now() - Date.parse(lastSentAt) < cooldownMs : false;
+  const message = due
+    ? `Owner backup reminder: ${ledger.label}. ${ledger.action}`
+    : `Owner backup is current: ${ledger.label}.`;
+  return {
+    due,
+    reason,
+    message,
+    configured: Boolean(OWNER_BACKUP_WEBHOOK_URL),
+    thresholdDays: OWNER_BACKUP_REMINDER_DAYS,
+    cooldownHours: OWNER_BACKUP_REMINDER_COOLDOWN_HOURS,
+    withinCooldown,
+    lastReminderAt: latestReminder?.createdAt || "",
+    latestReminder,
+    ledger
+  };
+}
+
+async function deliverOwnerBackupReminder(status, { force = false } = {}) {
+  if (!OWNER_BACKUP_WEBHOOK_URL) return { sent: false, skipped: true, reason: "webhook_not_configured" };
+  if (!status.due && !force) return { sent: false, skipped: true, reason: "backup_current" };
+  if (status.withinCooldown && !force) return { sent: false, skipped: true, reason: "cooldown" };
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+  try {
+    const response = await fetch(OWNER_BACKUP_WEBHOOK_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(OWNER_BACKUP_WEBHOOK_SECRET ? { "Authorization": `Bearer ${OWNER_BACKUP_WEBHOOK_SECRET}` } : {})
+      },
+      body: JSON.stringify({
+        app: "Apex Analytic",
+        type: "owner-backup-reminder",
+        generatedAt: new Date().toISOString(),
+        due: status.due,
+        reason: status.reason,
+        message: status.message,
+        ledger: {
+          status: status.ledger.status,
+          label: status.ledger.label,
+          action: status.ledger.action,
+          latest: status.ledger.latest,
+          currentVersionShort: status.ledger.currentVersionShort,
+          currentCounts: status.ledger.currentCounts
+        }
+      }),
+      signal: controller.signal
+    });
+    if (!response.ok) throw new Error(`Backup reminder webhook failed with status ${response.status}.`);
+    return { sent: true, skipped: false, reason: "sent" };
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 function ownerRestoreHistory(db) {
@@ -9251,7 +9338,8 @@ function applyOwnerRestoredState(db, plan, { type = "restore", source = {}, rest
     ...plan.restored.knowledge,
     ownerRestoreEvents: [...currentKnowledge.ownerRestoreEvents, event],
     ownerRollbackSnapshots: [...currentKnowledge.ownerRollbackSnapshots, snapshot],
-    ownerBackupEvents: currentKnowledge.ownerBackupEvents
+    ownerBackupEvents: currentKnowledge.ownerBackupEvents,
+    ownerBackupReminderEvents: currentKnowledge.ownerBackupReminderEvents
   });
   return { snapshot, event };
 }
@@ -9961,6 +10049,48 @@ async function router(req, res) {
     return send(res, 201, {
       event,
       ledger: ownerBackupLedger(db)
+    });
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/owner/backup/reminder") {
+    return send(res, 200, ownerBackupReminderStatus(db));
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/owner/backup/reminder") {
+    const body = await readBody(req);
+    const force = body.force === true;
+    const status = ownerBackupReminderStatus(db);
+    let delivery;
+    let eventStatus = "skipped";
+    let error = "";
+    try {
+      delivery = await deliverOwnerBackupReminder(status, { force });
+      eventStatus = delivery.sent ? "sent" : "skipped";
+    } catch (caught) {
+      delivery = { sent: false, skipped: false, reason: "webhook_failed" };
+      eventStatus = "failed";
+      error = caught.message || "Backup reminder webhook failed.";
+    }
+    const event = normalizeOwnerBackupReminderEvent({
+      status: eventStatus,
+      reason: delivery.reason,
+      destination: OWNER_BACKUP_WEBHOOK_URL ? "configured-webhook" : "none",
+      currentVersionHash: status.ledger.currentVersionHash,
+      latestBackupAt: status.ledger.latest?.createdAt || "",
+      error
+    });
+    db.knowledge = normalizeKnowledge(db.knowledge);
+    db.knowledge.ownerBackupReminderEvents.push(event);
+    db.knowledge = normalizeKnowledge(db.knowledge);
+    await writeDb(db);
+    const nextStatus = ownerBackupReminderStatus(db);
+    return send(res, eventStatus === "failed" ? 502 : 200, {
+      sent: delivery.sent,
+      skipped: delivery.skipped,
+      reason: delivery.reason,
+      event,
+      reminder: nextStatus,
+      error
     });
   }
 

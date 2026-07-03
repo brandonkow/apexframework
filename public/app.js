@@ -117,6 +117,7 @@ const ownerIntelCopyBrief = document.querySelector("#ownerIntelCopyBrief");
 const ownerIntelExport = document.querySelector("#ownerIntelExport");
 const ownerIntelImport = document.querySelector("#ownerIntelImport");
 const ownerIntelRestoreHistory = document.querySelector("#ownerIntelRestoreHistory");
+const ownerIntelBackupReminder = document.querySelector("#ownerIntelBackupReminder");
 const ownerIntelImportFile = document.querySelector("#ownerIntelImportFile");
 const ownerIntelRestorePhrase = document.querySelector("#ownerIntelRestorePhrase");
 const ownerIntelRestoreConfirm = document.querySelector("#ownerIntelRestoreConfirm");
@@ -3069,6 +3070,24 @@ async function recordOwnerBackupEvent(backup = {}) {
   });
 }
 
+async function sendOwnerBackupReminder() {
+  if (!ownerIntelTokenValue()) return ownerIntelToken.focus();
+  ownerIntelBackupReminder.disabled = true;
+  try {
+    setOwnerIntelMessage("Checking owner backup reminder...");
+    const result = await ownerIntelRequest("/api/owner/backup/reminder", {
+      method: "POST",
+      body: JSON.stringify({ force: false })
+    });
+    const reminder = result.reminder || {};
+    const action = result.sent ? "sent" : result.skipped ? "not sent" : "checked";
+    setOwnerIntelMessage(`Backup reminder ${action}: ${reminder.message || result.reason || "No reminder needed."}`, result.sent || reminder.due ? "warning" : "");
+    await loadOwnerIntelligence();
+  } finally {
+    ownerIntelBackupReminder.disabled = false;
+  }
+}
+
 function ownerRestorePreviewMessage(plan = {}) {
   const incoming = plan.incoming || {};
   const warnings = Array.isArray(plan.warnings) && plan.warnings.length ? ` Warning: ${plan.warnings[0]}` : "";
@@ -6011,6 +6030,7 @@ ownerIntelCopyBrief.addEventListener("click", () => void copyOwnerIntelBrief());
 ownerIntelExport.addEventListener("click", () => void exportOwnerKnowledgeBackup().catch((error) => setOwnerIntelMessage(error.message || "Owner backup could not be exported.", "danger")));
 ownerIntelImport.addEventListener("click", () => ownerIntelImportFile.click());
 ownerIntelRestoreHistory.addEventListener("click", () => void loadOwnerRestoreHistory().catch((error) => setOwnerIntelMessage(error.message || "Restore log could not be loaded.", "danger")));
+ownerIntelBackupReminder.addEventListener("click", () => void sendOwnerBackupReminder().catch((error) => setOwnerIntelMessage(error.message || "Backup reminder could not be sent.", "danger")));
 ownerIntelImportFile.addEventListener("change", () => void previewOwnerKnowledgeRestore(ownerIntelImportFile.files?.[0]).catch((error) => setOwnerIntelMessage(error.message || "Owner backup could not be validated.", "danger")));
 ownerIntelRestoreConfirm.addEventListener("click", () => void confirmOwnerKnowledgeRestore().catch((error) => setOwnerIntelMessage(error.message || "Owner backup could not be restored.", "danger")));
 ownerIntelRestoreLog.addEventListener("click", (event) => {

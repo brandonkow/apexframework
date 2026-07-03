@@ -335,6 +335,21 @@ test("owner market observations add dated trends and freshness warnings to Apex 
   const initialBackupLedger = await request(baseUrl, "/api/owner/backup/events", { owner: true });
   assert.equal(initialBackupLedger.response.status, 200);
   assert.equal(initialBackupLedger.payload.status, "missing");
+  const deniedBackupReminder = await request(baseUrl, "/api/owner/backup/reminder");
+  assert.equal(deniedBackupReminder.response.status, 403);
+  const initialBackupReminder = await request(baseUrl, "/api/owner/backup/reminder", { owner: true });
+  assert.equal(initialBackupReminder.response.status, 200);
+  assert.equal(initialBackupReminder.payload.due, true);
+  assert.equal(initialBackupReminder.payload.configured, false);
+  const skippedBackupReminder = await request(baseUrl, "/api/owner/backup/reminder", {
+    method: "POST",
+    owner: true,
+    body: { force: true }
+  });
+  assert.equal(skippedBackupReminder.response.status, 200);
+  assert.equal(skippedBackupReminder.payload.sent, false);
+  assert.equal(skippedBackupReminder.payload.skipped, true);
+  assert.equal(skippedBackupReminder.payload.event.status, "skipped");
   const recordedBackup = await request(baseUrl, "/api/owner/backup/events", {
     method: "POST",
     owner: true,
@@ -349,6 +364,9 @@ test("owner market observations add dated trends and freshness warnings to Apex 
   assert.equal(recordedBackup.payload.event.backupHash, ownerExport.payload.integrity.hash);
   assert.equal(recordedBackup.payload.ledger.status, "ready");
   assert.equal(recordedBackup.payload.ledger.latest.backupShort, ownerExport.payload.integrity.hash.slice(0, 12));
+  const currentBackupReminder = await request(baseUrl, "/api/owner/backup/reminder", { owner: true });
+  assert.equal(currentBackupReminder.response.status, 200);
+  assert.equal(currentBackupReminder.payload.due, false);
 
   const deniedRestore = await request(baseUrl, "/api/owner/restore", {
     method: "POST",
