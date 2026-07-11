@@ -147,6 +147,7 @@ export class JsonStateStore {
   }
 
   async read() {
+    await this.writeQueue.catch(() => {});
     const parsed = JSON.parse(await readFile(this.filePath, "utf8"));
     return { ...parsed, _storageRevision: Number(parsed._storageRevision || 0) };
   }
@@ -168,6 +169,12 @@ export class JsonStateStore {
       await rename(temporaryPath, this.filePath);
     });
     return this.writeQueue;
+  }
+
+  async health() {
+    await this.writeQueue.catch(() => {});
+    await readFile(this.filePath, "utf8");
+    return true;
   }
 
   async close() {}
@@ -301,6 +308,11 @@ export class PostgresStateStore {
     } finally {
       client.release();
     }
+  }
+
+  async health() {
+    await this.pool.query("SELECT 1");
+    return true;
   }
 
   async syncState(client, state) {

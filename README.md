@@ -35,7 +35,7 @@ The public user experience is intentionally simple: users interact with one Apex
 ## Run Locally
 
 ```bash
-npm install
+npm ci
 npm start
 ```
 
@@ -128,7 +128,7 @@ When `DATABASE_URL` is set, Apex Analytic creates its PostgreSQL schema automati
 Render is the recommended first deployment target because it can run the Node service on the free web tier first, then attach PostgreSQL or a persistent disk later when account history needs durable storage.
 
 1. Create a new Web Service from this repository.
-2. Use `npm install` as the build command.
+2. Use `npm ci --omit=dev` as the build command.
 3. Use `npm start` as the start command.
 4. Set `ESTATELAB_OWNER_TOKEN` as a secret environment variable.
 5. Set either `OPENROUTER_API_KEY` or `OPENAI_API_KEY` as a secret environment variable to enable conversational AI.

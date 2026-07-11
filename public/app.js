@@ -1,6 +1,7 @@
 const jarvisOrb = document.querySelector("#jarvisOrb");
 const chatForm = document.querySelector("#chatForm");
 const chatInput = document.querySelector("#chatInput");
+const sendButton = chatForm.querySelector('button[type="submit"]');
 const inputModeHint = document.querySelector("#inputModeHint");
 const transcript = document.querySelector("#transcript");
 const assistantPrompt = document.querySelector("#assistantPrompt");
@@ -59,6 +60,11 @@ const memoryProfileTitle = document.querySelector("#memoryProfileTitle");
 const memoryProfileCompleteness = document.querySelector("#memoryProfileCompleteness");
 const memoryProfileSummary = document.querySelector("#memoryProfileSummary");
 const memoryProfileDetails = document.querySelector("#memoryProfileDetails");
+const historyToggle = document.querySelector("#historyToggle");
+const sessionPanel = document.querySelector("#sessionPanel");
+const sessionClose = document.querySelector("#sessionClose");
+const sessionNew = document.querySelector("#sessionNew");
+const sessionList = document.querySelector("#sessionList");
 const billingSummary = document.querySelector("#billingSummary");
 const billingPlanName = document.querySelector("#billingPlanName");
 const billingUsage = document.querySelector("#billingUsage");
@@ -295,6 +301,19 @@ let ownerEvidenceDocuments = [];
 let memorySettingsLoading = false;
 let pendingTrustAction = "";
 let latestAnalysisId = "";
+let interactionBusy = false;
+
+function setInteractionBusy(busy) {
+  interactionBusy = busy;
+  chatInput.disabled = busy;
+  sendButton.disabled = busy;
+  analyzeDealBtn.disabled = busy;
+  jarvisOrb.disabled = busy;
+  resetChatBtn.disabled = busy;
+  historyToggle.disabled = busy;
+  sessionNew.disabled = busy;
+  if (screenDealBtn) screenDealBtn.disabled = busy;
+}
 
 const contextCoreFieldKeys = {
   deal: new Set([
@@ -314,7 +333,7 @@ const contextCoreFieldKeys = {
 
 function clientId() {
   const existing = window.localStorage.getItem(clientKey);
-  if (existing) return existing;
+  if (/^[A-Za-z0-9_-]{16,128}$/.test(existing || "")) return existing;
   const next = crypto.randomUUID();
   window.localStorage.setItem(clientKey, next);
   return next;
@@ -5350,6 +5369,7 @@ function dealScreeningPrompt() {
 }
 
 async function runDealScreening() {
+  if (interactionBusy) return;
   const deal = collectDealCard();
   if (!hasScreenableDealContext(deal)) {
     addMessage("jarvis", "Open the Deal card and give me at least the area/project, price, rent, or your main concern. Then I can screen it without turning the page into a full report.");
@@ -5742,6 +5762,87 @@ async function verifyEmail() {
   }
 }
 
+function sessionItemMarkup(item) {
+  const updatedAt = new Date(item.updatedAt);
+  const updatedLabel = Number.isNaN(updatedAt.getTime())
+    ? "Recent"
+    : updatedAt.toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+  const current = item.id === sessionId;
+  return `
+    <article class="sessionItem${current ? " current" : ""}">
+      <button class="sessionOpen" type="button" data-session-action="open" data-session-id="${escapeHtml(item.id)}">
+        <b>${escapeHtml(item.title || "Untitled conversation")}</b>
+        <span>${escapeHtml(updatedLabel)} / ${escapeHtml(item.messageCount || 0)} messages${current ? " / CURRENT" : ""}</span>
+      </button>
+      <button class="sessionDelete" type="button" data-session-action="delete" data-session-id="${escapeHtml(item.id)}" aria-label="Delete ${escapeHtml(item.title || "conversation")}">DELETE</button>
+    </article>
+  `;
+}
+
+async function loadSessionHistory() {
+  const payload = await requestJson("/api/jarvis/sessions");
+  const sessions = Array.isArray(payload.sessions) ? payload.sessions : [];
+  sessionList.innerHTML = sessions.length
+    ? sessions.map(sessionItemMarkup).join("")
+    : '<p class="memoryEmpty">No saved conversations yet.</p>';
+  return sessions;
+}
+
+function closeSessionPanel() {
+  sessionPanel.hidden = true;
+  historyToggle.setAttribute("aria-expanded", "false");
+  document.body.classList.remove("historyOpen");
+}
+
+async function openSessionPanel() {
+  closeAuthPanel();
+  closeMemoryPanel();
+  closeReportsPanel();
+  closeJournalPanel();
+  closeOwnerIntelligencePanel();
+  closeOwnerMarketPanel();
+  closeOwnerCasePanel();
+  closeOwnerEvidencePanel();
+  closeTrustPanel();
+  closeShortlistPanel();
+  collapseContextPanels();
+  sessionPanel.hidden = false;
+  historyToggle.setAttribute("aria-expanded", "true");
+  document.body.classList.add("historyOpen");
+  sessionList.innerHTML = '<p class="memoryEmpty">Loading conversation history...</p>';
+  try {
+    await loadSessionHistory();
+  } catch (error) {
+    sessionList.innerHTML = `<p class="memoryEmpty">${escapeHtml(error.message)}</p>`;
+  }
+}
+
+async function handleSessionAction(button) {
+  const id = button.getAttribute("data-session-id");
+  const action = button.getAttribute("data-session-action");
+  if (!id || !action || interactionBusy) return;
+  setInteractionBusy(true);
+  try {
+    if (action === "open") {
+      await loadSession(id);
+      closeSessionPanel();
+      setSystemState("System ready", "Conversation restored.");
+      return;
+    }
+    await requestJson(`/api/jarvis/sessions/${encodeURIComponent(id)}`, { method: "DELETE" });
+    if (id === sessionId) {
+      window.localStorage.removeItem(sessionKey);
+      sessionId = null;
+      await createSession();
+    }
+    await loadSessionHistory();
+  } catch (error) {
+    setSystemState("Connection issue", error.message || "Conversation history could not be updated.");
+  } finally {
+    setInteractionBusy(false);
+  }
+}
+
 async function logout() {
   logoutButton.disabled = true;
   try {
@@ -5752,6 +5853,7 @@ async function logout() {
     closeOwnerMarketPanel();
     closeOwnerCasePanel();
     closeOwnerEvidencePanel();
+    closeSessionPanel();
     await requestJson("/api/auth/logout", { method: "POST", body: "{}" });
     renderAuthState(null);
     setAuthMode("login");
@@ -5782,9 +5884,11 @@ async function createSession() {
 }
 
 async function resetChat() {
+  if (interactionBusy) return;
+  setInteractionBusy(true);
   stopSpeaking("Chat reset.");
-  setSystemState("Resetting", "Clearing the current conversation.");
-  const currentSessionId = sessionId;
+  closeSessionPanel();
+  setSystemState("Starting", "Creating a new conversation.");
   transcript.innerHTML = "";
   latestAnalysisId = "";
   document.body.classList.remove("conversationActive");
@@ -5793,14 +5897,13 @@ async function resetChat() {
   sessionId = null;
 
   try {
-    if (currentSessionId) {
-      await requestJson(`/api/jarvis/sessions/${currentSessionId}`, { method: "DELETE" });
-    }
     await createSession();
-    setSystemState("System ready", "Clean chat ready.");
+    setSystemState("System ready", "New chat ready. Your previous conversation remains in History.");
   } catch {
     setSystemState("Connection issue", "Apex Analytic backend is unavailable.");
     setSessionState("OFFLINE");
+  } finally {
+    setInteractionBusy(false);
   }
 }
 
@@ -5854,7 +5957,8 @@ async function askJarvis(question) {
 
 async function submitQuestion(question, options = {}) {
   const cleanQuestion = String(question || "").trim();
-  if (!cleanQuestion) return;
+  if (!cleanQuestion || interactionBusy) return;
+  setInteractionBusy(true);
   const displayText = String(options.displayText || cleanQuestion).trim();
   addMessage("user", displayText);
   chatInput.value = "";
@@ -5874,11 +5978,13 @@ async function submitQuestion(question, options = {}) {
     setSystemState("Connection issue", "Start Apex Analytic and try again.");
     setSessionState("OFFLINE");
   } finally {
+    setInteractionBusy(false);
     if (!speaking && !window.speechSynthesis?.speaking) jarvisOrb.classList.remove("speaking");
   }
 }
 
 async function runDealAnalysis() {
+  if (interactionBusy) return;
   const dealCard = collectDealCard();
   const financialProfile = collectFinancialProfile();
   if (!dealCard.askingPrice || (!dealCard.area && !dealCard.projectName)) {
@@ -5895,8 +6001,8 @@ async function runDealAnalysis() {
   }
   if (!requireTrustBoundary("deal-analysis")) return;
 
+  setInteractionBusy(true);
   collapseContextPanels();
-  await ensureSession();
   stopSpeaking("Running the full framework.");
   addMessage("user", "Run the seven-stage Apex Analytic assessment for this deal.");
   analyzeDealBtn.disabled = true;
@@ -5904,6 +6010,7 @@ async function runDealAnalysis() {
   setSystemState("Analyzing", "Running all seven Apex Analytic stages.");
   jarvisOrb.classList.add("speaking");
   try {
+    await ensureSession();
     const result = await requestJson("/api/jarvis/analyze-deal", {
       method: "POST",
       body: JSON.stringify({
@@ -5927,13 +6034,14 @@ async function runDealAnalysis() {
     addMessage("jarvis", message);
     setSystemState("Connection issue", "Deal analysis could not be completed.");
   } finally {
-    analyzeDealBtn.disabled = false;
     analyzeDealBtn.textContent = "ANALYSE";
+    setInteractionBusy(false);
     if (!speaking && !window.speechSynthesis?.speaking) jarvisOrb.classList.remove("speaking");
   }
 }
 
 function startListening() {
+  if (interactionBusy) return;
   if (speaking || window.speechSynthesis?.speaking) {
     stopSpeaking("Voice stopped.");
     return;
@@ -5996,6 +6104,16 @@ accountToggle.addEventListener("click", () => {
 memoryToggle.addEventListener("click", () => {
   if (memoryPanel.hidden) void openMemoryPanel();
   else closeMemoryPanel();
+});
+historyToggle.addEventListener("click", () => {
+  if (sessionPanel.hidden) void openSessionPanel();
+  else closeSessionPanel();
+});
+sessionClose.addEventListener("click", closeSessionPanel);
+sessionNew.addEventListener("click", resetChat);
+sessionList.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-session-action]");
+  if (button) void handleSessionAction(button);
 });
 memoryClose.addEventListener("click", closeMemoryPanel);
 memoryCaptureEnabled.addEventListener("change", () => void saveMemorySettings());
@@ -6322,6 +6440,7 @@ logoutButton.addEventListener("click", logout);
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !authPanel.hidden) closeAuthPanel();
   if (event.key === "Escape" && !memoryPanel.hidden) closeMemoryPanel();
+  if (event.key === "Escape" && !sessionPanel.hidden) closeSessionPanel();
   if (event.key === "Escape" && !reportsPanel.hidden) closeReportsPanel();
   if (event.key === "Escape" && !journalPanel.hidden) closeJournalPanel();
   if (event.key === "Escape" && !ownerIntelPanel.hidden) closeOwnerIntelligencePanel();

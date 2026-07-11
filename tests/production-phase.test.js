@@ -60,6 +60,7 @@ test("production phase keeps evidence owner-only and completes the account lifec
       ESTATELAB_DATA_DIR: dataDir,
       ESTATELAB_OWNER_TOKEN: "owner-test-token",
       ESTATELAB_AUTH_DEBUG_TOKENS: "true",
+      ESTATELAB_REQUIRE_EMAIL_VERIFICATION: "true",
       OPENAI_API_KEY: ""
     },
     stdio: "ignore"
@@ -153,6 +154,13 @@ test("production phase keeps evidence owner-only and completes the account lifec
   assert.equal(registration.response.status, 201);
   assert.equal(registration.payload.user.emailVerified, false);
   const verificationToken = registration.payload.debug.token;
+
+  const blockedBeforeVerification = await request(baseUrl, "/api/jarvis/sessions", {
+    method: "POST",
+    cookie: registration.cookie,
+    body: {}
+  });
+  assert.equal(blockedBeforeVerification.response.status, 403);
 
   const verification = await request(baseUrl, "/api/auth/verify-email", {
     method: "POST",

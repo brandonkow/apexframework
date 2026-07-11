@@ -781,6 +781,15 @@ body.stageCompact:not(.conversationActive) .identity #assistantPrompt {
   display: none;
 }
 
+.historyOpen .transcript,
+.historyOpen .contextDeck,
+.historyOpen .dealJourney,
+.historyOpen .aiDisclosure,
+.historyOpen .commandBar,
+.historyOpen .utilityBar {
+  display: none;
+}
+
 .trustPanel {
   display: grid;
   width: min(760px, 100%);
@@ -1228,6 +1237,85 @@ body.stageCompact:not(.conversationActive) .identity #assistantPrompt {
   max-height: min(72dvh, 620px);
   grid-template-rows: auto auto auto auto auto minmax(0, 1fr);
   gap: 10px;
+}
+
+.sessionPanel {
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+}
+
+.historyNewButton {
+  min-height: 38px;
+  border: 1px solid rgba(103, 229, 255, 0.28);
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--cyan-bright);
+  background: rgba(41, 158, 181, 0.1);
+  font-size: 0.56rem;
+  letter-spacing: 0.12em;
+}
+
+.sessionItem {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(103, 229, 255, 0.15);
+  border-radius: 8px;
+  padding: 7px;
+  background: rgba(1, 12, 19, 0.66);
+}
+
+.sessionItem.current {
+  border-color: rgba(103, 229, 255, 0.42);
+  background: rgba(41, 158, 181, 0.09);
+}
+
+.sessionOpen,
+.sessionDelete {
+  border: 0;
+  cursor: pointer;
+  color: inherit;
+  background: transparent;
+}
+
+.sessionOpen {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+  padding: 4px;
+  text-align: left;
+}
+
+.sessionOpen b {
+  overflow: hidden;
+  color: #bfeaf2;
+  font-size: 0.7rem;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sessionOpen span {
+  color: #638d97;
+  font-size: 0.48rem;
+  letter-spacing: 0.05em;
+}
+
+.sessionDelete {
+  min-height: 34px;
+  border: 1px solid rgba(255, 128, 128, 0.18);
+  border-radius: 999px;
+  padding: 6px 9px;
+  color: #c98e8e;
+  font-size: 0.47rem;
+  letter-spacing: 0.09em;
+}
+
+.sessionOpen:focus-visible,
+.sessionDelete:focus-visible,
+.historyNewButton:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
 }
 
 .memoryIntro,

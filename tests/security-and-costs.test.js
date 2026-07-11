@@ -75,6 +75,9 @@ test("security hardening and Malaysian deal-cost engine", async (t) => {
     const response = await fetch(`${baseUrl}/api/health`);
     assert.equal(response.headers.get("x-content-type-options"), "nosniff");
     assert.equal(response.headers.get("x-frame-options"), "DENY");
+    assert.equal(response.headers.get("cross-origin-opener-policy"), "same-origin");
+    assert.equal(response.headers.get("cross-origin-resource-policy"), "same-origin");
+    assert.equal(response.headers.get("cache-control"), "no-store");
     assert.ok(response.headers.get("referrer-policy"));
   });
 
@@ -160,7 +163,7 @@ test("security hardening and Malaysian deal-cost engine", async (t) => {
         loanMarginPlan: "90% margin"
       },
       financialProfile: { holdingPeriod: "7" }
-    }, { "x-estatelab-client-id": "cost-test" });
+    }, { "x-estatelab-client-id": "cost-analysis-device" });
     assert.equal(response.status, 200);
     const costs = payload.analysis.acquisitionCostEstimate;
     assert.ok(costs, "analysis should include acquisitionCostEstimate");
@@ -168,21 +171,26 @@ test("security hardening and Malaysian deal-cost engine", async (t) => {
     assert.ok(costs.totalTransactionCosts > 0);
     assert.ok(payload.analysis.metrics.some((metric) => metric.label === "Estimated cash to start"));
     assert.match(payload.message.content, /Estimated Malaysian entry costs/);
+
+    const excessive = await post(baseUrl, "/api/jarvis/analyze-deal", {
+      dealCard: { area: "Kuala Lumpur", askingPrice: "RM10000000001" }
+    }, { "x-estatelab-client-id": "cost-analysis-device" });
+    assert.equal(excessive.response.status, 400);
   });
 
   await t.test("guest sessions cannot evict another client's sessions", async () => {
-    const first = await post(baseUrl, "/api/jarvis/sessions", {}, { "x-estatelab-client-id": "client-keep" });
+    const first = await post(baseUrl, "/api/jarvis/sessions", {}, { "x-estatelab-client-id": "client-keep-0001" });
     assert.equal(first.response.status, 201);
     const keepId = first.payload.session.id;
     for (let index = 0; index < 25; index += 1) {
-      await post(baseUrl, "/api/jarvis/sessions", { title: `Flood ${index}` }, { "x-estatelab-client-id": "client-flood" });
+      await post(baseUrl, "/api/jarvis/sessions", { title: `Flood ${index}` }, { "x-estatelab-client-id": "client-flood-0001" });
     }
     const lookup = await fetch(`${baseUrl}/api/jarvis/sessions/${keepId}`, {
-      headers: { "x-estatelab-client-id": "client-keep" }
+      headers: { "x-estatelab-client-id": "client-keep-0001" }
     });
     assert.equal(lookup.status, 200, "other client's session should survive a flood");
     const floodList = await fetch(`${baseUrl}/api/jarvis/sessions`, {
-      headers: { "x-estatelab-client-id": "client-flood" }
+      headers: { "x-estatelab-client-id": "client-flood-0001" }
     });
     const floodSessions = (await floodList.json()).sessions;
     assert.ok(floodSessions.length <= 20, "per-owner session cap should hold");

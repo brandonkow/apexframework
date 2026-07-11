@@ -39,6 +39,11 @@ test("frontend selectors and stylesheet structure stay valid", async () => {
   assert.doesNotMatch(html, /id="contextReadiness"|id="experienceLock"/, "The retired context-readiness and experience-lock strips must stay consolidated into the Deal Journey.");
   assert.equal((html.match(/data-context-reset="(?:deal|profile|guidance)"/g) || []).length, 3, "Each context card needs its own reset button.");
   assert.match(html, /id="memoryPanel"[\s\S]*?PRIVATE TO YOUR ACCOUNT[\s\S]*?id="memoryList"/, "Signed-in users need a private memory review screen.");
+  assert.match(html, /id="sessionPanel"[\s\S]*?id="sessionList"/, "Conversation history needs a dedicated, accessible view.");
+  assert.match(app, /async function loadSessionHistory\(\)/, "The browser must load resumable conversation threads.");
+  assert.match(app, /function setInteractionBusy\(busy\)/, "Concurrent chat and analysis actions need one interaction lock.");
+  const newChatImplementation = app.match(/async function resetChat\(\)[\s\S]*?\n}\n\nasync function loadSession/)?.[0] || "";
+  assert.doesNotMatch(newChatImplementation, /method:\s*"DELETE"/, "Starting a new chat must preserve the previous thread.");
   assert.match(html, /id="memoryCaptureEnabled"[\s\S]*?id="memoryReasoningEnabled"[\s\S]*?id="memoryModeNotice"/, "V3 memory must expose opt-in capture and reasoning controls.");
   assert.match(html, /id="memoryProfile"[\s\S]*?id="memoryProfileTitle"[\s\S]*?id="memoryProfileDetails"/, "V3.1 needs a structured investor memory profile card.");
   assert.match(html, /data-deal-field="annualAssessmentQuitRent"[\s\S]*?data-deal-field="vacancyStressMonths"/, "Deal card needs optional v1.6 stress assumption fields.");

@@ -8,6 +8,14 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { createStateStore } from "./storage.js";
 import { KnowledgeService } from "./knowledge.js";
 
+function configuredNumber(value, fallback, { min = -Infinity, max = Infinity, integer = false } = {}) {
+  if (value === undefined || value === null || String(value).trim() === "") return fallback;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  const bounded = Math.min(max, Math.max(min, parsed));
+  return integer ? Math.trunc(bounded) : bounded;
+}
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const BUNDLED_DATA_DIR = path.join(__dirname, "data");
 const DEFAULT_DATA_DIR = BUNDLED_DATA_DIR;
@@ -16,12 +24,12 @@ const DB_PATH = path.join(DATA_DIR, "db.json");
 const BUNDLED_DB_PATH = path.join(BUNDLED_DATA_DIR, "db.json");
 const RAG_PATH = path.resolve(globalThis.process?.env?.ESTATELAB_RAG_PATH || path.join(__dirname, "rag", "corpus.json"));
 const PUBLIC_DIR = path.join(__dirname, "public");
-const PORT = Number(globalThis.process?.env?.PORT || 3000);
+const PORT = configuredNumber(globalThis.process?.env?.PORT, 3000, { min: 1, max: 65535, integer: true });
 const HOST = String(globalThis.process?.env?.HOST || "0.0.0.0").trim();
 const DATABASE_URL = String(globalThis.process?.env?.DATABASE_URL || "").trim();
 const OBJECT_DIR = path.resolve(globalThis.process?.env?.ESTATELAB_OBJECT_DIR || path.join(DATA_DIR, "objects"));
 
-const jsonHeaders = { "Content-Type": "application/json; charset=utf-8" };
+const jsonHeaders = { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" };
 const OWNER_TOKEN = String(globalThis.process?.env?.ESTATELAB_OWNER_TOKEN || "");
 const RAW_OPENAI_API_KEY = String(globalThis.process?.env?.OPENAI_API_KEY || "").trim();
 const OPENROUTER_API_KEY = String(globalThis.process?.env?.OPENROUTER_API_KEY || "").trim();
@@ -39,32 +47,33 @@ const OPENAI_EMBEDDING_MODEL = String(globalThis.process?.env?.OPENAI_EMBEDDING_
 const OPENAI_TRANSCRIPTION_MODEL = String(globalThis.process?.env?.OPENAI_TRANSCRIPTION_MODEL || "gpt-4o-mini-transcribe").trim();
 const OPENAI_SPEECH_MODEL = String(globalThis.process?.env?.OPENAI_SPEECH_MODEL || "gpt-4o-mini-tts").trim();
 const OPENAI_SPEECH_VOICE = String(globalThis.process?.env?.OPENAI_SPEECH_VOICE || "marin").trim();
-const OPENAI_TIMEOUT_MS = Math.max(5000, Number(globalThis.process?.env?.OPENAI_TIMEOUT_MS || 25000));
+const OPENAI_TIMEOUT_MS = configuredNumber(globalThis.process?.env?.OPENAI_TIMEOUT_MS, 25000, { min: 5000, max: 120000, integer: true });
 const EMAIL_WEBHOOK_URL = String(globalThis.process?.env?.ESTATELAB_EMAIL_WEBHOOK_URL || "").trim();
 const EMAIL_WEBHOOK_SECRET = String(globalThis.process?.env?.ESTATELAB_EMAIL_WEBHOOK_SECRET || "").trim();
 const OWNER_BACKUP_WEBHOOK_URL = String(globalThis.process?.env?.APEX_OWNER_BACKUP_WEBHOOK_URL || "").trim();
 const OWNER_BACKUP_WEBHOOK_SECRET = String(globalThis.process?.env?.APEX_OWNER_BACKUP_WEBHOOK_SECRET || "").trim();
-const OWNER_BACKUP_REMINDER_DAYS = Math.max(1, Number(globalThis.process?.env?.APEX_OWNER_BACKUP_REMINDER_DAYS || 14));
-const OWNER_BACKUP_REMINDER_COOLDOWN_HOURS = Math.max(1, Number(globalThis.process?.env?.APEX_OWNER_BACKUP_REMINDER_COOLDOWN_HOURS || 24));
+const OWNER_BACKUP_REMINDER_DAYS = configuredNumber(globalThis.process?.env?.APEX_OWNER_BACKUP_REMINDER_DAYS, 14, { min: 1, max: 365, integer: true });
+const OWNER_BACKUP_REMINDER_COOLDOWN_HOURS = configuredNumber(globalThis.process?.env?.APEX_OWNER_BACKUP_REMINDER_COOLDOWN_HOURS, 24, { min: 1, max: 24 * 30, integer: true });
 const REQUIRE_EMAIL_VERIFICATION = String(globalThis.process?.env?.ESTATELAB_REQUIRE_EMAIL_VERIFICATION || "false").toLowerCase() === "true";
 const AUTH_DEBUG_TOKENS = String(globalThis.process?.env?.ESTATELAB_AUTH_DEBUG_TOKENS || "false").toLowerCase() === "true"
   && String(globalThis.process?.env?.NODE_ENV || "").toLowerCase() !== "production";
 const TRUST_PROXY = String(globalThis.process?.env?.ESTATELAB_TRUST_PROXY || "true").toLowerCase() !== "false";
-const TRUSTED_PROXY_HOPS = Math.max(1, Number(globalThis.process?.env?.ESTATELAB_TRUSTED_PROXY_HOPS || 1));
+const TRUSTED_PROXY_HOPS = configuredNumber(globalThis.process?.env?.ESTATELAB_TRUSTED_PROXY_HOPS, 1, { min: 1, max: 10, integer: true });
 const AUTH_COOKIE = "estatelab_session";
-const AUTH_SESSION_DAYS = Math.max(1, Number(globalThis.process?.env?.ESTATELAB_AUTH_SESSION_DAYS || 30));
+const AUTH_SESSION_DAYS = configuredNumber(globalThis.process?.env?.ESTATELAB_AUTH_SESSION_DAYS, 30, { min: 1, max: 365, integer: true });
 const BILLING_ENFORCEMENT = String(globalThis.process?.env?.APEX_BILLING_ENFORCEMENT || "false").toLowerCase() === "true";
 const BILLING_WEBHOOK_SECRET = String(globalThis.process?.env?.APEX_BILLING_WEBHOOK_SECRET || "").trim();
 const PRO_CHECKOUT_URL = String(globalThis.process?.env?.APEX_PRO_CHECKOUT_URL || "").trim();
 const ADVISOR_CHECKOUT_URL = String(globalThis.process?.env?.APEX_ADVISOR_CHECKOUT_URL || "").trim();
-const PRO_PRICE_RM = Math.max(1, Number(globalThis.process?.env?.APEX_PRO_PRICE_RM || 59));
-const ADVISOR_PRICE_RM = Math.max(1, Number(globalThis.process?.env?.APEX_ADVISOR_PRICE_RM || 199));
+const PRO_PRICE_RM = configuredNumber(globalThis.process?.env?.APEX_PRO_PRICE_RM, 59, { min: 1, max: 1_000_000 });
+const ADVISOR_PRICE_RM = configuredNumber(globalThis.process?.env?.APEX_ADVISOR_PRICE_RM, 199, { min: 1, max: 1_000_000 });
 const AUTH_ATTEMPT_WINDOW_MS = 15 * 60 * 1000;
 const AUTH_ATTEMPT_LIMIT = 10;
 const MAX_JSON_BODY_BYTES = 8 * 1024 * 1024;
 const MAX_OWNER_RESTORE_BYTES = 64 * 1024 * 1024;
 const MAX_DOCUMENT_BYTES = 5 * 1024 * 1024;
 const DEFAULT_SESSION_TITLE = "New Apex Session";
+const GUEST_CLIENT_ID_RE = /^[A-Za-z0-9_-]{16,128}$/;
 const scrypt = promisify(scryptCallback);
 const authAttempts = new Map();
 const requestWindows = new Map();
@@ -1524,7 +1533,7 @@ function normalizeJarvisSession(session) {
     createdAt: String(session.createdAt || new Date().toISOString()),
     updatedAt: String(session.updatedAt || session.createdAt || new Date().toISOString()),
     title: defaultSessionTitle(title) ? DEFAULT_SESSION_TITLE : title,
-    clientId: String(session.clientId || "browser").trim().slice(0, 120),
+    clientId: normalizedClientId(session.clientId),
     userId: String(session.userId || "").trim().slice(0, 100),
     messages
   };
@@ -1566,7 +1575,7 @@ function createJarvisSession(body = {}, user = null) {
     createdAt: now,
     updatedAt: now,
     title: String(body.title || DEFAULT_SESSION_TITLE).trim().slice(0, 160),
-    clientId: String(body.clientId || "browser").trim().slice(0, 120),
+    clientId: normalizedClientId(body.clientId) || (user ? "account" : ""),
     userId: String(user?.id || "").trim(),
     messages: []
   };
@@ -2164,7 +2173,12 @@ function currentAuth(req, db) {
 function requestClientId(req, body = {}) {
   const header = req.headers["x-estatelab-client-id"];
   const value = Array.isArray(header) ? header[0] : header;
-  return String(value || body.clientId || "").trim().slice(0, 120);
+  return normalizedClientId(value || body.clientId);
+}
+
+function normalizedClientId(value) {
+  const clientId = String(value || "").trim();
+  return GUEST_CLIENT_ID_RE.test(clientId) ? clientId : "";
 }
 
 function canAccessJarvisSession(session, actor, clientId) {
@@ -4447,7 +4461,7 @@ const profileContextLabels = {
 
 function cleanContextRecord(record, labels) {
   return Object.keys(labels).reduce((context, key) => {
-    const value = String(record?.[key] || "").replace(/\s+/g, " ").trim();
+    const value = String(record?.[key] || "").replace(/\s+/g, " ").trim().slice(0, 500);
     if (value) context[key] = value;
     return context;
   }, {});
@@ -9001,6 +9015,8 @@ async function readBody(req, maxBytes = MAX_JSON_BODY_BYTES) {
 }
 
 const SECURITY_HEADERS = {
+  "Cross-Origin-Opener-Policy": "same-origin",
+  "Cross-Origin-Resource-Policy": "same-origin",
   "X-Content-Type-Options": "nosniff",
   "X-Frame-Options": "DENY",
   "Referrer-Policy": "strict-origin-when-cross-origin",
@@ -9579,7 +9595,10 @@ async function serveStatic(req, res) {
   try {
     const content = await readFile(filePath);
     const extension = path.extname(filePath);
-    const headers = { "Content-Type": mimeTypes[extension] || "application/octet-stream" };
+    const headers = {
+      "Content-Type": mimeTypes[extension] || "application/octet-stream",
+      "Cache-Control": "no-cache"
+    };
     if (extension === ".html") headers["Content-Security-Policy"] = STATIC_CSP;
     send(res, 200, content, headers);
   } catch {
@@ -9611,12 +9630,18 @@ async function router(req, res) {
   }
 
   if (req.method === "GET" && url.pathname === "/api/health") {
-    return send(res, 200, {
-      status: "ok",
-      app: "apex-analytic",
-      storage: stateStore.kind,
-      time: new Date().toISOString()
-    });
+    try {
+      await stateStore.health();
+      return send(res, 200, {
+        status: "ok",
+        app: "apex-analytic",
+        storage: stateStore.kind,
+        time: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Apex Analytic health check failed", error);
+      return send(res, 503, { status: "unavailable", app: "apex-analytic" });
+    }
   }
 
   if (req.method === "POST" && url.pathname === "/api/tools/deal-costs") {
@@ -9666,6 +9691,11 @@ async function router(req, res) {
     db = await readDb();
   }
   const actor = currentAuth(req, db);
+  const unverifiedRouteAllowed = url.pathname.startsWith("/api/auth/")
+    || (req.method === "GET" && url.pathname === "/api/jarvis/status");
+  if (REQUIRE_EMAIL_VERIFICATION && actor.user && !actor.user.emailVerifiedAt && !unverifiedRouteAllowed) {
+    return send(res, 403, { error: "Verify your email before using private account features." });
+  }
 
   if (req.method === "GET" && url.pathname === "/api/auth/me") {
     return send(res, 200, {
@@ -10414,7 +10444,9 @@ async function router(req, res) {
 
   if (req.method === "POST" && url.pathname === "/api/jarvis/sessions") {
     const body = await readBody(req);
-    const session = createJarvisSession({ ...body, clientId: requestClientId(req, body) || body.clientId }, actor.user);
+    const clientId = requestClientId(req, body);
+    if (!actor.user && !clientId) return send(res, 400, { error: "Guest sessions require a valid device identifier." });
+    const session = createJarvisSession({ ...body, clientId }, actor.user);
     db.jarvis = upsertJarvisSession(db.jarvis, session);
     await writeDb(db);
     return send(res, 201, { session: publicJarvisSession(session) });
@@ -10422,6 +10454,7 @@ async function router(req, res) {
 
   if (req.method === "GET" && url.pathname === "/api/jarvis/sessions") {
     const clientId = requestClientId(req);
+    if (!actor.user && !clientId) return send(res, 400, { error: "Guest sessions require a valid device identifier." });
     const sessions = db.jarvis.sessions
       .filter((session) => canAccessJarvisSession(session, actor, clientId))
       .sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))
@@ -10433,6 +10466,7 @@ async function router(req, res) {
   if (req.method === "GET" && url.pathname.startsWith("/api/jarvis/sessions/")) {
     const id = url.pathname.split("/").pop();
     const clientId = requestClientId(req);
+    if (!actor.user && !clientId) return send(res, 400, { error: "Guest sessions require a valid device identifier." });
     const session = accessibleJarvisSession(db, id, actor, clientId);
     if (!session) return send(res, 404, { error: "Conversation session not found." });
     const shouldClaim = Boolean(actor.user && !session.userId && session.clientId === clientId);
@@ -10446,7 +10480,9 @@ async function router(req, res) {
 
   if (req.method === "DELETE" && url.pathname.startsWith("/api/jarvis/sessions/")) {
     const id = url.pathname.split("/").pop();
-    const session = accessibleJarvisSession(db, id, actor, requestClientId(req));
+    const clientId = requestClientId(req);
+    if (!actor.user && !clientId) return send(res, 400, { error: "Guest sessions require a valid device identifier." });
+    const session = accessibleJarvisSession(db, id, actor, clientId);
     if (!session) return send(res, 404, { error: "Conversation session not found." });
     db.jarvis.sessions = db.jarvis.sessions.filter((item) => item.id !== id);
     await writeDb(db);
@@ -10457,7 +10493,8 @@ async function router(req, res) {
     const body = await readBody(req);
     const dealCard = cleanContextRecord(body.dealCard, dealContextLabels);
     const financialProfile = cleanContextRecord(body.financialProfile, profileContextLabels);
-    if (!dealCard.askingPrice || (!dealCard.area && !dealCard.projectName)) {
+    const askingPrice = parseAmount(dealCard.askingPrice);
+    if (askingPrice <= 0 || askingPrice > 10_000_000_000 || (!dealCard.area && !dealCard.projectName)) {
       return send(res, 400, { error: "Add an asking price and an area or project before running the deal analysis." });
     }
     if (BILLING_ENFORCEMENT && !actor.user) {
@@ -10472,6 +10509,7 @@ async function router(req, res) {
     }
 
     const clientId = requestClientId(req, body);
+    if (!actor.user && !clientId) return send(res, 400, { error: "Guest analysis requires a valid device identifier." });
     let session = accessibleJarvisSession(db, body.sessionId, actor, clientId);
     if (!session) session = createJarvisSession({ clientId }, actor.user);
     claimJarvisSession(session, actor, clientId);
@@ -10608,9 +10646,16 @@ async function router(req, res) {
     }
 
     const id = randomUUID();
-    const storageKey = await knowledgeService.storeObject(id, filename, content);
-    const extracted = knowledgeService.extractText(content, mimeType, filename);
-    const indexed = await knowledgeService.indexText(id, extracted);
+    let storageKey;
+    let indexed;
+    try {
+      storageKey = await knowledgeService.storeObject(id, filename, content);
+      const extracted = knowledgeService.extractText(content, mimeType, filename);
+      indexed = await knowledgeService.indexText(id, extracted);
+    } catch (error) {
+      await knowledgeService.removeObject(id).catch(() => {});
+      throw error;
+    }
     const now = new Date().toISOString();
     const document = {
       id,
@@ -10630,7 +10675,12 @@ async function router(req, res) {
     db.knowledge.documents.push(document);
     db.knowledge.chunks.push(...indexed.chunks);
     db.knowledge = normalizeKnowledge(db.knowledge);
-    await writeDb(db);
+    try {
+      await writeDb(db);
+    } catch (error) {
+      await knowledgeService.removeObject(id).catch(() => {});
+      throw error;
+    }
     return send(res, 201, {
       document,
       note: document.status === "stored" ? "The original file is stored, but this format needs text extraction before Apex Analytic can retrieve it." : "Evidence indexed for Apex Analytic retrieval."
@@ -10644,7 +10694,9 @@ async function router(req, res) {
     db.knowledge.documents = db.knowledge.documents.filter((item) => item.id !== id);
     db.knowledge.chunks = db.knowledge.chunks.filter((chunk) => chunk.documentId !== id);
     await writeDb(db);
-    await knowledgeService.removeObject(id);
+    await knowledgeService.removeObject(id).catch((error) => {
+      console.warn(`Apex Analytic object cleanup failed for ${id}: ${error.message}`);
+    });
     return send(res, 204, "");
   }
 
@@ -11091,6 +11143,7 @@ async function router(req, res) {
     if (!query) return send(res, 400, { error: "An Apex Analytic query is required." });
     if (query.length > 4000) return send(res, 400, { error: "Keep each Apex Analytic message under 4000 characters." });
     const clientId = requestClientId(req, body);
+    if (!actor.user && !clientId) return send(res, 400, { error: "Guest chat requires a valid device identifier." });
     let session = accessibleJarvisSession(db, body.sessionId, actor, clientId);
     if (!session) session = createJarvisSession({ clientId }, actor.user);
     claimJarvisSession(session, actor, clientId);

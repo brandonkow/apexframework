@@ -38,7 +38,7 @@ function cookieFrom(response) {
   return String(response.headers.get("set-cookie") || "").split(";")[0];
 }
 
-async function jsonRequest(baseUrl, pathname, { method = "GET", cookie = "", clientId = "test-client", body } = {}) {
+async function jsonRequest(baseUrl, pathname, { method = "GET", cookie = "", clientId = "test-client-0001", body } = {}) {
   const headers = { "x-estatelab-client-id": clientId };
   if (cookie) headers.cookie = cookie;
   if (body !== undefined) headers["content-type"] = "application/json";
@@ -91,24 +91,31 @@ test("accounts protect user sessions while guests remain device-scoped", async (
 
   await waitForHealth(baseUrl, child);
 
+  const invalidGuest = await jsonRequest(baseUrl, "/api/jarvis/sessions", {
+    method: "POST",
+    clientId: "short",
+    body: {}
+  });
+  assert.equal(invalidGuest.response.status, 400);
+
   const guest = await jsonRequest(baseUrl, "/api/jarvis/sessions", {
     method: "POST",
-    clientId: "guest-a",
+    clientId: "guest-device-a-0001",
     body: {}
   });
   assert.equal(guest.response.status, 201);
   const guestId = guest.payload.session.id;
 
-  const wrongGuest = await jsonRequest(baseUrl, `/api/jarvis/sessions/${guestId}`, { clientId: "guest-b" });
+  const wrongGuest = await jsonRequest(baseUrl, `/api/jarvis/sessions/${guestId}`, { clientId: "guest-device-b-0002" });
   assert.equal(wrongGuest.response.status, 404);
-  const correctGuest = await jsonRequest(baseUrl, `/api/jarvis/sessions/${guestId}`, { clientId: "guest-a" });
+  const correctGuest = await jsonRequest(baseUrl, `/api/jarvis/sessions/${guestId}`, { clientId: "guest-device-a-0001" });
   assert.equal(correctGuest.response.status, 200);
-  const wrongGuestHistory = await jsonRequest(baseUrl, "/api/jarvis/sessions", { clientId: "guest-b" });
+  const wrongGuestHistory = await jsonRequest(baseUrl, "/api/jarvis/sessions", { clientId: "guest-device-b-0002" });
   assert.deepEqual(wrongGuestHistory.payload.sessions, []);
 
   const registration = await jsonRequest(baseUrl, "/api/auth/register", {
     method: "POST",
-    clientId: "member-device",
+    clientId: "member-device-0001",
     body: {
       displayName: "EstateLab Member",
       email: "member@example.com",
@@ -125,29 +132,29 @@ test("accounts protect user sessions while guests remain device-scoped", async (
   const memberSession = await jsonRequest(baseUrl, "/api/jarvis/sessions", {
     method: "POST",
     cookie,
-    clientId: "member-device",
+    clientId: "member-device-0001",
     body: {}
   });
   assert.equal(memberSession.response.status, 201);
   const memberSessionId = memberSession.payload.session.id;
 
   const memberWithoutCookie = await jsonRequest(baseUrl, `/api/jarvis/sessions/${memberSessionId}`, {
-    clientId: "member-device"
+    clientId: "member-device-0001"
   });
   assert.equal(memberWithoutCookie.response.status, 404);
   const memberWithCookie = await jsonRequest(baseUrl, `/api/jarvis/sessions/${memberSessionId}`, {
     cookie,
-    clientId: "different-device"
+    clientId: "different-device-0001"
   });
   assert.equal(memberWithCookie.response.status, 200);
   const memberHistory = await jsonRequest(baseUrl, "/api/jarvis/sessions", {
     cookie,
-    clientId: "another-device"
+    clientId: "another-device-0001"
   });
   assert.equal(memberHistory.response.status, 200);
   assert.equal(memberHistory.payload.sessions[0].id, memberSessionId);
 
-  const me = await jsonRequest(baseUrl, "/api/auth/me", { cookie, clientId: "member-device" });
+  const me = await jsonRequest(baseUrl, "/api/auth/me", { cookie, clientId: "member-device-0001" });
   assert.equal(me.payload.authenticated, true);
   assert.equal(me.payload.user.displayName, "EstateLab Member");
 
@@ -162,16 +169,16 @@ test("accounts protect user sessions while guests remain device-scoped", async (
   const logout = await jsonRequest(baseUrl, "/api/auth/logout", {
     method: "POST",
     cookie,
-    clientId: "member-device",
+    clientId: "member-device-0001",
     body: {}
   });
   assert.equal(logout.response.status, 200);
-  const meAfterLogout = await jsonRequest(baseUrl, "/api/auth/me", { cookie, clientId: "member-device" });
+  const meAfterLogout = await jsonRequest(baseUrl, "/api/auth/me", { cookie, clientId: "member-device-0001" });
   assert.equal(meAfterLogout.payload.authenticated, false);
 
   const login = await jsonRequest(baseUrl, "/api/auth/login", {
     method: "POST",
-    clientId: "new-device",
+    clientId: "new-device-0000001",
     body: {
       email: "member@example.com",
       password: "correct-horse-battery"
@@ -181,7 +188,7 @@ test("accounts protect user sessions while guests remain device-scoped", async (
   const newDeviceCookie = cookieFrom(login.response);
   const resumedHistory = await jsonRequest(baseUrl, "/api/jarvis/sessions", {
     cookie: newDeviceCookie,
-    clientId: "new-device"
+    clientId: "new-device-0000001"
   });
   assert.equal(resumedHistory.payload.sessions[0].id, memberSessionId);
 });

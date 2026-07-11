@@ -194,6 +194,16 @@
           <div id="memoryList" class="memoryList"></div>
         </section>
 
+        <section id="sessionPanel" class="memoryPanel sessionPanel" aria-label="Conversation history" hidden>
+          <header class="memoryHeader">
+            <span><small>YOUR RECENT THREADS</small><b>CONVERSATION HISTORY</b></span>
+            <button id="sessionClose" type="button" aria-label="Close conversation history">CLOSE</button>
+          </header>
+          <p class="memoryIntro">Open a previous thread or remove one you no longer need.</p>
+          <button id="sessionNew" class="historyNewButton" type="button">START NEW CHAT</button>
+          <div id="sessionList" class="memoryList sessionList"></div>
+        </section>
+
         <section id="reportsPanel" class="reportsPanel" aria-label="Private deal reports" hidden>
           <header class="reportsHeader">
             <span><small>PRIVATE TO YOUR ACCOUNT</small><b>DEAL REPORTS</b></span>
@@ -1266,6 +1276,7 @@
           <button id="screenDealBtn" type="button" aria-label="Run a quick deal screening">SCREEN</button>
           <button id="shortlistToggle" type="button" aria-expanded="false" aria-controls="shortlistPanel">SHORTLIST</button>
           <button id="sessionBriefBtn" type="button" aria-label="Copy current session brief">BRIEF</button>
+          <button id="historyToggle" type="button" aria-expanded="false" aria-controls="sessionPanel">HISTORY</button>
           <button id="resetChatBtn" type="button" aria-label="Start a new chat">NEW CHAT</button>
           <button id="soundToggle" type="button" aria-pressed="true" aria-label="Toggle voice responses">VOICE ON</button>
           <button id="stopVoiceBtn" class="stopVoiceBtn" type="button" hidden>STOP</button>

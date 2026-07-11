@@ -36,6 +36,10 @@ class FakePool {
     return this.client;
   }
 
+  async query(sql, params = []) {
+    return this.client.query(sql, params);
+  }
+
   async end() {}
 }
 
@@ -139,6 +143,27 @@ test("JSON store remains a working local fallback", async (t) => {
   await store.write(initial);
   const updated = await store.read();
   assert.equal(updated.properties.length, 2);
+  assert.equal(await store.health(), true);
+});
+
+test("JSON reads wait for queued writes", async (t) => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "estatelab-json-read-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const store = new JsonStateStore(path.join(directory, "db.json"));
+  await store.init(sampleState());
+  let release;
+  store.writeQueue = new Promise((resolve) => {
+    release = resolve;
+  });
+  let settled = false;
+  const pendingRead = store.read().then((state) => {
+    settled = true;
+    return state;
+  });
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.equal(settled, false);
+  release();
+  assert.equal((await pendingRead).properties[0].id, "property-1");
 });
 
 test("JSON store rejects stale writes with a storage conflict", async (t) => {
@@ -182,6 +207,13 @@ test("PostgreSQL store writes normalized state inside one transaction", async ()
   assert.equal(JSON.parse(userWrite.params[7]).items[0].id, "report-1");
   assert.equal(JSON.parse(userWrite.params[8]).items[0].id, "journal-1");
   assert.equal(client.released, true);
+});
+
+test("PostgreSQL health checks the active pool", async () => {
+  const client = new FakeClient();
+  const store = new PostgresStateStore(new FakePool(client));
+  assert.equal(await store.health(), true);
+  assert.equal(client.calls[0].text, "SELECT 1");
 });
 
 test("PostgreSQL store creates schema and imports the seed once", async () => {
