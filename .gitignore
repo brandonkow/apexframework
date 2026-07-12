@@ -8,3 +8,5 @@ pnpm-debug.log*
 Thumbs.db
 *.tmp.js
 _jarvis_kb_push_*/
+.vercel/
+.env.local

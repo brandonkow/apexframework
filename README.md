@@ -150,6 +150,14 @@ Note: Free Render filesystems are ephemeral. The app will deploy and run, but ac
 
 The bundled Apex Analytic knowledge base ships with the repo. On first start, if runtime storage is empty, the app seeds the runtime database from `data/db.json`.
 
+### Private Engine Deployment On Vercel
+
+The included `api/[...path].js` adapter can host the private Residential Deal Review integration on Vercel when a
+long-running Render service is not available. Configure `APEX_WORKSPACE_SERVICE_TOKEN` in the Vercel production
+environment and deploy the project from this repository. Vercel uses temporary filesystem storage by default, so this
+target is suitable for the deterministic decision-engine contract but not durable member history or uploaded objects
+unless `DATABASE_URL` and external object storage are configured.
+
 ## API Boundary
 
 Public:

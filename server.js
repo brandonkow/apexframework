@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { createHash, randomBytes, randomUUID, scrypt as scryptCallback, timingSafeEqual } from "node:crypto";
+import { tmpdir } from "node:os";
 import { promisify } from "node:util";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createStateStore } from "./storage.js";
@@ -25,11 +26,18 @@ const APP_RELEASE_VERSION = (() => {
   }
 })();
 const DECISION_ENGINE_VERSION = "Apex v10.10";
-const BUILD_REVISION = String(globalThis.process?.env?.RENDER_GIT_COMMIT || globalThis.process?.env?.GIT_COMMIT || "")
+const BUILD_REVISION = String(
+  globalThis.process?.env?.RENDER_GIT_COMMIT
+    || globalThis.process?.env?.VERCEL_GIT_COMMIT_SHA
+    || globalThis.process?.env?.GIT_COMMIT
+    || ""
+)
   .trim()
   .slice(0, 40);
 const BUNDLED_DATA_DIR = path.join(__dirname, "data");
-const DEFAULT_DATA_DIR = BUNDLED_DATA_DIR;
+const DEFAULT_DATA_DIR = globalThis.process?.env?.VERCEL
+  ? path.join(tmpdir(), "estatelab-data")
+  : BUNDLED_DATA_DIR;
 const DATA_DIR = path.resolve(globalThis.process?.env?.ESTATELAB_DATA_DIR || DEFAULT_DATA_DIR);
 const DB_PATH = path.join(DATA_DIR, "db.json");
 const BUNDLED_DB_PATH = path.join(BUNDLED_DATA_DIR, "db.json");
