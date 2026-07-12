@@ -1,6 +1,6 @@
 import http from "node:http";
 import { readFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { createHash, randomBytes, randomUUID, scrypt as scryptCallback, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
@@ -17,6 +17,17 @@ function configuredNumber(value, fallback, { min = -Infinity, max = Infinity, in
 }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const APP_RELEASE_VERSION = (() => {
+  try {
+    return String(JSON.parse(readFileSync(path.join(__dirname, "package.json"), "utf8")).version || "unknown");
+  } catch {
+    return "unknown";
+  }
+})();
+const DECISION_ENGINE_VERSION = "Apex v10.10";
+const BUILD_REVISION = String(globalThis.process?.env?.RENDER_GIT_COMMIT || globalThis.process?.env?.GIT_COMMIT || "")
+  .trim()
+  .slice(0, 40);
 const BUNDLED_DATA_DIR = path.join(__dirname, "data");
 const DEFAULT_DATA_DIR = BUNDLED_DATA_DIR;
 const DATA_DIR = path.resolve(globalThis.process?.env?.ESTATELAB_DATA_DIR || DEFAULT_DATA_DIR);
@@ -31,6 +42,9 @@ const OBJECT_DIR = path.resolve(globalThis.process?.env?.ESTATELAB_OBJECT_DIR ||
 
 const jsonHeaders = { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" };
 const OWNER_TOKEN = String(globalThis.process?.env?.ESTATELAB_OWNER_TOKEN || "");
+const WORKSPACE_SERVICE_TOKEN = String(globalThis.process?.env?.APEX_WORKSPACE_SERVICE_TOKEN || "").trim();
+const RESIDENTIAL_DEAL_REVIEW_CONTRACT = "residential-deal-review.v1";
+const MAX_RESIDENTIAL_EVIDENCE_ITEMS = 50;
 const RAW_OPENAI_API_KEY = String(globalThis.process?.env?.OPENAI_API_KEY || "").trim();
 const OPENROUTER_API_KEY = String(globalThis.process?.env?.OPENROUTER_API_KEY || "").trim();
 const OPENAI_KEY_IS_OPENROUTER = /^sk-or-/i.test(RAW_OPENAI_API_KEY);
@@ -690,7 +704,7 @@ function normalizeReportFinalCommand(section = {}) {
 function normalizeReportAnalysis(analysis = {}) {
   const objectList = (items, limit, mapper) => Array.isArray(items) ? items.slice(0, limit).map(mapper) : [];
   return {
-    engineVersion: reportText(analysis.engineVersion || "Apex v10.10", 40),
+    engineVersion: reportText(analysis.engineVersion || DECISION_ENGINE_VERSION, 40),
     reasoningMode: reportText(analysis.reasoningMode || "Framework only", 40),
     verdict: reportText(analysis.verdict, 40),
     summary: reportText(analysis.summary, 600),
@@ -1778,6 +1792,12 @@ function constantTimeEquals(expected, supplied) {
   const expectedHash = createHash("sha256").update(String(expected)).digest();
   const suppliedHash = createHash("sha256").update(String(supplied)).digest();
   return timingSafeEqual(expectedHash, suppliedHash);
+}
+
+function workspaceServiceAuthorized(req) {
+  if (!WORKSPACE_SERVICE_TOKEN) return false;
+  const supplied = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
+  return constantTimeEquals(WORKSPACE_SERVICE_TOKEN, supplied);
 }
 
 function billingWebhookAuthorized(req) {
@@ -7463,7 +7483,7 @@ function analyzeSevenStageDeal(rawDealCard = {}, rawFinancialProfile = {}) {
   };
 
   return {
-    engineVersion: "Apex v10.10",
+    engineVersion: DECISION_ENGINE_VERSION,
     reasoningMode: "Framework only",
     verdict,
     summary: verdictSummary,
@@ -7515,6 +7535,190 @@ function analyzeSevenStageDeal(rawDealCard = {}, rawFinancialProfile = {}) {
     missingEvidence: missing,
     nextActions: uniqueText(actions, 5),
     context: { dealCard, financialProfile }
+  };
+}
+
+function safeReferenceUrl(value) {
+  try {
+    const parsed = new URL(String(value || "").trim());
+    return ["https:", "http:"].includes(parsed.protocol) ? parsed.toString() : "";
+  } catch {
+    return "";
+  }
+}
+
+function normalizeWorkspaceEvidence(items = []) {
+  if (!Array.isArray(items)) return [];
+  return items.slice(0, MAX_RESIDENTIAL_EVIDENCE_ITEMS).map((item, index) => ({
+    id: reportText(item?.id || `evidence-${index + 1}`, 80),
+    category: reportText(item?.category || "other", 40).toLowerCase(),
+    title: reportText(item?.title || "Buyer evidence", 160),
+    sourceType: reportText(item?.sourceType || "unknown", 40).toLowerCase(),
+    sourceUrl: safeReferenceUrl(item?.sourceUrl),
+    observedAt: reportText(item?.observedAt, 32),
+    verificationStatus: reportText(item?.verificationStatus || "unknown", 40).toLowerCase(),
+    notes: conciseText(item?.notes, 600),
+    amount: Number.isFinite(Number(item?.amount)) ? Number(item.amount) : null
+  }));
+}
+
+function workspaceEvidenceSources(items = []) {
+  return normalizeWorkspaceEvidence(items).map((item) => ({
+    id: item.id,
+    title: item.title,
+    type: "buyer_evidence",
+    preview: conciseText([
+      item.category,
+      item.verificationStatus,
+      item.sourceType,
+      item.observedAt,
+      item.notes
+    ].filter(Boolean).join(" | "), 180),
+    url: item.sourceUrl,
+    score: item.verificationStatus === "verified" ? 1 : item.verificationStatus === "reported" ? 0.65 : 0.35
+  }));
+}
+
+async function buildCompleteDealAnalysis({ database, dealCard, financialProfile, user = null, evidence = [], allowLlm = true, allowExternalRetrieval = true }) {
+  const analysis = analyzeSevenStageDeal(dealCard, financialProfile);
+  const subject = dealCard.projectName || dealCard.area || "property deal";
+  const learningQuery = `${subject} ${JSON.stringify(dealCard)} ${JSON.stringify(financialProfile)} ${analysis.counterThesis} ${analysis.challengeMode?.message || ""}`;
+  const dealMemories = selectRelevantUserMemories(approvedUserMemories(user), learningQuery);
+  const dealJournal = selectRelevantUserJournal(lockedUserJournal(user), learningQuery);
+  applyLearningLoopToAnalysis(analysis, buildDealLearningLoop(dealMemories, dealJournal));
+  analysis.dealMemoryComparison = buildDealMemoryComparison(analysis, user);
+  analysis.beliefTracker = buildBeliefTracker(analysis, analysis.learningLoop?.profile || {});
+  analysis.memoryConflicts = buildMemoryConflicts(analysis.learningLoop?.profile || {});
+  analysis.personalOperatingRules = buildPersonalOperatingRules(analysis, analysis.learningLoop?.profile || {});
+  analysis.marketIntelligence = selectMarketIntelligence(`${subject} ${JSON.stringify(dealCard)}`, database.knowledge, 8);
+  analysis.caseIntelligence = selectDevelopmentCaseIntelligence(`${subject} ${JSON.stringify(dealCard)}`, database.knowledge, 6);
+  const marketStage = analysis.stages.find((stage) => stage.number === 6);
+  if (marketStage && analysis.marketIntelligence.observations.length) {
+    marketStage.summary = `${analysis.marketIntelligence.summary.matched} owner market observation${analysis.marketIntelligence.summary.matched === 1 ? " matches" : "s match"} this deal. ${analysis.marketIntelligence.summary.warning}`;
+  }
+  if (marketStage && analysis.caseIntelligence.matched) {
+    marketStage.summary = `${analysis.caseIntelligence.matched} founder development case${analysis.caseIntelligence.matched === 1 ? " matches" : "s match"} this deal. ${analysis.caseIntelligence.summary}`;
+  }
+  analysis.developmentIntelligence = buildDevelopmentIntelligence(analysis);
+  const documentEvidenceResult = await knowledgeService.retrieve(learningQuery, database.knowledge.chunks, 8, { allowEmbedding: allowExternalRetrieval });
+  analysis.documentIntelligence = buildDocumentIntelligence(analysis, database.knowledge, documentEvidenceResult);
+  analysis.portfolioCommand = buildPortfolioCommand(analysis);
+  const suppliedEvidenceSources = workspaceEvidenceSources(evidence);
+  const sources = [
+    ...suppliedEvidenceSources,
+    ...documentEvidenceSources(analysis.documentIntelligence),
+    ...developmentCaseSources(analysis.caseIntelligence),
+    ...marketSources(analysis.marketIntelligence),
+    ...dealMemories.map((memory) => ({
+      id: memory.id,
+      title: memory.content,
+      type: "memory",
+      preview: memory.category,
+      score: memory.score
+    })),
+    ...dealJournal.map((decision) => ({
+      id: decision.id,
+      title: decision.subject,
+      type: "journal",
+      preview: conciseText(decision.outcome.lesson || decision.prePurchase.thesis, 160),
+      score: decision.score
+    })),
+    ...(analysis.dealMemoryComparison?.matches || []).map((match) => ({
+      id: match.id,
+      title: match.subject,
+      type: "saved_report",
+      preview: match.reason,
+      score: match.similarity
+    })),
+    ...await dealAnalysisSources()
+  ].slice(0, suppliedEvidenceSources.length ? 20 : 12);
+  let mode = "framework";
+  let completion = null;
+  if (allowLlm && llmEnabled()) {
+    try {
+      completion = await generateDealLlmCommentary(analysis, dealCard, financialProfile, dealMemories);
+      analysis.aiCommentary = completion.text;
+      analysis.voiceSummary = analysis.aiCommentary;
+      mode = "llm";
+    } catch (error) {
+      console.warn(`Deal analysis LLM fallback: ${error.message}`);
+    }
+  }
+  analysis.reasoningMode = mode === "llm" ? "Framework + AI" : "Framework only";
+  analysis.sourceTransparency = buildSourceTransparency({ mode, sources, analysis });
+  analysis.finalCommand = buildFinalCommand(analysis);
+  return { analysis, sources, mode, completion, subject };
+}
+
+function residentialRecommendation(analysis) {
+  const command = String(analysis.finalCommand?.status || "").toLowerCase();
+  if (command === "approve") return "PROCEED_TO_OFFER";
+  if (command === "shortlist" || analysis.verdict === "SHORTLIST") return "SHORTLIST";
+  if (command === "reject" || analysis.verdict === "REJECT") return "REJECT";
+  if (command === "pause" || analysis.verdict === "PAUSE") return "PAUSE";
+  return "INVESTIGATE";
+}
+
+function buildResidentialDecisionPacket(analysis, sources, requestId) {
+  const evidenceLanes = [
+    ["completed_value", "Completed value", analysis.transactionComparableEvidence],
+    ["achieved_rent", "Achieved rent", analysis.achievedRentalEvidence],
+    ["financing", "Financing and valuation", analysis.financingValuationEvidence],
+    ["supply", "Supply and absorption", analysis.supplyAbsorptionEvidence],
+    ["site_management", "Site and management", analysis.siteManagementEvidence],
+    ["legal", "Legal and transaction", analysis.legalTransactionEvidence]
+  ].map(([key, label, lane]) => ({
+    key,
+    label,
+    status: lane?.status || "missing",
+    score: Number(lane?.score || 0),
+    summary: lane?.summary || "Evidence is missing."
+  }));
+  return {
+    contractVersion: RESIDENTIAL_DEAL_REVIEW_CONTRACT,
+    requestId,
+    generatedAt: new Date().toISOString(),
+    engineVersion: analysis.engineVersion,
+    recommendation: residentialRecommendation(analysis),
+    verdict: analysis.verdict,
+    summary: analysis.summary,
+    confidence: analysis.confidence,
+    completeness: analysis.completeness,
+    decisionFocus: analysis.decisionFocus,
+    investorReadiness: analysis.investorReadiness,
+    priceGuidance: {
+      position: analysis.transactionComparableEvidence?.valuePosition || "Comparable price evidence is incomplete.",
+      openingAnchor: analysis.executionPlan?.openingAnchor || "",
+      maximumOffer: analysis.executionPlan?.maximumOffer || "",
+      walkAway: analysis.executionPlan?.walkAway || ""
+    },
+    metrics: analysis.metrics,
+    dimensions: analysis.dimensions,
+    scenarios: analysis.scenarios,
+    stressEnvelope: analysis.stressEnvelope,
+    evidence: {
+      status: analysis.evidenceEngine?.status || "missing",
+      score: Number(analysis.evidenceEngine?.score || 0),
+      recommendationGate: analysis.evidenceEngine?.recommendationGate || "",
+      criticalGaps: analysis.evidenceEngine?.criticalGaps || [],
+      lanes: evidenceLanes
+    },
+    hardStops: analysis.hardStops,
+    blockers: analysis.recommendationBlockers,
+    watchouts: analysis.watchouts,
+    missingEvidence: analysis.missingEvidence,
+    counterThesis: analysis.counterThesis,
+    nextActions: analysis.nextActions,
+    dueDiligence: analysis.dueDiligencePlan,
+    execution: analysis.executionPlan,
+    sources: sources.map((source) => ({
+      id: source.id || "",
+      title: source.title || "Evidence source",
+      type: source.type || "reference",
+      preview: source.preview || "",
+      url: safeReferenceUrl(source.url),
+      score: Number.isFinite(Number(source.score)) ? Number(source.score) : null
+    }))
   };
 }
 
@@ -9573,6 +9777,10 @@ function isPublicApiRoute(method, pathname) {
   );
 }
 
+function isInternalApiRoute(method, pathname) {
+  return method === "POST" && pathname === "/api/internal/residential-deal-review";
+}
+
 function isOwnerRequest(req) {
   const tokenHeader = req.headers["x-estatelab-owner-token"];
   const token = Array.isArray(tokenHeader) ? tokenHeader[0] : tokenHeader;
@@ -9613,7 +9821,11 @@ async function router(req, res) {
   const url = new URL(req.url, "http://localhost");
   if (!url.pathname.startsWith("/api/")) return serveStatic(req, res);
 
-  if (!isPublicApiRoute(req.method, url.pathname) && !isOwnerRequest(req)) {
+  const internalRoute = isInternalApiRoute(req.method, url.pathname);
+  if (internalRoute && !workspaceServiceAuthorized(req)) {
+    return send(res, 401, { error: "Internal API access requires a valid workspace service token." });
+  }
+  if (!isPublicApiRoute(req.method, url.pathname) && !internalRoute && !isOwnerRequest(req)) {
     return send(res, 403, {
       error: OWNER_TOKEN
         ? "Owner API access requires x-estatelab-owner-token."
@@ -9622,6 +9834,9 @@ async function router(req, res) {
   }
 
   const publicRoute = isPublicApiRoute(req.method, url.pathname);
+  if (internalRoute && !allowRequest(req, "workspace", 120, 10 * 60 * 1000)) {
+    return send(res, 429, { error: "Workspace analysis rate limit reached." }, { ...jsonHeaders, "Retry-After": "600" });
+  }
   if (publicRoute && url.pathname.startsWith("/api/jarvis/") && !allowRequest(req, "jarvis", 40, 10 * 60 * 1000)) {
     return send(res, 429, { error: "Apex Analytic has received too many requests from this connection. Pause briefly and try again." }, { ...jsonHeaders, "Retry-After": "600" });
   }
@@ -9635,6 +9850,9 @@ async function router(req, res) {
       return send(res, 200, {
         status: "ok",
         app: "apex-analytic",
+        releaseVersion: APP_RELEASE_VERSION,
+        engineVersion: DECISION_ENGINE_VERSION,
+        revision: BUILD_REVISION || "development",
         storage: stateStore.kind,
         time: new Date().toISOString()
       });
@@ -10489,6 +10707,51 @@ async function router(req, res) {
     return send(res, 204, "");
   }
 
+  if (req.method === "POST" && url.pathname === "/api/internal/residential-deal-review") {
+    const body = await readBody(req);
+    if (body.contractVersion !== RESIDENTIAL_DEAL_REVIEW_CONTRACT) {
+      return send(res, 400, { error: `contractVersion must be ${RESIDENTIAL_DEAL_REVIEW_CONTRACT}.` });
+    }
+    if (!body.dealCard || typeof body.dealCard !== "object" || Array.isArray(body.dealCard)) {
+      return send(res, 400, { error: "dealCard must be an object." });
+    }
+    if (!body.financialProfile || typeof body.financialProfile !== "object" || Array.isArray(body.financialProfile)) {
+      return send(res, 400, { error: "financialProfile must be an object." });
+    }
+    if (body.evidence !== undefined && !Array.isArray(body.evidence)) {
+      return send(res, 400, { error: "evidence must be an array." });
+    }
+    if ((body.evidence || []).length > MAX_RESIDENTIAL_EVIDENCE_ITEMS) {
+      return send(res, 400, { error: `evidence is limited to ${MAX_RESIDENTIAL_EVIDENCE_ITEMS} items.` });
+    }
+    const rawAssetClass = String(body.assetClass || body.dealCard.assetClass || "residential").trim().toLowerCase();
+    const rawPropertyType = String(body.dealCard.propertyType || "").trim();
+    if (rawAssetClass !== "residential" || !rawPropertyType) {
+      return send(res, 400, { error: "Residential Deal Review requires a residential property type." });
+    }
+    if (/\b(?:industrial|factory|warehouse|office|retail|shoplot|commercial land|development land)\b/i.test(rawPropertyType)) {
+      return send(res, 400, { error: "This contract only supports residential properties." });
+    }
+    const dealCard = cleanContextRecord(body.dealCard, dealContextLabels);
+    const financialProfile = cleanContextRecord(body.financialProfile, profileContextLabels);
+    const askingPrice = parseAmount(dealCard.askingPrice);
+    if (askingPrice <= 0 || askingPrice > 100_000_000 || (!dealCard.area && !dealCard.projectName)) {
+      return send(res, 400, { error: "Add a residential project or area and an asking price up to RM100 million." });
+    }
+    const requestId = reportText(body.requestId, 80) || randomUUID();
+    const result = await buildCompleteDealAnalysis({
+      database: db,
+      dealCard,
+      financialProfile,
+      evidence: body.evidence || [],
+      allowLlm: false,
+      allowExternalRetrieval: false
+    });
+    return send(res, 200, {
+      packet: buildResidentialDecisionPacket(result.analysis, result.sources, requestId)
+    });
+  }
+
   if (req.method === "POST" && url.pathname === "/api/jarvis/analyze-deal") {
     const body = await readBody(req);
     const dealCard = cleanContextRecord(body.dealCard, dealContextLabels);
@@ -10515,70 +10778,13 @@ async function router(req, res) {
     claimJarvisSession(session, actor, clientId);
     const subject = dealCard.projectName || dealCard.area || "property deal";
     if (!session.messages.length || defaultSessionTitle(session.title)) session.title = `Deal analysis: ${subject}`;
-    const analysis = analyzeSevenStageDeal(dealCard, financialProfile);
-    const learningQuery = `${subject} ${JSON.stringify(dealCard)} ${JSON.stringify(financialProfile)} ${analysis.counterThesis} ${analysis.challengeMode?.message || ""}`;
-    const dealMemories = selectRelevantUserMemories(approvedUserMemories(actor.user), learningQuery);
-    const dealJournal = selectRelevantUserJournal(lockedUserJournal(actor.user), learningQuery);
-    applyLearningLoopToAnalysis(analysis, buildDealLearningLoop(dealMemories, dealJournal));
-    analysis.dealMemoryComparison = buildDealMemoryComparison(analysis, actor.user);
-    analysis.beliefTracker = buildBeliefTracker(analysis, analysis.learningLoop?.profile || {});
-    analysis.memoryConflicts = buildMemoryConflicts(analysis.learningLoop?.profile || {});
-    analysis.personalOperatingRules = buildPersonalOperatingRules(analysis, analysis.learningLoop?.profile || {});
-    analysis.marketIntelligence = selectMarketIntelligence(`${subject} ${JSON.stringify(dealCard)}`, db.knowledge, 8);
-    analysis.caseIntelligence = selectDevelopmentCaseIntelligence(`${subject} ${JSON.stringify(dealCard)}`, db.knowledge, 6);
-    const marketStage = analysis.stages.find((stage) => stage.number === 6);
-    if (marketStage && analysis.marketIntelligence.observations.length) {
-      marketStage.summary = `${analysis.marketIntelligence.summary.matched} owner market observation${analysis.marketIntelligence.summary.matched === 1 ? " matches" : "s match"} this deal. ${analysis.marketIntelligence.summary.warning}`;
-    }
-    if (marketStage && analysis.caseIntelligence.matched) {
-      marketStage.summary = `${analysis.caseIntelligence.matched} founder development case${analysis.caseIntelligence.matched === 1 ? " matches" : "s match"} this deal. ${analysis.caseIntelligence.summary}`;
-    }
-    analysis.developmentIntelligence = buildDevelopmentIntelligence(analysis);
-    const documentEvidenceResult = await knowledgeService.retrieve(learningQuery, db.knowledge.chunks, 8);
-    analysis.documentIntelligence = buildDocumentIntelligence(analysis, db.knowledge, documentEvidenceResult);
-    analysis.portfolioCommand = buildPortfolioCommand(analysis);
-    const sources = [
-      ...documentEvidenceSources(analysis.documentIntelligence),
-      ...developmentCaseSources(analysis.caseIntelligence),
-      ...marketSources(analysis.marketIntelligence),
-      ...dealMemories.map((memory) => ({
-        id: memory.id,
-        title: memory.content,
-        type: "memory",
-        preview: memory.category,
-        score: memory.score
-      })),
-      ...dealJournal.map((decision) => ({
-        id: decision.id,
-        title: decision.subject,
-        type: "journal",
-        preview: conciseText(decision.outcome.lesson || decision.prePurchase.thesis, 160),
-        score: decision.score
-      })),
-      ...(analysis.dealMemoryComparison?.matches || []).map((match) => ({
-        id: match.id,
-        title: match.subject,
-        type: "saved_report",
-        preview: match.reason,
-        score: match.similarity
-      })),
-      ...await dealAnalysisSources()
-    ].slice(0, 12);
-    let mode = "framework";
-    let completion = null;
-    if (llmEnabled()) {
-      try {
-        completion = await generateDealLlmCommentary(analysis, dealCard, financialProfile, dealMemories);
-        analysis.aiCommentary = completion.text;
-        analysis.voiceSummary = analysis.aiCommentary;
-        mode = "llm";
-      } catch (error) {
-        console.warn(`Deal analysis LLM fallback: ${error.message}`);
-      }
-    }
-    analysis.reasoningMode = mode === "llm" ? "Framework + AI" : "Framework only";
-    analysis.sourceTransparency = buildSourceTransparency({ mode, sources, analysis });
-    analysis.finalCommand = buildFinalCommand(analysis);
+    const { analysis, sources, mode, completion } = await buildCompleteDealAnalysis({
+      database: db,
+      dealCard,
+      financialProfile,
+      user: actor.user,
+      allowLlm: true
+    });
     const now = new Date().toISOString();
     session.messages.push({
       id: randomUUID(),
@@ -11253,6 +11459,9 @@ function logStartupSecurityWarnings() {
     warnings.push("ESTATELAB_OWNER_TOKEN is not set; owner APIs are disabled until it is configured.");
   } else if (OWNER_TOKEN.length < 16 || /^change-this/i.test(OWNER_TOKEN)) {
     warnings.push("ESTATELAB_OWNER_TOKEN looks weak or default; use a long random secret before exposing this deployment.");
+  }
+  if (WORKSPACE_SERVICE_TOKEN && WORKSPACE_SERVICE_TOKEN.length < 24) {
+    warnings.push("APEX_WORKSPACE_SERVICE_TOKEN is too short; use at least 24 random characters for workspace integration.");
   }
   if (AUTH_DEBUG_TOKENS) {
     warnings.push("ESTATELAB_AUTH_DEBUG_TOKENS is enabled; verification and reset tokens are returned in API responses. Disable this in production.");

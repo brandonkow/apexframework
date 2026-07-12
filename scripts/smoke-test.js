@@ -48,8 +48,12 @@ await fetchText("app shell", "/", (response, text) => (
 
 await fetchJson("health", "/api/health", {
   validate: (response, payload) => (
-    response.status === 200 && payload.status === "ok" && payload.app === "apex-analytic"
-      ? `${payload.storage || "storage"} storage`
+    response.status === 200
+      && payload.status === "ok"
+      && payload.app === "apex-analytic"
+      && payload.releaseVersion
+      && payload.engineVersion
+      ? `${payload.releaseVersion} / ${payload.engineVersion} / ${payload.revision || "unknown revision"} / ${payload.storage || "storage"} storage`
       : false
   )
 });

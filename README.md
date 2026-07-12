@@ -45,6 +45,8 @@ Then open:
 http://localhost:3000
 ```
 
+`GET /api/health` reports the package release, decision-engine version, and deployment revision. Release `10.1.0` adds the private Residential Deal Review v1 integration while retaining the `Apex v10.10` decision engine.
+
 Run a deployment smoke test against any live URL:
 
 ```bash
@@ -58,6 +60,7 @@ Set `APEX_SMOKE_OWNER_TOKEN` before running the smoke test if you also want it t
 ```text
 PORT=3000
 ESTATELAB_OWNER_TOKEN=change-this-before-using-owner-apis
+APEX_WORKSPACE_SERVICE_TOKEN=long-random-service-token
 ESTATELAB_DATA_DIR=./data
 ESTATELAB_RAG_PATH=./rag/corpus.json
 ESTATELAB_OBJECT_DIR=./data/objects
@@ -94,6 +97,8 @@ ESTATELAB_PG_POOL_MAX=5
 ```
 
 `ESTATELAB_OWNER_TOKEN` protects the owner-only APIs. Public chat endpoints remain accessible without this token. Legacy environment-variable and API-route names remain unchanged to preserve deployment compatibility. Use a long random secret; the server logs a startup warning when the token is missing, short, or left at the placeholder value.
+
+`APEX_WORKSPACE_SERVICE_TOKEN` enables the private Residential Deal Review integration used by the Apex customer workspace. The workspace sends this token only from its server-side Edge Function to `POST /api/internal/residential-deal-review`; never expose it as a browser environment variable. Leave it unset when Jarvis is running without the Apex workspace.
 
 `ESTATELAB_TRUST_PROXY` controls whether rate limiting keys on the `X-Forwarded-For` header. Keep it `true` behind Render or any reverse proxy; set it to `false` only when clients connect to the Node process directly, so forged headers cannot bypass request limits. When trusted, `ESTATELAB_TRUSTED_PROXY_HOPS` (default `1`) selects the address appended by your own proxy, counting from the right of the header, so client-prepended entries are ignored.
 

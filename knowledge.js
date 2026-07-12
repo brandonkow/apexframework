@@ -187,11 +187,11 @@ export class KnowledgeService {
     };
   }
 
-  async retrieve(query, chunks, limit = 4) {
+  async retrieve(query, chunks, limit = 4, { allowEmbedding = true } = {}) {
     const candidates = Array.isArray(chunks) ? chunks : [];
     if (!candidates.length) return { mode: "lexical", matches: [] };
     let queryEmbedding = null;
-    if (this.embeddingsEnabled() && candidates.some((chunk) => Array.isArray(chunk.embedding))) {
+    if (allowEmbedding && this.embeddingsEnabled() && candidates.some((chunk) => Array.isArray(chunk.embedding))) {
       try {
         [queryEmbedding] = await this.embed(query);
       } catch (error) {

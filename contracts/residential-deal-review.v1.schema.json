@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://apexanalytic.local/contracts/residential-deal-review.v1.schema.json",
+  "title": "Residential Deal Review v1 request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contractVersion", "assetClass", "dealCard", "financialProfile"],
+  "properties": {
+    "contractVersion": {
+      "const": "residential-deal-review.v1"
+    },
+    "requestId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "assetClass": {
+      "const": "residential"
+    },
+    "dealCard": {
+      "type": "object",
+      "required": ["propertyType", "askingPrice"],
+      "properties": {
+        "projectName": { "type": "string", "maxLength": 160 },
+        "area": { "type": "string", "maxLength": 160 },
+        "propertyType": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "askingPrice": { "type": ["string", "number"] }
+      },
+      "anyOf": [
+        { "required": ["projectName"] },
+        { "required": ["area"] }
+      ],
+      "additionalProperties": true
+    },
+    "financialProfile": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "evidence": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "category", "title", "verificationStatus"],
+        "properties": {
+          "id": { "type": "string", "maxLength": 80 },
+          "category": { "type": "string", "maxLength": 40 },
+          "title": { "type": "string", "maxLength": 160 },
+          "sourceType": { "type": "string", "maxLength": 40 },
+          "sourceUrl": { "type": "string", "format": "uri", "maxLength": 2048 },
+          "observedAt": { "type": "string", "maxLength": 32 },
+          "verificationStatus": {
+            "enum": ["verified", "reported", "assumption", "unknown"]
+          },
+          "notes": { "type": "string", "maxLength": 600 },
+          "amount": { "type": ["number", "null"] }
+        }
+      }
+    }
+  }
+}

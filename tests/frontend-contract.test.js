@@ -174,8 +174,8 @@ test("frontend selectors and stylesheet structure stay valid", async () => {
   assert.match(server, /caseIntelligence: normalizeReportCaseIntelligence\(analysis\.caseIntelligence\)/, "Saved private reports must preserve development case intelligence.");
   assert.match(server, /developmentCaseSources\(analysis\.caseIntelligence\)/, "Matched development cases must appear in formal report sources.");
   assert.match(server, /function buildDocumentIntelligence[\s\S]*?V8\.1[\s\S]*?V8\.10/, "V8.1-V8.10 must be derived by the backend document intelligence engine.");
-  assert.match(server, /knowledgeService\.retrieve\(learningQuery,\s*db\.knowledge\.chunks,\s*8\)/, "Formal deal reports must retrieve owner documents for V8 evidence matching.");
-  assert.match(server, /analysis\.documentIntelligence = buildDocumentIntelligence\(analysis,\s*db\.knowledge,\s*documentEvidenceResult\)/, "Formal deal reports must attach the V8 document intelligence stack.");
+  assert.match(server, /knowledgeService\.retrieve\(learningQuery,\s*(?:db|database)\.knowledge\.chunks,\s*8,\s*\{\s*allowEmbedding:\s*allowExternalRetrieval\s*\}\)/, "Formal deal reports must retrieve owner documents for V8 evidence matching.");
+  assert.match(server, /analysis\.documentIntelligence = buildDocumentIntelligence\(analysis,\s*(?:db|database)\.knowledge,\s*documentEvidenceResult\)/, "Formal deal reports must attach the V8 document intelligence stack.");
   assert.match(server, /documentIntelligence: normalizeReportDocumentIntelligence\(analysis\.documentIntelligence\)/, "Saved private reports must preserve the V8 stack.");
   assert.match(server, /documentEvidenceSources\(analysis\.documentIntelligence\)/, "Matched owner evidence must appear in formal report sources.");
   assert.match(server, /function buildPortfolioCommand[\s\S]*?V9\.1[\s\S]*?V9\.10/, "V9.1-V9.10 must be derived by the backend portfolio command engine.");
@@ -184,7 +184,7 @@ test("frontend selectors and stylesheet structure stay valid", async () => {
   assert.match(server, /function buildFinalCommand[\s\S]*?V10\.1[\s\S]*?V10\.10/, "V10.1-V10.10 must be derived by the backend final command engine.");
   assert.match(server, /analysis\.finalCommand = buildFinalCommand\(analysis\)/, "Formal deal reports must attach the V10 final command stack.");
   assert.match(server, /finalCommand: normalizeReportFinalCommand\(analysis\.finalCommand\)/, "Saved private reports must preserve the V10 stack.");
-  assert.match(server, /engineVersion:\s*"Apex v10\.10"/, "New formal analyses must expose the V10.10 engine label.");
+  assert.match(server, /const DECISION_ENGINE_VERSION = "Apex v10\.10"/, "New formal analyses must expose the V10.10 engine label.");
   assert.match(server, /function ownerKnowledgeExport[\s\S]*?owner-knowledge-backup[\s\S]*?\/api\/owner\/export/, "Owner-controlled knowledge needs a token-gated JSON backup endpoint.");
   assert.match(server, /function ownerKnowledgeRestorePreview[\s\S]*?RESTORE OWNER KNOWLEDGE[\s\S]*?\/api\/owner\/restore/, "Owner-controlled knowledge needs a guarded restore preview endpoint.");
   assert.match(server, /function ownerBackupLedger[\s\S]*?ownerBackupEvents[\s\S]*?\/api\/owner\/backup\/events/, "Owner-controlled backups need a server-side export ledger.");
