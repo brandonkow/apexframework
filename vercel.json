@@ -2,8 +2,14 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "regions": ["sin1"],
+  "rewrites": [
+    {
+      "source": "/api/:__apex_path*",
+      "destination": "/api/router?__apex_path=:__apex_path*"
+    }
+  ],
   "functions": {
-    "api/**/*.js": {
+    "api/router.js": {
       "maxDuration": 60,
       "includeFiles": "{data/**,rag/**,package.json}"
     }
