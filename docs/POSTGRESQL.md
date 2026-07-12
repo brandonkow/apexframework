@@ -11,9 +11,12 @@ Set:
 ```text
 DATABASE_URL=postgresql://user:password@host:5432/database
 ESTATELAB_PG_POOL_MAX=5
+ESTATELAB_PG_CA_CERT=optional-managed-database-ca-pem
 ```
 
 When `DATABASE_URL` is absent, EstateLab uses `ESTATELAB_DATA_DIR/db.json`.
+
+For managed databases that issue certificates from a private CA, set `ESTATELAB_PG_CA_CERT` to the provider's CA PEM and omit `sslmode` from `DATABASE_URL`. EstateLab then enables TLS with certificate and hostname verification. Literal newlines and escaped `\\n` line breaks are both accepted.
 
 ## First Migration
 
@@ -51,5 +54,5 @@ Removing `DATABASE_URL` switches the app back to JSON. PostgreSQL changes made a
 
 - The application currently synchronizes its bounded in-memory state into normalized tables per write. This is reliable for the current single-service scale, but high-volume growth should move each route to narrower repository operations.
 - Authentication and public request limits remain process-local.
-- Raw uploaded source files remain in `ESTATELAB_OBJECT_DIR`; PostgreSQL stores their metadata and retrievable chunks, not the original bytes.
+- PostgreSQL stores evidence metadata and retrievable chunks, not original bytes. Originals use the private Supabase bucket when configured and otherwise remain in `ESTATELAB_OBJECT_DIR`.
 - The bounded JSONB embedding index is appropriate for the current corpus. Large-scale retrieval should move vectors to a purpose-built index.

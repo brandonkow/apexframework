@@ -1,5 +1,5 @@
-import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { createObjectStore } from "./object-storage.js";
 
 const TEXT_TYPES = new Set([
   "text/plain",
@@ -106,8 +106,25 @@ async function openAiRequest(url, options, timeoutMs) {
 }
 
 export class KnowledgeService {
-  constructor({ objectDir, apiKey = "", embeddingModel = "text-embedding-3-small", transcriptionModel = "gpt-4o-mini-transcribe", speechModel = "gpt-4o-mini-tts", timeoutMs = 25000 }) {
+  constructor({
+    objectDir,
+    objectStore = null,
+    supabaseUrl = "",
+    supabaseServiceRoleKey = "",
+    objectBucket = "",
+    apiKey = "",
+    embeddingModel = "text-embedding-3-small",
+    transcriptionModel = "gpt-4o-mini-transcribe",
+    speechModel = "gpt-4o-mini-tts",
+    timeoutMs = 25000
+  }) {
     this.objectDir = objectDir;
+    this.objectStore = objectStore || createObjectStore({
+      objectDir,
+      supabaseUrl,
+      serviceRoleKey: supabaseServiceRoleKey,
+      bucket: objectBucket
+    });
     this.apiKey = String(apiKey || "").trim();
     this.embeddingModel = embeddingModel;
     this.transcriptionModel = transcriptionModel;
@@ -116,7 +133,14 @@ export class KnowledgeService {
   }
 
   async init() {
-    await mkdir(this.objectDir, { recursive: true });
+    await this.objectStore.init();
+  }
+
+  objectStorageStatus() {
+    return {
+      kind: this.objectStore.kind,
+      durable: this.objectStore.durable === true
+    };
   }
 
   embeddingsEnabled() {
@@ -127,17 +151,12 @@ export class KnowledgeService {
     return Boolean(this.apiKey);
   }
 
-  async storeObject(documentId, filename, buffer) {
-    const directory = path.join(this.objectDir, documentId);
-    const cleanName = cleanFileName(filename);
-    await mkdir(directory, { recursive: true });
-    const filePath = path.join(directory, cleanName);
-    await writeFile(filePath, buffer, { flag: "wx" });
-    return path.relative(this.objectDir, filePath).replace(/\\/g, "/");
+  async storeObject(documentId, filename, buffer, mimeType = "application/octet-stream") {
+    return this.objectStore.store(documentId, cleanFileName(filename), buffer, { contentType: mimeType });
   }
 
-  async removeObject(documentId) {
-    await rm(path.join(this.objectDir, cleanFileName(documentId)), { recursive: true, force: true });
+  async removeObject(documentId, storageKey = "") {
+    await this.objectStore.remove(cleanFileName(documentId), storageKey);
   }
 
   extractText(buffer, mimeType, filename) {

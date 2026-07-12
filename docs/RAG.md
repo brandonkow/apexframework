@@ -11,7 +11,7 @@ The public Jarvis frontend is read-only. User prompts query the curated backend 
 ## Current Flow
 
 1. Keep canonical framework guidance in `rag/corpus.json`.
-2. Upload owner evidence through `POST /api/owner/documents`; originals stay in `ESTATELAB_OBJECT_DIR`.
+2. Upload owner evidence through `POST /api/owner/documents`; originals use the private Supabase bucket when configured and otherwise stay in `ESTATELAB_OBJECT_DIR`.
 3. Extract text-compatible files, split them into overlapping chunks, and generate embeddings when configured.
 4. Retrieve owner chunks with hybrid semantic and lexical scoring, alongside framework references, beliefs, and decisions.
 5. Return source metadata with every relevant answer and log retrieval mode, source IDs, and latency without retaining the raw question in monitoring.

@@ -45,7 +45,7 @@ Then open:
 http://localhost:3000
 ```
 
-`GET /api/health` reports the package release, decision-engine version, and deployment revision. Release `10.1.0` adds the private Residential Deal Review v1 integration while retaining the `Apex v10.10` decision engine.
+`GET /api/health` reports the package release, decision-engine version, deployment revision, state store, and object store. Release `10.2.0` adds private Supabase evidence storage while retaining the `residential-deal-review.v1` contract and `Apex v10.10` decision engine.
 
 Run a deployment smoke test against any live URL:
 
@@ -64,6 +64,9 @@ APEX_WORKSPACE_SERVICE_TOKEN=long-random-service-token
 ESTATELAB_DATA_DIR=./data
 ESTATELAB_RAG_PATH=./rag/corpus.json
 ESTATELAB_OBJECT_DIR=./data/objects
+ESTATELAB_SUPABASE_URL=https://your-project.supabase.co
+ESTATELAB_SUPABASE_SERVICE_ROLE_KEY=your-server-only-service-role-key
+ESTATELAB_OBJECT_BUCKET=jarvis-evidence
 OPENAI_API_KEY=your-server-side-api-key
 OPENAI_MODEL=gpt-4.1-mini
 OPENROUTER_API_KEY=your-openrouter-key
@@ -94,6 +97,7 @@ APEX_PRO_PRICE_RM=59
 APEX_ADVISOR_PRICE_RM=199
 DATABASE_URL=postgresql://user:password@host:5432/database
 ESTATELAB_PG_POOL_MAX=5
+ESTATELAB_PG_CA_CERT=optional-managed-database-ca-pem
 ```
 
 `ESTATELAB_OWNER_TOKEN` protects the owner-only APIs. Public chat endpoints remain accessible without this token. Legacy environment-variable and API-route names remain unchanged to preserve deployment compatibility. Use a long random secret; the server logs a startup warning when the token is missing, short, or left at the placeholder value.
@@ -112,7 +116,7 @@ Advanced provider overrides are `LLM_PROVIDER`, `LLM_API_KEY`, and `LLM_BASE_URL
 
 Embeddings and server voice use OpenAI-specific endpoints. When OpenRouter handles reasoning, set a separate `OPENAI_SERVICES_API_KEY` only if those services are needed. Evidence retrieval otherwise falls back to lexical matching, browser speech remains the first voice path where available, and written chat continues if audio generation fails.
 
-`ESTATELAB_OBJECT_DIR` stores private originals uploaded through the owner evidence API. Text, Markdown, CSV, JSON, and HTML are indexed immediately. Other formats are retained but reported as stored rather than indexed. On Render, keep this directory on the persistent disk.
+`ESTATELAB_OBJECT_DIR` stores private originals locally when remote object storage is not configured. For durable production storage, set `ESTATELAB_SUPABASE_URL`, `ESTATELAB_SUPABASE_SERVICE_ROLE_KEY`, and `ESTATELAB_OBJECT_BUCKET` together. The bucket must already exist and remain private. The service role key stays server-side and is never returned to the browser. Text, Markdown, CSV, JSON, and HTML are indexed immediately; other formats are retained but reported as stored rather than indexed.
 
 `ESTATELAB_EMAIL_WEBHOOK_URL` is an optional server-to-server delivery hook for verification and reset codes. The hook receives `type`, `to`, `displayName`, `token`, and `expiresAt`; set `ESTATELAB_EMAIL_WEBHOOK_SECRET` to add a bearer credential. Keep `ESTATELAB_AUTH_DEBUG_TOKENS=false` in production. Enable mandatory verification only after delivery is working.
 
@@ -126,7 +130,7 @@ Billing is provider-neutral. Keep `APEX_BILLING_ENFORCEMENT=false` until checkou
 
 Member passwords are scrypt-hashed. Login cookies are opaque, `HttpOnly`, `SameSite=Strict`, and automatically marked `Secure` behind Render HTTPS. Only a hash of each login token is stored. Guest chat access is bound to the originating browser client ID.
 
-When `DATABASE_URL` is set, Apex Analytic creates its PostgreSQL schema automatically and uses transactional PostgreSQL storage. If the database is empty, the first startup imports the current JSON database as its seed. Without `DATABASE_URL`, the app continues using `data/db.json`.
+When `DATABASE_URL` is set, Apex Analytic creates its PostgreSQL schema automatically and uses transactional PostgreSQL storage. If the database is empty, the first startup imports the current JSON database as its seed. Set `ESTATELAB_PG_CA_CERT` to the managed database CA PEM when the provider uses a private certificate authority; escaped `\\n` line breaks are accepted. Without `DATABASE_URL`, the app continues using `data/db.json`.
 
 ## Deploy On Render
 
@@ -137,16 +141,16 @@ Render is the recommended first deployment target because it can run the Node se
 3. Use `npm start` as the start command.
 4. Set `ESTATELAB_OWNER_TOKEN` as a secret environment variable.
 5. Set either `OPENROUTER_API_KEY` or `OPENAI_API_KEY` as a secret environment variable to enable conversational AI.
-6. For a free first launch, leave `ESTATELAB_DATA_DIR=./data` and `ESTATELAB_OBJECT_DIR=./data/objects`.
-7. For durable member accounts, create or attach PostgreSQL and set `DATABASE_URL` to its internal connection URL.
-8. If you later add a paid persistent disk, move `ESTATELAB_DATA_DIR` and `ESTATELAB_OBJECT_DIR` onto that disk before relying on JSON/object persistence.
+6. For local-only testing, leave `ESTATELAB_DATA_DIR=./data` and `ESTATELAB_OBJECT_DIR=./data/objects`.
+7. For durable member accounts, attach PostgreSQL and set `DATABASE_URL`.
+8. For durable evidence originals without a paid Render disk, configure the three `ESTATELAB_SUPABASE_*`/bucket variables above. A paid persistent disk remains a supported local-object alternative.
 9. Optionally configure `ESTATELAB_EMAIL_WEBHOOK_URL`, test delivery, and then set `ESTATELAB_REQUIRE_EMAIL_VERIFICATION=true`.
 10. Optionally configure `APEX_OWNER_BACKUP_WEBHOOK_URL` and call `POST /api/owner/backup/reminder` from Render Cron with the owner token header for off-platform backup reminders.
 11. After each deploy, run `npm run smoke -- https://your-apex-service.onrender.com` locally. Paste the owner token into the Owner console and check `OPS CHECK` before relying on production data.
 
 A free-safe `render.yaml` blueprint is included. It defines a Node web service in Singapore and a `/api/health` health check without requiring a paid persistent disk.
 
-Note: Free Render filesystems are ephemeral. The app will deploy and run, but account memory, reports, uploaded evidence originals, and JSON fallback changes may reset after restarts unless PostgreSQL or a persistent disk is configured.
+Note: Free Render filesystems are ephemeral. Account state requires PostgreSQL, and uploaded originals require Supabase object storage or a paid persistent disk before they can survive restarts.
 
 The bundled Apex Analytic knowledge base ships with the repo. On first start, if runtime storage is empty, the app seeds the runtime database from `data/db.json`.
 

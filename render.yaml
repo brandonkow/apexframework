@@ -18,6 +18,12 @@ services:
         value: ./rag/corpus.json
       - key: ESTATELAB_OBJECT_DIR
         value: ./data/objects
+      - key: ESTATELAB_SUPABASE_URL
+        sync: false
+      - key: ESTATELAB_SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: ESTATELAB_OBJECT_BUCKET
+        value: jarvis-evidence
       - key: ESTATELAB_OWNER_TOKEN
         sync: false
       - key: APEX_WORKSPACE_SERVICE_TOKEN
@@ -68,3 +74,5 @@ services:
         sync: false
       - key: ESTATELAB_PG_POOL_MAX
         value: 5
+      - key: ESTATELAB_PG_CA_CERT
+        sync: false

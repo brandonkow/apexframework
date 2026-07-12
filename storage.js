@@ -2,6 +2,11 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
 
+export function postgresTlsConfig(rawCa = globalThis.process?.env?.ESTATELAB_PG_CA_CERT || "") {
+  const ca = String(rawCa || "").replaceAll("\\n", "\n").trim();
+  return ca ? { ssl: { ca, rejectUnauthorized: true } } : {};
+}
+
 const SCHEMA_SQL = `
   CREATE TABLE IF NOT EXISTS estatelab_meta (
     singleton BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (singleton),
@@ -445,7 +450,8 @@ export async function createStateStore({ databaseUrl, filePath, seedState, pool 
       max: Number.isFinite(configuredPoolMax) ? Math.max(1, configuredPoolMax) : 5,
       connectionTimeoutMillis: 8000,
       idleTimeoutMillis: 30000,
-      application_name: "estatelab-jarvis"
+      application_name: "estatelab-jarvis",
+      ...postgresTlsConfig()
     });
     activePool.on("error", (error) => console.error("EstateLab PostgreSQL pool error", error));
   }

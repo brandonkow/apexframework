@@ -3,7 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { JsonStateStore, PostgresStateStore, StorageConflictError } from "../storage.js";
+import { JsonStateStore, PostgresStateStore, StorageConflictError, postgresTlsConfig } from "../storage.js";
 
 function compactSql(sql) {
   return String(sql).replace(/\s+/g, " ").trim();
@@ -131,6 +131,16 @@ function sampleState(revision = 0) {
     _storageRevision: revision
   };
 }
+
+test("PostgreSQL TLS config verifies a configured CA certificate", () => {
+  assert.deepEqual(postgresTlsConfig(""), {});
+  assert.deepEqual(postgresTlsConfig("line-one\\nline-two\n"), {
+    ssl: {
+      ca: "line-one\nline-two",
+      rejectUnauthorized: true
+    }
+  });
+});
 
 test("JSON store remains a working local fallback", async (t) => {
   const directory = await mkdtemp(path.join(os.tmpdir(), "estatelab-json-store-"));

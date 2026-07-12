@@ -88,7 +88,7 @@ After a Render deployment:
 
 1. Run `npm run smoke -- https://your-apex-service.onrender.com` from a trusted local terminal.
 2. Paste the owner token into the Owner console and run `OPS CHECK`.
-3. Check `/api/health`; `storage` should be `postgres` when `DATABASE_URL` is configured.
+3. Set `ESTATELAB_PG_CA_CERT` when the database provider supplies a private CA, then check `/api/health`; `storage` should be `postgres` when `DATABASE_URL` is configured.
 4. Check `/api/jarvis/status`; confirm AI, audio, document, and account-delivery capability flags.
 5. Upload one small owner evidence file and confirm it reports `indexed`.
 6. Ask Apex Analytic a question containing distinctive terms from that file and confirm an `EVIDENCE` source appears.
@@ -116,4 +116,4 @@ Use the Owner console `OPS CHECK` button for the same view without calling the A
 - The latest 1,000 retrieval events are retained.
 - Each conversation session keeps the latest 80 messages; the state keeps the latest 80 sessions.
 - Public rate limits are process-local. Use a shared limiter before running multiple web-service instances.
-- Uploaded originals need a persistent Render disk. PostgreSQL keeps indexed text and metadata, but not the original file bytes.
+- Uploaded originals need the private Supabase object store or a persistent Render disk. PostgreSQL keeps indexed text and metadata, but not the original file bytes.

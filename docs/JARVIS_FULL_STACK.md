@@ -107,7 +107,7 @@ EstateLab supports two storage modes:
 - `data/db.json` when `DATABASE_URL` is absent. This remains the zero-configuration local fallback and migration source.
 - `rag/corpus.json`: retrieval snippets.
 - `docs/`: long-form framework and operating rules.
-- `ESTATELAB_OBJECT_DIR`: private originals uploaded by the owner.
+- Private Supabase Storage when all three remote object variables are configured; otherwise `ESTATELAB_OBJECT_DIR` remains the local fallback for owner originals.
 
 Evidence metadata, chunks, embeddings, and retrieval events live in the selected state store. Raw questions are not written to retrieval monitoring; monitoring records a short hash, length, source IDs, retrieval mode, latency, and optional member ID.
 
@@ -115,7 +115,7 @@ The PostgreSQL schema is created automatically. An empty database imports the cu
 
 ## Production Services
 
-- Uploaded originals are stored under the private object directory; text-compatible files are extracted and chunked immediately.
+- Uploaded originals use the configured private object store; text-compatible files are extracted and chunked immediately.
 - OpenAI embeddings produce hybrid semantic and lexical retrieval when configured. Lexical retrieval remains the deterministic fallback.
 - Email verification and password-reset codes use a configurable server webhook. Owner account administration never exposes the owner token to the frontend.
 - Public chat, audio, and account endpoints have source-address request windows plus body and message limits.
@@ -124,6 +124,6 @@ The PostgreSQL schema is created automatically. An empty database imports the cu
 ## Bounded Limits
 
 - Request limits are process-local and reset when the service restarts. A multi-instance deployment should move these counters to Redis or PostgreSQL.
-- Source originals rely on the configured object directory. Render deployments need a persistent disk or a future external object-store adapter.
+- Source originals require either the private Supabase object store or a persistent Render disk.
 - PDF and binary office documents are stored but need an extraction service before they become retrievable.
 - The current embedding index is bounded state stored as JSONB or JSON. Move to a dedicated vector extension or service only after corpus size and latency justify it.

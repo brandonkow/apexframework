@@ -47,6 +47,9 @@ const PORT = configuredNumber(globalThis.process?.env?.PORT, 3000, { min: 1, max
 const HOST = String(globalThis.process?.env?.HOST || "0.0.0.0").trim();
 const DATABASE_URL = String(globalThis.process?.env?.DATABASE_URL || "").trim();
 const OBJECT_DIR = path.resolve(globalThis.process?.env?.ESTATELAB_OBJECT_DIR || path.join(DATA_DIR, "objects"));
+const OBJECT_SUPABASE_URL = String(globalThis.process?.env?.ESTATELAB_SUPABASE_URL || "").trim();
+const OBJECT_SUPABASE_SERVICE_ROLE_KEY = String(globalThis.process?.env?.ESTATELAB_SUPABASE_SERVICE_ROLE_KEY || "").trim();
+const OBJECT_SUPABASE_BUCKET = String(globalThis.process?.env?.ESTATELAB_OBJECT_BUCKET || "").trim();
 
 const jsonHeaders = { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" };
 const OWNER_TOKEN = String(globalThis.process?.env?.ESTATELAB_OWNER_TOKEN || "");
@@ -135,6 +138,9 @@ const BILLING_PLANS = {
 };
 const knowledgeService = new KnowledgeService({
   objectDir: OBJECT_DIR,
+  supabaseUrl: OBJECT_SUPABASE_URL,
+  supabaseServiceRoleKey: OBJECT_SUPABASE_SERVICE_ROLE_KEY,
+  objectBucket: OBJECT_SUPABASE_BUCKET,
   apiKey: OPENAI_SERVICES_API_KEY,
   embeddingModel: OPENAI_EMBEDDING_MODEL,
   transcriptionModel: OPENAI_TRANSCRIPTION_MODEL,
@@ -9588,7 +9594,7 @@ function ownerOpsSnapshot(db) {
   const billingCheckoutReady = Boolean(PRO_CHECKOUT_URL && ADVISOR_CHECKOUT_URL);
   const billingWebhookReady = Boolean(BILLING_WEBHOOK_SECRET);
   const emailWebhookReady = Boolean(EMAIL_WEBHOOK_URL);
-  const objectDirConfigured = Boolean(String(globalThis.process?.env?.ESTATELAB_OBJECT_DIR || "").trim());
+  const objectStorage = knowledgeService.objectStorageStatus();
   const checks = [
     ownerOpsCheck(
       "owner-token",
@@ -9607,9 +9613,9 @@ function ownerOpsSnapshot(db) {
     ownerOpsCheck(
       "object-storage",
       "Evidence originals",
-      objectDirConfigured ? "ready" : "warning",
-      objectDirConfigured ? "Owner evidence originals use a configured object directory." : "Evidence metadata and indexed text may remain, but uploaded original files rely on the default local path.",
-      objectDirConfigured ? "Back up original files with owner exports." : "Set ESTATELAB_OBJECT_DIR to persistent storage when evidence uploads matter."
+      objectStorage.durable ? "ready" : "warning",
+      objectStorage.durable ? "Owner evidence originals use a private durable object store." : "Evidence metadata and indexed text may remain, but uploaded original files rely on local filesystem storage.",
+      objectStorage.durable ? "Monitor bucket usage and retention." : "Configure Supabase object storage or a persistent Render disk before evidence uploads matter."
     ),
     ownerOpsCheck(
       "llm",
@@ -9666,6 +9672,7 @@ function ownerOpsSnapshot(db) {
       host: HOST,
       port: PORT,
       storage: stateStore.kind,
+      objectStorage: objectStorage.kind,
       trustProxy: TRUST_PROXY
     },
     knowledge: {
@@ -9862,6 +9869,7 @@ async function router(req, res) {
         engineVersion: DECISION_ENGINE_VERSION,
         revision: BUILD_REVISION || "development",
         storage: stateStore.kind,
+        objectStorage: knowledgeService.objectStorageStatus().kind,
         time: new Date().toISOString()
       });
     } catch (error) {
@@ -10863,11 +10871,11 @@ async function router(req, res) {
     let storageKey;
     let indexed;
     try {
-      storageKey = await knowledgeService.storeObject(id, filename, content);
+      storageKey = await knowledgeService.storeObject(id, filename, content, mimeType);
       const extracted = knowledgeService.extractText(content, mimeType, filename);
       indexed = await knowledgeService.indexText(id, extracted);
     } catch (error) {
-      await knowledgeService.removeObject(id).catch(() => {});
+      await knowledgeService.removeObject(id, storageKey).catch(() => {});
       throw error;
     }
     const now = new Date().toISOString();
@@ -10892,7 +10900,7 @@ async function router(req, res) {
     try {
       await writeDb(db);
     } catch (error) {
-      await knowledgeService.removeObject(id).catch(() => {});
+      await knowledgeService.removeObject(id, storageKey).catch(() => {});
       throw error;
     }
     return send(res, 201, {
@@ -10908,7 +10916,7 @@ async function router(req, res) {
     db.knowledge.documents = db.knowledge.documents.filter((item) => item.id !== id);
     db.knowledge.chunks = db.knowledge.chunks.filter((chunk) => chunk.documentId !== id);
     await writeDb(db);
-    await knowledgeService.removeObject(id).catch((error) => {
+    await knowledgeService.removeObject(id, document.storageKey).catch((error) => {
       console.warn(`Apex Analytic object cleanup failed for ${id}: ${error.message}`);
     });
     return send(res, 204, "");
