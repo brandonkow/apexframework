@@ -1,5 +1,10 @@
 # Framework Enhancement Questions
 
+> Audit status: all 61 questions have been classified in
+> `docs/FRAMEWORK_ENHANCEMENT_AUDIT.md`. Only the 12 deduplicated founder questions
+> in that audit should be asked directly; the remaining gaps belong to Apex research
+> or engine implementation.
+
 ## Purpose Of This File
 
 This file is a structured set of questions intended to enhance the existing v1 framework. It is not a new framework, a new stage, or a set of new rules. It exists because `docs/FRAMEWORK_OVERVIEW.md` states that EstateLab should extend a stage only when a *genuine structural gap* is identified, and that the framework improves through founder insight, external evidence, and recorded outcomes.
