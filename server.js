@@ -16,6 +16,8 @@ import {
   researchStudySources,
   selectResearchIntelligence
 } from "./research-study.js";
+import { calculateResidentialDcf } from "./dcf-engine.js";
+import { generateResidentialDcfWorkbook } from "./dcf-workbook.js";
 
 function configuredNumber(value, fallback, { min = -Infinity, max = Infinity, integer = false } = {}) {
   if (value === undefined || value === null || String(value).trim() === "") return fallback;
@@ -4434,6 +4436,8 @@ const dealContextLabels = {
   projectName: "Project",
   propertyType: "Property type",
   propertyAge: "Property age",
+  address: "Address",
+  floorArea: "Floor area",
   askingPrice: "Asking price",
   conservativeFairValue: "Conservative fair value",
   expectedRent: "Expected rent",
@@ -7597,6 +7601,103 @@ function analyzeSevenStageDeal(rawDealCard = {}, rawFinancialProfile = {}) {
   };
 }
 
+function loanToValueFromContext(value) {
+  const clean = String(value || "").toLowerCase();
+  const stated = parsePlainNumber(clean);
+  if (stated > 0) return stated > 1 ? stated / 100 : stated;
+  if (/above 90|cash.?out/.test(clean)) return 0.95;
+  if (/90/.test(clean)) return 0.9;
+  if (/80/.test(clean)) return 0.8;
+  return 0.8;
+}
+
+function costItemAmount(estimate, pattern) {
+  return (estimate?.items || [])
+    .filter((item) => pattern.test(String(item.label || "")))
+    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+}
+
+function residentialDcfPayload(body = {}, dealCard = {}, financialProfile = {}) {
+  const valuation = body.valuation && typeof body.valuation === "object" && !Array.isArray(body.valuation)
+    ? body.valuation
+    : body;
+  const purchasePrice = parseAmount(valuation.purchasePrice || dealCard.askingPrice);
+  const holdingPeriodYears = parsePlainNumber(valuation.holdingPeriodYears || financialProfile.holdingPeriod) || 5;
+  const loanToValue = valuation.loanToValue === undefined || valuation.loanToValue === ""
+    ? loanToValueFromContext(dealCard.loanMarginPlan)
+    : loanToValueFromContext(valuation.loanToValue);
+  const costs = purchasePrice ? estimateMalaysianDealCosts({
+    price: purchasePrice,
+    loanMarginPercent: loanToValue * 100,
+    holdingYears: holdingPeriodYears
+  }) : null;
+  const transferStampDuty = costItemAmount(costs, /transfer \(mot\)/i);
+  const legalDueDiligence = costItemAmount(costs, /spa legal|disbursement/i);
+  const loanValuationFees = costItemAmount(costs, /loan agreement|loan legal/i);
+  return {
+    ...valuation,
+    asOf: valuation.asOf || new Date().toISOString().slice(0, 10),
+    propertyName: valuation.propertyName || dealCard.projectName,
+    area: valuation.area || dealCard.area,
+    address: valuation.address || dealCard.address,
+    propertyType: valuation.propertyType || dealCard.propertyType,
+    tenure: valuation.tenure || dealCard.tenure,
+    purchasePrice,
+    floorArea: valuation.floorArea || dealCard.floorArea,
+    monthlyMarketRent: valuation.monthlyMarketRent || dealCard.expectedRent,
+    monthlyMaintenance: valuation.monthlyMaintenance || dealCard.maintenance,
+    holdingPeriodYears,
+    loanToValue,
+    marketRentEvidence: valuation.marketRentEvidence || [dealCard.rentEvidence, dealCard.rentalSource].filter(Boolean).join("; "),
+    operatingCostEvidence: valuation.operatingCostEvidence || dealCard.siteManagementNotes,
+    annualAssessment: valuation.annualAssessment || dealCard.annualAssessmentQuitRent,
+    annualInsurance: valuation.annualInsurance || dealCard.annualInsuranceTax,
+    initialRenovation: valuation.initialRenovation || dealCard.furnishingBudget,
+    transferStampDuty: valuation.transferStampDuty || transferStampDuty,
+    legalDueDiligence: valuation.legalDueDiligence || legalDueDiligence,
+    loanValuationFees: valuation.loanValuationFees || loanValuationFees,
+    exitRpgtRate: valuation.exitRpgtRate === undefined || valuation.exitRpgtRate === ""
+      ? Number(costs?.rpgt?.applicableRate || 0) / 100
+      : valuation.exitRpgtRate,
+    comparables: Array.isArray(valuation.comparables) ? valuation.comparables : []
+  };
+}
+
+function hasResidentialDcfInput(body = {}) {
+  const valuation = body.valuation;
+  if (!valuation || typeof valuation !== "object" || Array.isArray(valuation)) return false;
+  return Object.entries(valuation).some(([key, value]) => key === "holdingPeriodYears"
+    ? false
+    : key === "comparables"
+    ? Array.isArray(value) && value.length > 0
+    : String(value ?? "").trim());
+}
+
+function attachResidentialDcf(analysis, body, dealCard, financialProfile) {
+  if (!hasResidentialDcfInput(body)) return analysis;
+  try {
+    analysis.residentialDcf = calculateResidentialDcf(residentialDcfPayload(body, dealCard, financialProfile));
+  } catch (error) {
+    analysis.residentialDcf = {
+      format: "apex-residential-dcf.v1",
+      status: "incomplete",
+      issues: Array.isArray(error.issues) ? error.issues : [error.message || "DCF inputs are incomplete."],
+      marketValue: null,
+      disclaimer: "No valuation indication is produced until the minimum DCF inputs are complete."
+    };
+  }
+  return analysis;
+}
+
+function safeDownloadName(value) {
+  return String(value || "property")
+    .normalize("NFKD")
+    .replace(/[^a-z0-9]+/gi, "-")
+    .replace(/^-+|-+$/g, "")
+    .toLowerCase()
+    .slice(0, 80) || "property";
+}
+
 function safeReferenceUrl(value) {
   try {
     const parsed = new URL(String(value || "").trim());
@@ -9860,6 +9961,8 @@ function isPublicApiRoute(method, pathname) {
     || (["PATCH", "DELETE"].includes(method) && pathname.startsWith("/api/memory/"))
     || (method === "POST" && pathname === "/api/tools/deal-costs")
     || (method === "POST" && pathname === "/api/tools/affordability")
+    || (method === "POST" && pathname === "/api/tools/residential-dcf")
+    || (method === "POST" && pathname === "/api/tools/residential-dcf/workbook")
     || (method === "GET" && pathname === "/api/me/export")
     || (method === "GET" && pathname === "/api/jarvis/status")
     || (method === "GET" && pathname === "/api/jarvis/sessions")
@@ -9990,6 +10093,28 @@ async function router(req, res) {
     });
     if (!estimate) return send(res, 400, { error: "Provide a monthly income above zero to estimate affordability." });
     return send(res, 200, { estimate });
+  }
+
+  if (req.method === "POST" && ["/api/tools/residential-dcf", "/api/tools/residential-dcf/workbook"].includes(url.pathname)) {
+    if (!allowRequest(req, "dcf", 30, 10 * 60 * 1000)) {
+      return send(res, 429, { error: "Too many valuation requests. Pause briefly and try again." }, { ...jsonHeaders, "Retry-After": "600" });
+    }
+    const body = await readBody(req);
+    const dealCard = cleanContextRecord(body.dealCard, dealContextLabels);
+    const financialProfile = cleanContextRecord(body.financialProfile, profileContextLabels);
+    const payload = residentialDcfPayload(body, dealCard, financialProfile);
+    const valuation = calculateResidentialDcf(payload);
+    if (url.pathname === "/api/tools/residential-dcf") {
+      return send(res, 200, { valuation });
+    }
+    const workbook = await generateResidentialDcfWorkbook(payload, valuation);
+    const subject = safeDownloadName(valuation.property.name || valuation.property.area);
+    return send(res, 200, workbook, {
+      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "Content-Disposition": `attachment; filename="apex-dcf-${subject}-${valuation.asOf}.xlsx"`,
+      "Content-Length": String(workbook.length),
+      "Cache-Control": "no-store"
+    });
   }
 
   let db = await readDb();
@@ -10892,6 +11017,7 @@ async function router(req, res) {
       allowLlm: false,
       allowExternalRetrieval: false
     });
+    attachResidentialDcf(result.analysis, body, dealCard, financialProfile);
     return send(res, 200, {
       packet: buildResidentialDecisionPacket(result.analysis, result.sources, requestId)
     });
@@ -10930,6 +11056,7 @@ async function router(req, res) {
       user: actor.user,
       allowLlm: true
     });
+    attachResidentialDcf(analysis, body, dealCard, financialProfile);
     const now = new Date().toISOString();
     session.messages.push({
       id: randomUUID(),

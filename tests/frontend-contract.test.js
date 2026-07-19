@@ -51,6 +51,8 @@ test("frontend selectors and stylesheet structure stay valid", async () => {
   assert.match(html, /data-deal-field="comparableSource"[\s\S]*?data-deal-field="comparableAdjustmentNotes"/, "Deal card needs v4.1 transaction comparable detail fields.");
   assert.match(html, /data-deal-field="rentalSource"[\s\S]*?data-deal-field="rentalAdjustmentNotes"/, "Deal card needs v4.2 achieved rental detail fields.");
   assert.match(html, /data-deal-field="bankValuationSupport"[\s\S]*?data-deal-field="financingNotes"/, "Deal card needs v4.3 financing and valuation fields.");
+  assert.match(html, /id="dcfPanel"[\s\S]*?data-dcf-field="discountRate"[\s\S]*?data-dcf-field="terminalCapRate"[\s\S]*?id="dcfDownloadBtn"/, "The optional DCF workflow must stay inside the existing Deal card.");
+  assert.equal((html.match(/data-dcf-comparable=/g) || []).length, 3, "Current market-value support requires three structured comparable rows.");
   assert.match(html, /data-deal-field="supplyRadius"[\s\S]*?data-deal-field="supplyNotes"/, "Deal card needs v4.4 supply and absorption fields.");
   assert.match(html, /data-deal-field="siteVisitEvidence"[\s\S]*?data-deal-field="siteManagementNotes"/, "Deal card needs v4.5 site and management fields.");
   assert.match(html, /data-deal-field="legalTitleType"[\s\S]*?data-deal-field="legalTransactionNotes"/, "Deal card needs v4.6 legal and transaction fields.");
@@ -227,7 +229,9 @@ test("frontend selectors and stylesheet structure stay valid", async () => {
   assert.match(app, /data-analysis-action="report"/, "Every structured analysis needs a printable deal report.");
   assert.match(app, /data-analysis-action="copy"/, "Every structured analysis needs a text copy export.");
   assert.match(app, /decisionFocusMarkup\(analysis\)/, "Deal reports need a single decision-focus explanation.");
-  assert.match(app, /dealSnapshotMarkup\(analysis\)[\s\S]*?decisionFocusMarkup\(analysis\)/, "Formal reports must lead with a compact deal snapshot before detailed sections.");
+  assert.match(app, /dealSnapshotMarkup\(analysis\)[\s\S]*?dcfValuationMarkup\(analysis\.residentialDcf\)[\s\S]*?decisionFocusMarkup\(analysis\)/, "Formal reports must place the optional DCF screen near the deal snapshot.");
+  assert.match(app, /function collectDcfComparables[\s\S]*?completed transaction/, "DCF comparable inputs must be structured as completed transactions.");
+  assert.match(app, /\/api\/tools\/residential-dcf\/workbook/, "The browser must download an auditable DCF workbook from the server.");
   assert.match(app, /personalizedChallengeMarkup\(analysis\.personalizedChallenge\)/, "V3.3 deal reports need a separate personalized challenge card.");
   assert.match(app, /readinessMarkup\(analysis\.investorReadiness\)/, "Deal reports need an investor readiness summary.");
   assert.match(app, /productExperienceMarkup\(analysis\.productExperience\)/, "Deal reports need the v5 product-experience guidance summary.");
@@ -274,6 +278,7 @@ test("frontend selectors and stylesheet structure stay valid", async () => {
   assert.match(app, /documentIntelligence: analysis\.documentIntelligence/, "Shortlisted deals must preserve the V8 document intelligence stack.");
   assert.match(app, /portfolioCommand: analysis\.portfolioCommand/, "Shortlisted deals must preserve the V9 portfolio command stack.");
   assert.match(app, /finalCommand: analysis\.finalCommand/, "Shortlisted deals must preserve the V10 final command stack.");
+  assert.match(app, /residentialDcf: analysis\.residentialDcf/, "Shortlisted deals must preserve the DCF and comparison screen.");
   assert.match(app, /marketIntelligence: analysis\.marketIntelligence/, "Shortlisted deals must preserve matched owner market intelligence for later comparison.");
   assert.match(app, /dealMemoryComparison: analysis\.dealMemoryComparison/, "Shortlisted deals must preserve V3.4 saved deal comparison.");
   assert.match(app, /beliefTracker: analysis\.beliefTracker/, "Shortlisted deals must preserve V3.5 belief tracking.");
@@ -288,6 +293,7 @@ test("frontend selectors and stylesheet structure stay valid", async () => {
   assert.match(app, /\/api\/billing\/status/, "The account surface must load report entitlements.");
   assert.match(app, /\/api\/reports/, "The report-history surface must use private account storage.");
   assert.match(app, /\/api\/journal/, "The decision journal must use private account storage.");
+  assert.match(server, /\/api\/tools\/residential-dcf[\s\S]*?generateResidentialDcfWorkbook/, "The server must expose deterministic DCF calculation and workbook generation.");
   assert.match(app, /\/api\/owner\/market\/projects/, "The v2 market console must load and create owner market projects.");
   assert.match(app, /\/api\/owner\/market\/observations/, "The v2 market console must load and create owner market observations.");
   assert.match(app, /\/api\/owner\/development-cases/, "The owner case library must use the development case API.");

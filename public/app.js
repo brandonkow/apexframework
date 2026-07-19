@@ -259,6 +259,11 @@ const shortlistList = document.querySelector("#shortlistList");
 const shortlistClear = document.querySelector("#shortlistClear");
 const dealFields = Array.from(document.querySelectorAll("[data-deal-field]"));
 const profileFields = Array.from(document.querySelectorAll("[data-profile-field]"));
+const dcfFields = Array.from(document.querySelectorAll("[data-dcf-field]"));
+const dcfComparableRows = Array.from(document.querySelectorAll("[data-dcf-comparable]"));
+const dcfCalculateBtn = document.querySelector("#dcfCalculateBtn");
+const dcfDownloadBtn = document.querySelector("#dcfDownloadBtn");
+const dcfMessage = document.querySelector("#dcfMessage");
 const contextToggles = Array.from(document.querySelectorAll("[data-context-toggle]"));
 const contextResetButtons = Array.from(document.querySelectorAll("[data-context-reset]"));
 
@@ -268,6 +273,7 @@ const sessionKey = "estatelab.jarvis.sessionId";
 const clientKey = "estatelab.jarvis.clientId";
 const dealContextKey = "estatelab.jarvis.dealCard";
 const profileContextKey = "estatelab.jarvis.financialProfile";
+const dcfContextKey = "apex.residentialDcf.v1";
 const contextPanelKey = "estatelab.jarvis.contextPanels";
 const contextFieldModeKey = "apex.contextFieldMode.v1";
 const shortlistKey = "apex.shortlist.v1";
@@ -2333,6 +2339,7 @@ function saveAnalysisToShortlist(analysis) {
     documentIntelligence: analysis.documentIntelligence || null,
     portfolioCommand: analysis.portfolioCommand || null,
     finalCommand: analysis.finalCommand || null,
+    residentialDcf: analysis.residentialDcf || null,
     marketIntelligence: analysis.marketIntelligence || null,
     counterThesis: analysis.counterThesis,
     context: analysis.context || {}
@@ -2418,6 +2425,7 @@ function analysisExportText(analysis) {
     `Summary: ${analysis.summary || ""}`
   ];
   if (analysis.decisionFocus?.body) lines.push("", `${analysis.decisionFocus.label || "Decision focus"}: ${analysis.decisionFocus.body}`);
+  if (analysis.residentialDcf) lines.push("", ...dcfValuationText(analysis.residentialDcf));
   if (analysis.investorReadiness?.label) {
     lines.push("", `Investor readiness: ${analysis.investorReadiness.label} (${analysis.investorReadiness.score || 0}/100)`);
     if (analysis.investorReadiness.summary) lines.push(analysis.investorReadiness.summary);
@@ -2763,6 +2771,10 @@ function handleAnalysisAction(button) {
     button.textContent = "SAVED";
     setSystemState("System ready", `${analysisSubject(analysis)} saved to your shortlist.`);
     renderDealJourney();
+    return;
+  }
+  if (action === "dcf" && analysis.residentialDcf?.status !== "incomplete") {
+    void downloadDcfWorkbook(analysis.residentialDcf);
     return;
   }
   if (action === "journal") void createJournalDecision(analysis);
@@ -5007,6 +5019,80 @@ function dealSnapshotMarkup(analysis = {}) {
   `;
 }
 
+function dcfPercent(value, digits = 1) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? `${(numeric * 100).toFixed(digits)}%` : "Not available";
+}
+
+function dcfValuationText(result = {}) {
+  if (!result || result.status === "incomplete") {
+    return ["Residential DCF", ...(result?.issues || ["Minimum DCF inputs are incomplete."]).map((item) => `- ${item}`)];
+  }
+  return [
+    "Residential DCF and market-value screen",
+    `Status: ${result.status}`,
+    `${result.indicationLabel}: ${ringgitAmount(result.indicatedValue)}`,
+    `Formal market-value label: ${result.marketValue ? ringgitAmount(result.marketValue) : "Not established"}`,
+    `Income DCF: ${ringgitAmount(result.incomeApproach?.dcfValue)}`,
+    `Comparison indication: ${result.comparisonApproach?.value ? ringgitAmount(result.comparisonApproach.value) : "Need 3 recent verified sales"}`,
+    `Purchase price: ${ringgitAmount(result.purchasePrice)}`,
+    `Price variance: ${dcfPercent(result.priceVariance)}`,
+    `Year 1 DSCR: ${Number.isFinite(Number(result.buyerReturns?.year1Dscr)) ? `${Number(result.buyerReturns.year1Dscr).toFixed(2)}x` : "Not available"}`,
+    `Levered equity IRR: ${dcfPercent(result.buyerReturns?.leveredEquityIrr)}`,
+    `Evidence: ${result.evidence?.score || 0}/100`,
+    ...(result.evidence?.missing || []).map((item) => `- Missing: ${item}`),
+    ...(result.warnings || []).map((item) => `- Warning: ${item}`),
+    result.disclaimer || ""
+  ].filter(Boolean);
+}
+
+function dcfValuationMarkup(result = {}) {
+  if (!result) return "";
+  if (result.status === "incomplete") {
+    return `
+      <section class="dcfValuationResult incomplete">
+        <header><span><small>DCF / VALUE MODEL</small><b>INPUTS INCOMPLETE</b></span><em>NO VALUE PRODUCED</em></header>
+        <ul>${(result.issues || []).map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+      </section>
+    `;
+  }
+  const formalMarketValue = Boolean(result.marketValue);
+  return `
+    <section class="dcfValuationResult ${formalMarketValue ? "supported" : "screening"}">
+      <header>
+        <span><small>RESIDENTIAL DCF / COMPARISON</small><b>${escapeHtml(result.indicationLabel || "Valuation screen")}</b></span>
+        <em>${formalMarketValue ? "MARKET-SUPPORTED" : "SCREENING ONLY"}</em>
+      </header>
+      <div class="dcfValuationHero">
+        <span><small>INDICATED VALUE</small><b>${escapeHtml(ringgitAmount(result.indicatedValue))}</b></span>
+        <span><small>MARKET VALUE LABEL</small><b>${formalMarketValue ? escapeHtml(ringgitAmount(result.marketValue)) : "NOT ESTABLISHED"}</b></span>
+        <span><small>PRICE POSITION</small><b>${escapeHtml(dcfPercent(result.priceVariance))}</b></span>
+      </div>
+      <div class="dcfValuationMetrics">
+        <span><small>Income DCF</small><b>${escapeHtml(ringgitAmount(result.incomeApproach?.dcfValue))}</b></span>
+        <span><small>Completed-sale comparison</small><b>${result.comparisonApproach?.value ? escapeHtml(ringgitAmount(result.comparisonApproach.value)) : "Need 3 verified sales"}</b></span>
+        <span><small>Terminal concentration</small><b>${escapeHtml(dcfPercent(result.incomeApproach?.terminalConcentration))}</b></span>
+        <span><small>Year 1 DSCR</small><b>${Number.isFinite(Number(result.buyerReturns?.year1Dscr)) ? `${Number(result.buyerReturns.year1Dscr).toFixed(2)}x` : "N/A"}</b></span>
+        <span><small>Levered equity IRR</small><b>${escapeHtml(dcfPercent(result.buyerReturns?.leveredEquityIrr))}</b></span>
+        <span><small>Evidence strength</small><b>${escapeHtml(result.evidence?.score || 0)}/100</b></span>
+      </div>
+      ${(result.evidence?.missing || []).length ? `<div class="dcfValuationGaps"><b>Evidence still needed</b><ul>${result.evidence.missing.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></div>` : ""}
+      ${(result.warnings || []).length ? `<div class="dcfValuationWarnings"><b>Challenge back</b><ul>${result.warnings.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></div>` : ""}
+      <p>${escapeHtml(result.disclaimer || "")}</p>
+    </section>
+  `;
+}
+
+function addDcfValuation(result) {
+  document.body.classList.add("conversationActive");
+  const message = document.createElement("article");
+  message.className = "message jarvis dcfValuationMessage";
+  message.innerHTML = `${dcfValuationMarkup(result)}<div class="analysisActions"><button type="button">DOWNLOAD DCF WORKBOOK</button></div>`;
+  message.querySelector("button")?.addEventListener("click", () => void downloadDcfWorkbook(result));
+  transcript.append(message);
+  transcript.scrollTop = transcript.scrollHeight;
+}
+
 function addDealAnalysis(analysis, sources = [], intelligence = {}) {
   document.body.classList.add("conversationActive");
   const message = document.createElement("article");
@@ -5058,6 +5144,7 @@ function addDealAnalysis(analysis, sources = [], intelligence = {}) {
     </div>
     <p class="analysisSummary">${escapeHtml(analysis.summary)}</p>
     ${dealSnapshotMarkup(analysis)}
+    ${dcfValuationMarkup(analysis.residentialDcf)}
     ${decisionFocusMarkup(analysis)}
     ${productExperienceMarkup(analysis.productExperience)}
     ${personalizedChallengeMarkup(analysis.personalizedChallenge)}
@@ -5134,6 +5221,7 @@ function addDealAnalysis(analysis, sources = [], intelligence = {}) {
       ${authenticatedUser && analysis.savedReportId ? '<button type="button" data-analysis-action="journal">RECORD DECISION</button>' : ""}
       <button type="button" data-analysis-action="copy">COPY REPORT</button>
       <button type="button" data-analysis-action="report">PRINT REPORT</button>
+      ${analysis.residentialDcf && analysis.residentialDcf.status !== "incomplete" ? '<button type="button" data-analysis-action="dcf">DCF WORKBOOK</button>' : ""}
     </div>
     ${sourcesMarkup(sources)}
   `;
@@ -5173,6 +5261,181 @@ function collectDealCard() {
 
 function collectFinancialProfile() {
   return collectContext(profileFields, "data-profile-field");
+}
+
+function collectDcfComparables() {
+  return dcfComparableRows.map((row) => {
+    const comparable = {};
+    for (const field of row.querySelectorAll("[data-dcf-comp-field]")) {
+      const key = field.getAttribute("data-dcf-comp-field");
+      const value = field.type === "checkbox" ? field.checked : String(field.value || "").trim();
+      if (value) comparable[key] = value;
+    }
+    if (Object.keys(comparable).some((key) => key !== "verified")) {
+      comparable.armsLength = true;
+      comparable.evidenceType = "completed transaction";
+      return comparable;
+    }
+    return null;
+  }).filter(Boolean);
+}
+
+function collectDcfContext() {
+  const context = collectContext(dcfFields, "data-dcf-field");
+  const comparables = collectDcfComparables();
+  if (comparables.length) context.comparables = comparables;
+  return context;
+}
+
+function saveDcfContext() {
+  const context = collectDcfContext();
+  if (Object.keys(context).length) window.localStorage.setItem(dcfContextKey, JSON.stringify(context));
+  else window.localStorage.removeItem(dcfContextKey);
+}
+
+function restoreDcfContext() {
+  let saved = {};
+  try {
+    saved = JSON.parse(window.localStorage.getItem(dcfContextKey) || "{}");
+  } catch {
+    window.localStorage.removeItem(dcfContextKey);
+  }
+  for (const field of dcfFields) {
+    const key = field.getAttribute("data-dcf-field");
+    if (saved[key] !== undefined) field.value = saved[key];
+  }
+  const comparables = Array.isArray(saved.comparables) ? saved.comparables : [];
+  dcfComparableRows.forEach((row, index) => {
+    const comparable = comparables[index] || {};
+    for (const field of row.querySelectorAll("[data-dcf-comp-field]")) {
+      const key = field.getAttribute("data-dcf-comp-field");
+      if (field.type === "checkbox") field.checked = Boolean(comparable[key]);
+      else field.value = comparable[key] || "";
+    }
+  });
+}
+
+function resetDcfContext(updateStatus = true) {
+  for (const field of dcfFields) field.value = field.tagName === "SELECT" ? (field.options[0]?.value || "") : "";
+  for (const row of dcfComparableRows) {
+    for (const field of row.querySelectorAll("[data-dcf-comp-field]")) {
+      if (field.type === "checkbox") field.checked = false;
+      else field.value = "";
+    }
+  }
+  window.localStorage.removeItem(dcfContextKey);
+  if (dcfMessage) dcfMessage.textContent = "";
+  if (updateStatus) setSystemState("System ready", "DCF assumptions and comparable sales cleared.");
+}
+
+function dcfRequestBody(valuation = collectDcfContext()) {
+  return {
+    dealCard: collectDealCard(),
+    financialProfile: collectFinancialProfile(),
+    valuation
+  };
+}
+
+function dcfPayloadFromResult(result = {}) {
+  return {
+    ...result.assumptions,
+    asOf: result.asOf,
+    propertyName: result.property?.name,
+    area: result.property?.area,
+    address: result.property?.address,
+    propertyType: result.property?.propertyType,
+    tenure: result.property?.tenure,
+    titleNumber: result.property?.titleNumber,
+    marketRentEvidence: result.evidence?.marketRent,
+    operatingCostEvidence: result.evidence?.operatingCosts,
+    discountRateBasis: result.evidence?.discountRateBasis,
+    terminalCapRateBasis: result.evidence?.terminalCapRateBasis,
+    comparables: result.comparisonApproach?.comparables || []
+  };
+}
+
+function dcfInputIssue() {
+  const deal = collectDealCard();
+  if (!deal.askingPrice) return "Add the asking price in the Deal card.";
+  if (!deal.floorArea) return "Add the subject floor area in the Deal card.";
+  if (!deal.expectedRent) return "Add a supportable monthly market rent in the Deal card.";
+  return "";
+}
+
+function setDcfMessage(message, tone = "") {
+  if (!dcfMessage) return;
+  dcfMessage.textContent = message;
+  dcfMessage.className = tone;
+}
+
+async function calculateDcfValuation() {
+  const issue = dcfInputIssue();
+  if (issue) {
+    setDcfMessage(issue, "danger");
+    return null;
+  }
+  dcfCalculateBtn.disabled = true;
+  dcfCalculateBtn.textContent = "CALCULATING...";
+  setDcfMessage("Running income, comparable, debt, and evidence checks...");
+  try {
+    const result = await requestJson("/api/tools/residential-dcf", {
+      method: "POST",
+      body: JSON.stringify(dcfRequestBody())
+    });
+    addDcfValuation(result.valuation);
+    setDcfMessage(result.valuation.marketValue
+      ? "Evidence-supported indication calculated. Verify professional valuation before transacting."
+      : "Screening value calculated. Missing evidence prevents a market-value label.", result.valuation.marketValue ? "ready" : "warning");
+    return result.valuation;
+  } catch (error) {
+    setDcfMessage(error.message || "DCF calculation is unavailable.", "danger");
+    return null;
+  } finally {
+    dcfCalculateBtn.disabled = false;
+    dcfCalculateBtn.textContent = "CALCULATE VALUE";
+  }
+}
+
+async function downloadDcfWorkbook(result = null) {
+  const issue = result ? "" : dcfInputIssue();
+  if (issue) {
+    setDcfMessage(issue, "danger");
+    return;
+  }
+  if (dcfDownloadBtn) {
+    dcfDownloadBtn.disabled = true;
+    dcfDownloadBtn.textContent = "GENERATING...";
+  }
+  setDcfMessage("Generating the auditable Excel model...");
+  try {
+    const body = result ? dcfPayloadFromResult(result) : dcfRequestBody();
+    const response = await fetch("/api/tools/residential-dcf/workbook", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.error || "DCF workbook could not be generated.");
+    }
+    const blob = await response.blob();
+    const disposition = response.headers.get("content-disposition") || "";
+    const filename = disposition.match(/filename="([^"]+)"/i)?.[1] || "apex-residential-dcf.xlsx";
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setDcfMessage("Excel DCF downloaded. Open it to review and stress every blue assumption.", "ready");
+  } catch (error) {
+    setDcfMessage(error.message || "DCF workbook could not be generated.", "danger");
+  } finally {
+    if (dcfDownloadBtn) {
+      dcfDownloadBtn.disabled = false;
+      dcfDownloadBtn.textContent = "DOWNLOAD EXCEL";
+    }
+  }
 }
 
 function contextFieldsForPanel(panelName) {
@@ -5535,6 +5798,7 @@ function resetContextCard(panelName) {
   const attributeName = isDeal ? "data-deal-field" : "data-profile-field";
   const storageKey = isDeal ? dealContextKey : profileContextKey;
   for (const field of fields) field.value = "";
+  if (isDeal) resetDcfContext(false);
   const context = collectContext(allFields, attributeName);
   if (Object.keys(context).length) {
     window.localStorage.setItem(storageKey, JSON.stringify(context));
@@ -6100,6 +6364,7 @@ async function runDealAnalysis() {
   if (interactionBusy) return;
   const dealCard = collectDealCard();
   const financialProfile = collectFinancialProfile();
+  const valuation = collectDcfContext();
   if (!dealCard.askingPrice || (!dealCard.area && !dealCard.projectName)) {
     addMessage("jarvis", "Add an asking price and an area or project first. I can work with missing evidence after that, but I need a real deal to analyse.");
     const dealToggle = contextToggles.find((toggle) => toggle.getAttribute("data-context-toggle") === "deal");
@@ -6130,7 +6395,8 @@ async function runDealAnalysis() {
         sessionId,
         clientId: clientId(),
         dealCard,
-        financialProfile
+        financialProfile,
+        valuation
       })
     });
     sessionId = result.session.id;
@@ -6607,9 +6873,18 @@ for (const field of profileFields) {
   field.addEventListener("change", () => saveContext(profileFields, "data-profile-field", profileContextKey));
 }
 
+for (const field of [...dcfFields, ...dcfComparableRows.flatMap((row) => Array.from(row.querySelectorAll("[data-dcf-comp-field]")))]) {
+  field.addEventListener("input", saveDcfContext);
+  field.addEventListener("change", saveDcfContext);
+}
+
+dcfCalculateBtn?.addEventListener("click", () => void calculateDcfValuation());
+dcfDownloadBtn?.addEventListener("click", () => void downloadDcfWorkbook());
+
 async function bootJarvis() {
   restoreContext(dealFields, "data-deal-field", dealContextKey);
   restoreContext(profileFields, "data-profile-field", profileContextKey);
+  restoreDcfContext();
   markContextFieldDepth();
   renderTrustAcceptance();
   updateInputModeHint();

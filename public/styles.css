@@ -3648,6 +3648,315 @@ body.stageCompact:not(.conversationActive) .identity #assistantPrompt {
   grid-column: 1 / -1;
 }
 
+.dcfPanel {
+  min-width: 0;
+  border: 1px solid rgba(103, 229, 255, 0.16);
+  border-radius: 11px;
+  background: rgba(0, 11, 18, 0.44);
+  overflow: hidden;
+}
+
+.dcfPanel > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 38px;
+  padding: 8px 10px;
+  cursor: pointer;
+  color: #89c5cf;
+  font-size: 0.58rem;
+  letter-spacing: 0.14em;
+  list-style: none;
+}
+
+.dcfPanel > summary::-webkit-details-marker {
+  display: none;
+}
+
+.dcfPanel > summary small {
+  color: #4f7e88;
+  font-size: 0.45rem;
+}
+
+.dcfPanel[open] > summary {
+  border-bottom: 1px solid rgba(103, 229, 255, 0.12);
+  color: var(--cyan-bright);
+}
+
+.dcfPanel > p {
+  margin: 0;
+  padding: 10px 11px 4px;
+  color: #739da6;
+  font-size: 0.58rem;
+  line-height: 1.45;
+}
+
+.dcfGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  padding: 8px 11px 12px;
+}
+
+.dcfGrid label {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.dcfGrid .dcfWide {
+  grid-column: 1 / -1;
+}
+
+.dcfComparables {
+  margin: 0 11px 12px;
+  overflow-x: auto;
+  border: 1px solid rgba(103, 229, 255, 0.12);
+  border-radius: 9px;
+  background: rgba(0, 7, 12, 0.36);
+  scrollbar-width: thin;
+}
+
+.dcfComparables > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 790px;
+  padding: 8px 9px;
+  border-bottom: 1px solid rgba(103, 229, 255, 0.1);
+}
+
+.dcfComparables > header span {
+  display: grid;
+  gap: 2px;
+}
+
+.dcfComparables > header small,
+.dcfComparables > header em {
+  color: #5f919c;
+  font-size: 0.44rem;
+  font-style: normal;
+  letter-spacing: 0.12em;
+}
+
+.dcfComparables > header b {
+  color: #a8d3db;
+  font-size: 0.62rem;
+  font-weight: 500;
+}
+
+.dcfComparableHeader,
+.dcfComparable {
+  display: grid;
+  grid-template-columns: minmax(130px, 1.3fr) 110px 90px 70px 65px minmax(150px, 1.5fr) 88px;
+  min-width: 790px;
+  gap: 5px;
+  align-items: center;
+  padding: 6px 8px;
+}
+
+.dcfComparableHeader {
+  color: #56818a;
+  background: rgba(75, 191, 215, 0.05);
+  font-size: 0.43rem;
+  letter-spacing: 0.08em;
+}
+
+.dcfComparable + .dcfComparable {
+  border-top: 1px solid rgba(103, 229, 255, 0.08);
+}
+
+.contextGrid .dcfComparable input {
+  min-height: 30px;
+  padding: 5px 6px;
+  font-size: 0.6rem;
+}
+
+.contextGrid .dcfVerified {
+  display: flex;
+  grid-template-columns: none;
+  align-items: center;
+  gap: 5px;
+  color: #78aeb8;
+  font-size: 0.48rem;
+  letter-spacing: 0.03em;
+}
+
+.contextGrid .dcfVerified input {
+  width: 16px;
+  min-height: 16px;
+  accent-color: #67e5ff;
+}
+
+.dcfActions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  padding: 0 11px 12px;
+}
+
+.dcfActions button {
+  border: 1px solid rgba(103, 229, 255, 0.2);
+  border-radius: 999px;
+  min-height: 32px;
+  padding: 6px 10px;
+  cursor: pointer;
+  color: #8fd2dd;
+  background: rgba(7, 30, 40, 0.66);
+  font-size: 0.48rem;
+  letter-spacing: 0.1em;
+}
+
+.dcfActions button:hover,
+.dcfActions button:focus-visible {
+  border-color: rgba(103, 229, 255, 0.5);
+  color: var(--cyan-bright);
+}
+
+.dcfActions span {
+  flex: 1 1 180px;
+  min-width: 0;
+  color: #6c98a1;
+  font-size: 0.54rem;
+  line-height: 1.35;
+}
+
+.dcfActions span.ready {
+  color: #8ed7b2;
+}
+
+.dcfActions span.warning {
+  color: #d6bb77;
+}
+
+.dcfActions span.danger {
+  color: #e69a91;
+}
+
+.dcfValuationResult {
+  display: grid;
+  gap: 9px;
+  margin: 10px 0;
+  border: 1px solid rgba(103, 229, 255, 0.18);
+  border-radius: 12px;
+  padding: 11px;
+  background: rgba(0, 12, 19, 0.58);
+}
+
+.dcfValuationResult.supported {
+  border-color: rgba(99, 221, 162, 0.32);
+}
+
+.dcfValuationResult > header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.dcfValuationResult > header span {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.dcfValuationResult > header small,
+.dcfValuationResult > header em {
+  color: #62aaba;
+  font-size: 0.5rem;
+  font-style: normal;
+  letter-spacing: 0.12em;
+}
+
+.dcfValuationResult > header b {
+  color: #b9e0e7;
+  font-size: 0.76rem;
+  font-weight: 500;
+}
+
+.dcfValuationResult.supported > header em {
+  color: #83d6ad;
+}
+
+.dcfValuationHero,
+.dcfValuationMetrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.dcfValuationHero span,
+.dcfValuationMetrics span {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+  border: 1px solid rgba(103, 229, 255, 0.1);
+  border-radius: 8px;
+  padding: 8px;
+  background: rgba(18, 54, 65, 0.18);
+}
+
+.dcfValuationHero small,
+.dcfValuationMetrics small {
+  color: #5e909a;
+  font-size: 0.46rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.dcfValuationHero b {
+  color: #d0f4f8;
+  font-size: 0.86rem;
+  overflow-wrap: anywhere;
+}
+
+.dcfValuationMetrics b {
+  color: #a7d2da;
+  font-size: 0.66rem;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.dcfValuationGaps,
+.dcfValuationWarnings {
+  border-left: 2px solid #c4a45f;
+  padding: 5px 8px;
+  color: #9fbec4;
+  font-size: 0.65rem;
+}
+
+.dcfValuationWarnings {
+  border-left-color: #c67971;
+}
+
+.dcfValuationGaps b,
+.dcfValuationWarnings b {
+  color: #d7c28e;
+  font-size: 0.56rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.dcfValuationWarnings b {
+  color: #e1a49d;
+}
+
+.dcfValuationGaps ul,
+.dcfValuationWarnings ul,
+.dcfValuationResult.incomplete ul {
+  margin: 5px 0 0;
+  padding-left: 17px;
+}
+
+.dcfValuationResult > p {
+  margin: 0;
+  color: #638993;
+  font-size: 0.56rem;
+  line-height: 1.4;
+}
+
 .transcript {
   display: grid;
   max-height: min(44vh, 460px);
@@ -8411,6 +8720,113 @@ body.stageCompact:not(.conversationActive) .identity #assistantPrompt {
 
   .contextWide {
     grid-column: auto;
+  }
+
+  .dcfPanel {
+    width: 100%;
+  }
+
+  .dcfPanel > summary {
+    min-height: 44px;
+    padding: 10px 11px;
+    font-size: 0.62rem;
+  }
+
+  .dcfPanel > p {
+    padding: 11px 11px 5px;
+    font-size: 0.7rem;
+  }
+
+  .dcfGrid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 9px;
+  }
+
+  .dcfGrid .dcfWide {
+    grid-column: auto;
+  }
+
+  .dcfComparables {
+    overflow-x: visible;
+  }
+
+  .dcfComparables > header {
+    min-width: 0;
+  }
+
+  .dcfComparableHeader {
+    display: none;
+  }
+
+  .dcfComparable {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    min-width: 0;
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .contextGrid .dcfComparable input {
+    min-width: 0;
+    min-height: 42px;
+    font-size: 0.88rem;
+  }
+
+  .contextGrid .dcfVerified {
+    min-height: 42px;
+    font-size: 0.68rem;
+  }
+
+  .dcfActions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dcfActions button {
+    min-height: 42px;
+    padding: 8px;
+    font-size: 0.56rem;
+  }
+
+  .dcfActions span {
+    grid-column: 1 / -1;
+    font-size: 0.68rem;
+  }
+
+  .dcfValuationResult > header {
+    display: grid;
+  }
+
+  .dcfValuationResult > header em {
+    justify-self: start;
+  }
+
+  .dcfValuationHero,
+  .dcfValuationMetrics {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dcfValuationHero span,
+  .dcfValuationMetrics span {
+    padding: 9px;
+  }
+
+  .dcfValuationHero small,
+  .dcfValuationMetrics small {
+    font-size: 0.58rem;
+  }
+
+  .dcfValuationHero b {
+    font-size: 1rem;
+  }
+
+  .dcfValuationMetrics b,
+  .dcfValuationGaps,
+  .dcfValuationWarnings {
+    font-size: 0.78rem;
+  }
+
+  .dcfValuationResult > p {
+    font-size: 0.68rem;
   }
 
   .transcript {

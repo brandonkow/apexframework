@@ -162,7 +162,12 @@ test("security hardening and Malaysian deal-cost engine", async (t) => {
         estimatedInstallment: "RM1,900",
         loanMarginPlan: "90% margin"
       },
-      financialProfile: { holdingPeriod: "7" }
+      financialProfile: { holdingPeriod: "7" },
+      valuation: {
+        floorArea: 850,
+        discountRate: 10,
+        terminalCapRate: 6
+      }
     }, { "x-estatelab-client-id": "cost-analysis-device" });
     assert.equal(response.status, 200);
     const costs = payload.analysis.acquisitionCostEstimate;
@@ -171,6 +176,8 @@ test("security hardening and Malaysian deal-cost engine", async (t) => {
     assert.ok(costs.totalTransactionCosts > 0);
     assert.ok(payload.analysis.metrics.some((metric) => metric.label === "Estimated cash to start"));
     assert.match(payload.message.content, /Estimated Malaysian entry costs/);
+    assert.equal(payload.analysis.residentialDcf.status, "income_screening");
+    assert.ok(payload.analysis.residentialDcf.screeningValue > 0);
 
     const excessive = await post(baseUrl, "/api/jarvis/analyze-deal", {
       dealCard: { area: "Kuala Lumpur", askingPrice: "RM10000000001" }
@@ -212,6 +219,49 @@ test("security hardening and Malaysian deal-cost engine", async (t) => {
     assert.ok(estimate.stressTest.maxLoan < estimate.maxLoan, "stressed loan must be lower");
     const invalid = await post(baseUrl, "/api/tools/affordability", { monthlyIncome: 0 });
     assert.equal(invalid.response.status, 400);
+  });
+
+  await t.test("residential DCF API distinguishes screening value from supported market value and exports Excel", async () => {
+    const request = {
+      dealCard: {
+        area: "Penang",
+        projectName: "DCF Residence",
+        propertyType: "Condominium",
+        askingPrice: "RM450k",
+        expectedRent: "RM3,000",
+        maintenance: "RM385"
+      },
+      valuation: {
+        floorArea: 1000,
+        year1Occupancy: 92,
+        stabilizedOccupancy: 94,
+        annualRentGrowth: 3,
+        discountRate: 10,
+        terminalCapRate: 6,
+        holdingPeriodYears: 5,
+        loanToValue: 80,
+        mortgageInterestRate: 4.25,
+        loanTermYears: 30
+      }
+    };
+    const { response, payload } = await post(baseUrl, "/api/tools/residential-dcf", request);
+    assert.equal(response.status, 200);
+    assert.equal(payload.valuation.status, "income_screening");
+    assert.ok(payload.valuation.screeningValue > 0);
+    assert.equal(payload.valuation.marketValue, null);
+    assert.ok(payload.valuation.evidence.missing.some((item) => /comparable/i.test(item)));
+
+    const workbookResponse = await fetch(`${baseUrl}/api/tools/residential-dcf/workbook`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(request)
+    });
+    assert.equal(workbookResponse.status, 200);
+    assert.match(workbookResponse.headers.get("content-type") || "", /spreadsheetml/);
+    assert.match(workbookResponse.headers.get("content-disposition") || "", /apex-dcf-dcf-residence/);
+    const bytes = new Uint8Array(await workbookResponse.arrayBuffer());
+    assert.equal(String.fromCharCode(bytes[0], bytes[1]), "PK");
+    assert.ok(bytes.length > 10000);
   });
 
   await t.test("account export requires sign-in and returns private data", async () => {

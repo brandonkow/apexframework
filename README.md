@@ -18,6 +18,7 @@ The public user experience is intentionally simple: users interact with one Apex
 - Seven-stage Deal Analysis using the Deal Card and Financial Profile, with hard-stop precedence, four decision dimensions, evidence grading, downside scenarios, and a counter-thesis.
 - Malaysian deal-cost engine: tiered MOT stamp duty, loan stamp duty, SPA and loan legal fees, disbursement allowance, RPGT exit bands, and an estimated-cash-to-start check inside every Deal Report, plus a public `/api/tools/deal-costs` calculator.
 - DSR affordability calculator (`POST /api/tools/affordability`) with framework-aligned danger-zone notes and a +1.25% interest stress test.
+- Residential high-rise DCF with evidence-gated value labels, adjusted completed-sale comparables, structured chat output, and a populated Excel download. See `docs/RESIDENTIAL_DCF.md`.
 - Data portability: signed-in members can export their reports, journal, memory, and conversations (`GET /api/me/export`); the owner can back up the whole knowledge base (`GET /api/owner/export`).
 - Hardened HTTP surface: strict Content-Security-Policy on the app shell, `nosniff`/`frame-ancestors`/referrer security headers on every response, HSTS behind HTTPS, timing-safe owner and webhook token comparison, and path-traversal-safe static serving.
 - Fair multi-user chat retention: conversation sessions are capped per account or guest client instead of one global list, so one visitor can no longer push out another member's history.
@@ -27,7 +28,7 @@ The public user experience is intentionally simple: users interact with one Apex
 - Private Decision Journal with immutable thesis locking, outcome reviews, skill-versus-luck scoring, and relevant lesson recall in later conversations.
 - Owner-only production operations dashboard covering storage durability, AI reasoning, email delivery, billing readiness, backup rhythm, and launch blockers.
 - Production smoke-test script for checking a deployed Render service after each push.
-- Node.js backend with a single production database driver dependency (`pg`).
+- Node.js backend with lightweight production dependencies for PostgreSQL (`pg`) and audited Excel ZIP generation (`fflate`).
 - Public assistant endpoints for chat, session creation, and knowledge status.
 - Owner-protected APIs for property analysis, RAG querying, beliefs, decisions, and comparable data.
 - Seeded Apex Analytic knowledge base in `data/db.json` and `rag/corpus.json`.
@@ -46,7 +47,7 @@ Then open:
 http://localhost:3000
 ```
 
-`GET /api/health` reports the package release, decision-engine version, deployment revision, state store, and object store. Release `10.2.0` adds private Supabase evidence storage while retaining the `residential-deal-review.v1` contract and `Apex v10.10` decision engine.
+`GET /api/health` reports the package release, decision-engine version, deployment revision, state store, and object store. Release `10.4.0` adds the residential high-rise DCF and evidence-gated Excel valuation workflow while retaining the `residential-deal-review.v1` contract and `Apex v10.10` decision engine.
 
 Run a deployment smoke test against any live URL:
 
@@ -203,6 +204,8 @@ Public:
 - `POST /api/jarvis/speech`
 - `POST /api/tools/deal-costs`
 - `POST /api/tools/affordability`
+- `POST /api/tools/residential-dcf`
+- `POST /api/tools/residential-dcf/workbook`
 - `GET /api/me/export` (signed-in account)
 
 Owner-only:

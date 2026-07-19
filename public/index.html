@@ -656,12 +656,90 @@
               <label>Project<input data-deal-field="projectName" placeholder="Development name" /></label>
               <label>Property Type<input data-deal-field="propertyType" placeholder="Condo, serviced apartment..." /></label>
               <label>Property Age<input data-deal-field="propertyAge" placeholder="Years" inputmode="decimal" /></label>
+              <label>Floor Area<input data-deal-field="floorArea" placeholder="1,000 sf" inputmode="decimal" /></label>
               <label>Asking Price<input data-deal-field="askingPrice" placeholder="RM500k" inputmode="decimal" /></label>
               <label>Conservative Value<input data-deal-field="conservativeFairValue" placeholder="RM520k from transactions" inputmode="decimal" /></label>
               <label>Expected Rent<input data-deal-field="expectedRent" placeholder="RM2,500/month" inputmode="decimal" /></label>
-              <label>Maintenance<input data-deal-field="maintenance" placeholder="RM350/month" inputmode="decimal" /></label>
+              <label>Maintenance + Sinking<input data-deal-field="maintenance" placeholder="RM385/month total" inputmode="decimal" /></label>
               <label>Loan Instalment<input data-deal-field="estimatedInstallment" placeholder="RM2,100/month" inputmode="decimal" /></label>
               <label>Cash Outlay<input data-deal-field="cashOutlay" placeholder="RM80k all-in cash" inputmode="decimal" /></label>
+              <details id="dcfPanel" class="dcfPanel contextWide">
+                <summary><span>DCF / VALUE MODEL</span><small>OPTIONAL</small></summary>
+                <p>Estimate an income-based value first. Apex only labels a result as indicative market value when rent, costs, rates, and at least three recent completed sales are supported.</p>
+                <div class="dcfGrid">
+                  <label>Year 1 Occupancy<input data-dcf-field="year1Occupancy" placeholder="92%" inputmode="decimal" /></label>
+                  <label>Stabilized Occupancy<input data-dcf-field="stabilizedOccupancy" placeholder="94%" inputmode="decimal" /></label>
+                  <label>Annual Rent Growth<input data-dcf-field="annualRentGrowth" placeholder="3%" inputmode="decimal" /></label>
+                  <label>Workbook Horizon
+                    <select data-dcf-field="holdingPeriodYears" aria-label="DCF workbook horizon">
+                      <option value="5">5 years</option>
+                    </select>
+                  </label>
+                  <label>Discount Rate<input data-dcf-field="discountRate" placeholder="10%" inputmode="decimal" /></label>
+                  <label>Terminal Cap Rate<input data-dcf-field="terminalCapRate" placeholder="6%" inputmode="decimal" /></label>
+                  <label>Loan-to-Value<input data-dcf-field="loanToValue" placeholder="80%" inputmode="decimal" /></label>
+                  <label>Mortgage Rate<input data-dcf-field="mortgageInterestRate" placeholder="4.25%" inputmode="decimal" /></label>
+                  <label>Loan Term<input data-dcf-field="loanTermYears" placeholder="30 years" inputmode="numeric" /></label>
+                  <label>Other Monthly Income<input data-dcf-field="otherMonthlyIncome" placeholder="Parking / storage" inputmode="decimal" /></label>
+                  <label>Market Rent Evidence
+                    <select data-dcf-field="marketRentEvidence">
+                      <option value="">Select</option>
+                      <option>Signed tenancy / achieved rent</option>
+                      <option>Agent-confirmed achieved rent</option>
+                      <option>Multiple verified rental checks</option>
+                      <option>Asking-price listings only</option>
+                      <option>Not verified</option>
+                    </select>
+                  </label>
+                  <label>Operating Cost Evidence
+                    <select data-dcf-field="operatingCostEvidence">
+                      <option value="">Select</option>
+                      <option>Current JMB / MC statement and AGM budget</option>
+                      <option>Owner invoices / actual statements</option>
+                      <option>Agent or seller estimate only</option>
+                      <option>Not verified</option>
+                    </select>
+                  </label>
+                  <label class="dcfWide">Discount Rate Basis<input data-dcf-field="discountRateBasis" placeholder="Required return and risk basis..." /></label>
+                  <label class="dcfWide">Terminal Cap Basis<input data-dcf-field="terminalCapRateBasis" placeholder="Exit-yield evidence and downside rationale..." /></label>
+                </div>
+                <section class="dcfComparables" aria-label="Recent verified comparable transactions">
+                  <header><span><small>COMPARISON APPROACH</small><b>Recent Completed Sales</b></span><em>Minimum 3</em></header>
+                  <div class="dcfComparableHeader" aria-hidden="true"><span>Project</span><span>Date</span><span>Price</span><span>Area</span><span>Adj.</span><span>Source</span><span>Verified</span></div>
+                  <div class="dcfComparable" data-dcf-comparable="0">
+                    <input data-dcf-comp-field="projectName" aria-label="Comparable 1 project" placeholder="Project" />
+                    <input data-dcf-comp-field="transactionDate" aria-label="Comparable 1 transaction date" type="date" />
+                    <input data-dcf-comp-field="salePrice" aria-label="Comparable 1 sale price" placeholder="RM" inputmode="decimal" />
+                    <input data-dcf-comp-field="floorArea" aria-label="Comparable 1 floor area" placeholder="sf" inputmode="decimal" />
+                    <input data-dcf-comp-field="totalAdjustment" aria-label="Comparable 1 adjustment" placeholder="%" inputmode="decimal" />
+                    <input data-dcf-comp-field="source" aria-label="Comparable 1 source" placeholder="Source / URL" />
+                    <label class="dcfVerified"><input data-dcf-comp-field="verified" type="checkbox" /> Completed</label>
+                  </div>
+                  <div class="dcfComparable" data-dcf-comparable="1">
+                    <input data-dcf-comp-field="projectName" aria-label="Comparable 2 project" placeholder="Project" />
+                    <input data-dcf-comp-field="transactionDate" aria-label="Comparable 2 transaction date" type="date" />
+                    <input data-dcf-comp-field="salePrice" aria-label="Comparable 2 sale price" placeholder="RM" inputmode="decimal" />
+                    <input data-dcf-comp-field="floorArea" aria-label="Comparable 2 floor area" placeholder="sf" inputmode="decimal" />
+                    <input data-dcf-comp-field="totalAdjustment" aria-label="Comparable 2 adjustment" placeholder="%" inputmode="decimal" />
+                    <input data-dcf-comp-field="source" aria-label="Comparable 2 source" placeholder="Source / URL" />
+                    <label class="dcfVerified"><input data-dcf-comp-field="verified" type="checkbox" /> Completed</label>
+                  </div>
+                  <div class="dcfComparable" data-dcf-comparable="2">
+                    <input data-dcf-comp-field="projectName" aria-label="Comparable 3 project" placeholder="Project" />
+                    <input data-dcf-comp-field="transactionDate" aria-label="Comparable 3 transaction date" type="date" />
+                    <input data-dcf-comp-field="salePrice" aria-label="Comparable 3 sale price" placeholder="RM" inputmode="decimal" />
+                    <input data-dcf-comp-field="floorArea" aria-label="Comparable 3 floor area" placeholder="sf" inputmode="decimal" />
+                    <input data-dcf-comp-field="totalAdjustment" aria-label="Comparable 3 adjustment" placeholder="%" inputmode="decimal" />
+                    <input data-dcf-comp-field="source" aria-label="Comparable 3 source" placeholder="Source / URL" />
+                    <label class="dcfVerified"><input data-dcf-comp-field="verified" type="checkbox" /> Completed</label>
+                  </div>
+                </section>
+                <div class="dcfActions">
+                  <button id="dcfCalculateBtn" type="button">CALCULATE VALUE</button>
+                  <button id="dcfDownloadBtn" type="button">DOWNLOAD EXCEL</button>
+                  <span id="dcfMessage" role="status"></span>
+                </div>
+              </details>
               <label>Bank Valuation
                 <select data-deal-field="bankValuationSupport">
                   <option value="">Select</option>

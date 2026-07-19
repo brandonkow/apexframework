@@ -97,7 +97,7 @@ test("workspace residential review is service-authenticated and versioned", asyn
 
   const healthResponse = await fetch(`${baseUrl}/api/health`);
   const health = await healthResponse.json();
-  assert.equal(health.releaseVersion, "10.3.0");
+  assert.equal(health.releaseVersion, "10.4.0");
   assert.equal(health.engineVersion, "Apex v10.10");
   assert.equal(health.revision, "development");
 
