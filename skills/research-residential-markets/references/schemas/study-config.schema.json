@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Residential market study configuration",
+  "type": "object",
+  "required": [
+    "study_id",
+    "study_name",
+    "market",
+    "country",
+    "data_cutoff",
+    "decision_statement",
+    "geographies",
+    "product_scope",
+    "human_gates"
+  ],
+  "properties": {
+    "study_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "study_name": {"type": "string", "minLength": 3},
+    "market": {"type": "string", "minLength": 2},
+    "country": {"type": "string", "minLength": 2},
+    "data_cutoff": {"type": "string", "format": "date"},
+    "decision_statement": {"type": "string", "minLength": 10},
+    "site": {
+      "type": "object",
+      "properties": {
+        "address": {"type": "string"},
+        "latitude": {"type": ["number", "null"], "minimum": -90, "maximum": 90},
+        "longitude": {"type": ["number", "null"], "minimum": -180, "maximum": 180},
+        "land_area": {"type": ["number", "null"], "minimum": 0},
+        "land_area_unit": {"type": ["string", "null"]},
+        "tenure": {"type": ["string", "null"]},
+        "planning_basis": {"type": ["string", "null"]}
+      },
+      "additionalProperties": true
+    },
+    "geographies": {
+      "type": "object",
+      "required": ["macro_region", "jurisdiction", "submarkets", "site_catchment", "competitive_market"],
+      "properties": {
+        "macro_region": {"type": "string"},
+        "jurisdiction": {"type": "string"},
+        "submarkets": {"type": "array", "items": {"type": "string"}},
+        "site_catchment": {"type": "string"},
+        "competitive_market": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "product_scope": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+    "target_buyers": {"type": "array", "items": {"type": "string"}},
+    "target_launch": {"type": ["string", "null"], "format": "date"},
+    "target_completion": {"type": ["string", "null"], "format": "date"},
+    "proposed_units": {"type": ["integer", "null"], "minimum": 0},
+    "commercial_constraints": {"type": "array", "items": {"type": "string"}},
+    "human_gates": {
+      "type": "object",
+      "required": ["scope", "evidence", "recommendation", "issuance"],
+      "properties": {
+        "scope": {"type": "string", "enum": ["pending", "approved", "not-required"]},
+        "evidence": {"type": "string", "enum": ["pending", "approved", "not-required"]},
+        "recommendation": {"type": "string", "enum": ["pending", "approved", "not-required"]},
+        "issuance": {"type": "string", "enum": ["pending", "approved", "not-required"]}
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

@@ -13,6 +13,7 @@ The public user experience is intentionally simple: users interact with one Apex
 - PostgreSQL production storage with automatic JSON fallback for local development.
 - Owner-controlled evidence uploads, private original-file storage, chunking, optional embeddings, hybrid retrieval, and retrieval monitoring.
 - Owner-controlled project intelligence with dated market observations, metric trends, and freshness warnings in chat and Deal Reports.
+- Strict residential market-study bundles with source confidence caps, human approval gates, owner-only import, and evidence provenance in chat and Deal Reports.
 - Public request limits for chat, voice, and account endpoints.
 - Seven-stage Deal Analysis using the Deal Card and Financial Profile, with hard-stop precedence, four decision dimensions, evidence grading, downside scenarios, and a counter-thesis.
 - Malaysian deal-cost engine: tiered MOT stamp duty, loan stamp duty, SPA and loan legal fees, disbursement allowance, RPGT exit bands, and an estimated-cash-to-start check inside every Deal Report, plus a public `/api/tools/deal-costs` calculator.
@@ -212,6 +213,7 @@ Owner-only:
 - Comparable transaction APIs
 - Evidence document and retrieval-monitoring APIs
 - Market project, observation, freshness, trend, and batch-import APIs
+- Validated research-study APIs (`GET /api/owner/research/studies`, `POST /api/owner/research/studies/import`, and `DELETE /api/owner/research/studies/:id`)
 - User administration APIs
 - Production operations snapshot (`GET /api/owner/ops`)
 - Owner knowledge-base export (`GET /api/owner/export`, add `?chunks=true` to include indexed text)
@@ -221,6 +223,8 @@ Owner-only calls require:
 ```text
 x-estatelab-owner-token: your-token
 ```
+
+The bundled `skills/research-residential-markets` workflow produces the only study format accepted by the research importer. Run its metrics, comparable scoring, strict validation, and export steps before using `IMPORT JSON` in the Owner Console. See `docs/RESEARCH_STUDY_INTEGRATION.md`.
 
 ## Product Direction
 

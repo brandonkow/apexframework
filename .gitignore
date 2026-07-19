@@ -10,3 +10,5 @@ Thumbs.db
 _jarvis_kb_push_*/
 .vercel/
 .env.local
+__pycache__/
+*.py[cod]

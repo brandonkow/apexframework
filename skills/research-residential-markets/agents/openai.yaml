@@ -1,0 +1,4 @@
+interface:
+  display_name: "Residential Market Research"
+  short_description: "Automate developer-focused residential market studies"
+  default_prompt: "Use $research-residential-markets to research and draft a developer-focused residential market study with traceable evidence."

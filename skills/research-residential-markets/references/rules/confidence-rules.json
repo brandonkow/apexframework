@@ -1,0 +1,24 @@
+{
+  "thresholds": {
+    "automatic": 0.8,
+    "caveat": 0.6,
+    "exclude_below": 0.6
+  },
+  "base_confidence_by_source_type": {
+    "official": 0.9,
+    "validated-database": 0.85,
+    "developer-document": 0.75,
+    "primary-survey": 0.7,
+    "portal": 0.5,
+    "media": 0.5,
+    "other": 0.4
+  },
+  "verification_adjustment": {
+    "verified": 0.08,
+    "corroborated": 0.05,
+    "single-source": 0.0,
+    "disputed": -0.25,
+    "rejected": -1.0
+  },
+  "critical_materiality_requires_review_below": 0.8
+}

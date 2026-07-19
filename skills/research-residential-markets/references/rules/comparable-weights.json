@@ -1,0 +1,19 @@
+{
+  "weights": {
+    "buyer_similarity": 0.2,
+    "location_accessibility": 0.2,
+    "product_tenure": 0.15,
+    "size_total_price": 0.15,
+    "timing": 0.1,
+    "scale_density": 0.1,
+    "brand_positioning": 0.1
+  },
+  "classification": {
+    "direct_minimum": 4.0,
+    "aspirational_minimum": 3.25,
+    "control_minimum": 3.0,
+    "contextual_minimum": 2.5
+  },
+  "control_performance_class": "weak",
+  "override_requires_reason": true
+}

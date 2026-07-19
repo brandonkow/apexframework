@@ -335,6 +335,20 @@
               </div>
             </section>
           </div>
+          <details id="ownerResearchPanel" class="ownerResearchPanel">
+            <summary>VERIFIED MARKET RESEARCH <span id="ownerResearchSummary">0 studies</span></summary>
+            <p>Import only a JSON bundle exported by the bundled research skill after strict validation and all four human approvals. This evidence can challenge a decision, but it cannot edit the founder framework or override hard stops.</p>
+            <div class="ownerResearchActions">
+              <button id="ownerResearchRefresh" type="button">REFRESH</button>
+              <button id="ownerResearchImport" type="button">IMPORT JSON</button>
+              <button id="ownerResearchReplace" type="button" hidden>REPLACE STUDY</button>
+              <input id="ownerResearchFile" type="file" accept="application/json,.json" hidden />
+            </div>
+            <div id="ownerResearchList" class="ownerResearchList">
+              <p class="ownerIntelEmpty">Load the owner console to view validated research studies.</p>
+            </div>
+            <p id="ownerResearchMessage" class="ownerIntelMessage" role="status"></p>
+          </details>
           <details class="ownerAdminPanel">
             <summary>USER / PLAN CONTROL</summary>
             <div class="ownerAdminToolbar">

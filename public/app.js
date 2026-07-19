@@ -139,6 +139,14 @@ const ownerIntelMessage = document.querySelector("#ownerIntelMessage");
 const ownerAdminLoad = document.querySelector("#ownerAdminLoad");
 const ownerAdminSummary = document.querySelector("#ownerAdminSummary");
 const ownerAdminList = document.querySelector("#ownerAdminList");
+const ownerResearchPanel = document.querySelector("#ownerResearchPanel");
+const ownerResearchSummary = document.querySelector("#ownerResearchSummary");
+const ownerResearchRefresh = document.querySelector("#ownerResearchRefresh");
+const ownerResearchImport = document.querySelector("#ownerResearchImport");
+const ownerResearchReplace = document.querySelector("#ownerResearchReplace");
+const ownerResearchFile = document.querySelector("#ownerResearchFile");
+const ownerResearchList = document.querySelector("#ownerResearchList");
+const ownerResearchMessage = document.querySelector("#ownerResearchMessage");
 const ownerMarketToggle = document.querySelector("#ownerMarketToggle");
 const ownerMarketPanel = document.querySelector("#ownerMarketPanel");
 const ownerMarketClose = document.querySelector("#ownerMarketClose");
@@ -294,6 +302,8 @@ let ownerIntelProjects = [];
 let ownerIntelFilter = "all";
 let ownerIntelSnapshot = null;
 let ownerIntelPendingRestore = null;
+let ownerResearchStudies = [];
+let ownerResearchPendingBundle = null;
 let ownerCaseItems = [];
 let ownerCaseEditingId = "";
 let ownerCaseLastPayload = {};
@@ -1514,6 +1524,7 @@ function sourceLabel(type) {
   if (type === "belief") return "BELIEF";
   if (type === "decision") return "DECISION";
   if (type === "evidence") return "EVIDENCE";
+  if (type === "research") return "VERIFIED RESEARCH";
   return "REFERENCE";
 }
 
@@ -1524,6 +1535,7 @@ function sourceName(source) {
   if (source?.type === "case") return "owner development case";
   if (source?.type === "saved_report") return "saved deal history";
   if (source?.type === "evidence") return "owner evidence";
+  if (source?.type === "research") return "verified market research";
   const title = String(source?.title || "").toLowerCase();
   if (title.includes("rental") || title.includes("installment") || title.includes("tenant")) return "rental rule";
   if (title.includes("future supply") || title.includes("substitute") || title.includes("competition")) return "supply rule";
@@ -1535,6 +1547,9 @@ function sourceName(source) {
 }
 
 function sourceConfidence(sources = []) {
+  const researchSources = sources.filter((source) => source.type === "research");
+  if (researchSources.some((source) => source.stale)) return "Medium - validated research matched, but at least one source is old";
+  if (researchSources.some((source) => Number(source.confidence || 0) >= 0.8)) return "Medium-high - validated research matched, still verify this exact deal";
   const marketSources = sources.filter((source) => source.type === "market");
   if (marketSources.some((source) => source.freshness === "stale")) return "Medium - includes owner observations that need refreshing";
   if (marketSources.some((source) => source.freshness === "fresh")) return "Medium-high - dated owner evidence matched, still verify the deal";
@@ -2857,6 +2872,95 @@ async function ownerIntelRequest(pathname, options = {}) {
   });
 }
 
+function setOwnerResearchMessage(message = "", tone = "") {
+  ownerResearchMessage.textContent = message;
+  ownerResearchMessage.dataset.tone = tone;
+}
+
+function ownerResearchStudyMarkup(study) {
+  const summary = study.summary || {};
+  const pressure = summary.pipelinePressure !== null && summary.pipelinePressure !== undefined && Number.isFinite(Number(summary.pipelinePressure))
+    ? `${Math.round(Number(summary.pipelinePressure) * 100)}% pipeline`
+    : "pipeline unavailable";
+  return `
+    <article class="ownerResearchItem" data-owner-research-id="${escapeHtml(study.id)}">
+      <header>
+        <span><small>${escapeHtml(study.market || study.country || "Market study")} / CUT-OFF ${escapeHtml(study.dataCutoff || "unknown")}</small><b>${escapeHtml(study.title || study.id)}</b></span>
+        <em>${escapeHtml(summary.effectiveHighConfidence || 0)} high-confidence</em>
+      </header>
+      <p>${escapeHtml(study.decisionStatement || "No decision statement supplied.")}</p>
+      <div class="ownerResearchMeta">
+        <span>${escapeHtml(summary.evidenceRecords || 0)} evidence</span>
+        <span>${escapeHtml(summary.projectRecords || 0)} projects</span>
+        <span>${escapeHtml(pressure)}</span>
+        <span>${escapeHtml(summary.warnings || 0)} warnings</span>
+      </div>
+      <button type="button" data-owner-research-action="delete" data-owner-research-id="${escapeHtml(study.id)}">DELETE</button>
+    </article>
+  `;
+}
+
+function renderOwnerResearch(payload = {}) {
+  ownerResearchStudies = Array.isArray(payload.studies) ? payload.studies : [];
+  ownerResearchSummary.textContent = `${ownerResearchStudies.length} stud${ownerResearchStudies.length === 1 ? "y" : "ies"}`;
+  ownerResearchList.innerHTML = ownerResearchStudies.length
+    ? ownerResearchStudies.map(ownerResearchStudyMarkup).join("")
+    : '<p class="ownerIntelEmpty">No validated research study has been imported yet.</p>';
+}
+
+async function loadOwnerResearch() {
+  if (!ownerIntelTokenValue()) {
+    renderOwnerResearch();
+    setOwnerResearchMessage("Owner token required.", "warning");
+    return { studies: [], summary: {} };
+  }
+  setOwnerResearchMessage("Loading validated research...");
+  const payload = await ownerIntelRequest("/api/owner/research/studies");
+  renderOwnerResearch(payload);
+  setOwnerResearchMessage(`${payload.summary?.evidenceRecords || 0} evidence records available to retrieval.`);
+  return payload;
+}
+
+async function submitOwnerResearchBundle(bundle, replace = false) {
+  setOwnerResearchMessage(replace ? "Replacing validated research study..." : "Validating and importing research study...");
+  const result = await ownerIntelRequest(`/api/owner/research/studies/import${replace ? "?replace=true" : ""}`, {
+    method: "POST",
+    body: JSON.stringify(bundle)
+  });
+  ownerResearchPendingBundle = null;
+  ownerResearchReplace.hidden = true;
+  await loadOwnerResearch();
+  setOwnerResearchMessage(`${result.study?.title || "Research study"} ${result.replaced ? "replaced" : "imported"}.`);
+}
+
+async function importOwnerResearchFile(file) {
+  if (!file) return;
+  let bundle;
+  try {
+    bundle = JSON.parse(await file.text());
+  } catch {
+    throw new Error("Research import must be a valid JSON bundle.");
+  } finally {
+    ownerResearchFile.value = "";
+  }
+  const studyId = String(bundle?.study_config?.study_id || "").trim();
+  if (studyId && ownerResearchStudies.some((study) => study.id === studyId)) {
+    ownerResearchPendingBundle = bundle;
+    ownerResearchReplace.hidden = false;
+    setOwnerResearchMessage(`Study ${studyId} already exists. Review the new cut-off, then use REPLACE STUDY.`, "warning");
+    return;
+  }
+  await submitOwnerResearchBundle(bundle, false);
+}
+
+async function deleteOwnerResearchStudy(studyId) {
+  if (!studyId) return;
+  setOwnerResearchMessage(`Deleting ${studyId}...`, "warning");
+  await ownerIntelRequest(`/api/owner/research/studies/${encodeURIComponent(studyId)}`, { method: "DELETE" });
+  await loadOwnerResearch();
+  setOwnerResearchMessage("Research study deleted.", "warning");
+}
+
 async function ownerMarketRequest(pathname, options = {}) {
   const token = ownerMarketTokenValue();
   if (!token) throw new Error("Paste and save the owner token first.");
@@ -3061,6 +3165,7 @@ function ownerIntelBriefText() {
     `Cases: ${snapshot.caseCount || 0}`,
     `Observations: ${snapshot.observationCount || 0}`,
     `Evidence documents: ${snapshot.documentCount || 0}`,
+    `Validated research studies: ${snapshot.researchStudyCount || 0}`,
     `Complete projects: ${snapshot.complete || 0}`,
     "",
     "Production gaps:",
@@ -3234,14 +3339,14 @@ async function confirmOwnerKnowledgeRestore() {
     ownerIntelRestoreConfirm.hidden = true;
     await loadOwnerIntelligence();
     if (!ownerIntelRestoreLog.hidden) renderOwnerRestoreHistory(result.history || {});
-    setOwnerIntelMessage(`Owner knowledge restored: ${result.counts?.projects || 0} projects, ${result.counts?.observations || 0} observations, ${result.counts?.developmentCases || 0} cases, ${result.counts?.documents || 0} documents.`, "warning");
+    setOwnerIntelMessage(`Owner knowledge restored: ${result.counts?.projects || 0} projects, ${result.counts?.observations || 0} observations, ${result.counts?.developmentCases || 0} cases, ${result.counts?.researchStudies || 0} research studies, ${result.counts?.documents || 0} documents.`, "warning");
   } finally {
     ownerIntelRestoreConfirm.disabled = false;
   }
 }
 
 function ownerRestoreCountsText(counts = {}) {
-  return `${counts.projects || 0} projects / ${counts.observations || 0} signals / ${counts.developmentCases || 0} cases / ${counts.documents || 0} docs`;
+  return `${counts.projects || 0} projects / ${counts.observations || 0} signals / ${counts.developmentCases || 0} cases / ${counts.researchStudies || 0} research / ${counts.documents || 0} docs`;
 }
 
 function renderOwnerRestoreHistory(payload = {}) {
@@ -3292,7 +3397,7 @@ async function rollbackOwnerKnowledgeSnapshot(snapshotId) {
   ownerIntelRestorePhrase.value = "";
   await loadOwnerIntelligence();
   renderOwnerRestoreHistory(result.history || {});
-  setOwnerIntelMessage(`Owner knowledge rolled back: ${result.counts?.projects || 0} projects, ${result.counts?.observations || 0} observations, ${result.counts?.developmentCases || 0} cases.`, "warning");
+  setOwnerIntelMessage(`Owner knowledge rolled back: ${result.counts?.projects || 0} projects, ${result.counts?.observations || 0} observations, ${result.counts?.developmentCases || 0} cases, ${result.counts?.researchStudies || 0} research studies.`, "warning");
 }
 
 function ownerAdminPlanOptions(selected) {
@@ -3390,11 +3495,13 @@ async function saveOwnerAdminUser(button) {
   }
 }
 
-function renderOwnerIntelligence({ projects = {}, observations = {}, cases = {}, evidence = {}, history = {}, ops = {} } = {}) {
+function renderOwnerIntelligence({ projects = {}, observations = {}, cases = {}, evidence = {}, research = {}, history = {}, ops = {} } = {}) {
   const projectItems = Array.isArray(projects.projects) ? projects.projects : [];
   const observationItems = Array.isArray(observations.observations) ? observations.observations : [];
   const caseItems = Array.isArray(cases.cases) ? cases.cases : [];
   const documents = Array.isArray(evidence.documents) ? evidence.documents : [];
+  const researchStudies = Array.isArray(research.studies) ? research.studies : [];
+  renderOwnerResearch(research);
   renderOwnerOps(ops);
   ownerIntelProjects = projectItems;
   ownerMarketProjects = projectItems;
@@ -3414,6 +3521,7 @@ function renderOwnerIntelligence({ projects = {}, observations = {}, cases = {},
     caseCount: cases.summary?.total ?? caseItems.length,
     observationCount: observations.summary?.matched ?? observationItems.length,
     documentCount: evidence.summary?.documents ?? documents.length,
+    researchStudyCount: researchStudies.length,
     complete,
     currentVersionShort: history.summary?.currentVersionShort || "",
     backupReminder,
@@ -3426,6 +3534,7 @@ function renderOwnerIntelligence({ projects = {}, observations = {}, cases = {},
     <span><b>${escapeHtml(cases.summary?.total ?? caseItems.length)}</b> CASES</span>
     <span><b>${escapeHtml(observations.summary?.matched ?? observationItems.length)}</b> OBSERVATIONS</span>
     <span><b>${escapeHtml(evidence.summary?.documents ?? documents.length)}</b> DOCUMENTS</span>
+    <span><b>${escapeHtml(researchStudies.length)}</b> RESEARCH</span>
     <span><b>${escapeHtml(complete)}</b> COMPLETE</span>
   `;
   ownerIntelLanes.innerHTML = [
@@ -3433,6 +3542,7 @@ function renderOwnerIntelligence({ projects = {}, observations = {}, cases = {},
     ownerIntelLane("Founder cases", `${missingCase} missing`, missingCase ? "warning" : "ready", missingCase ? "Write founder opinion for unmatched projects." : "Case coverage is broad."),
     ownerIntelLane("Market freshness", `${staleObservation} stale`, staleObservation ? "warning" : observationItems.length ? "ready" : "missing", staleObservation ? "Re-check old observations." : observationItems.length ? "Signals are current enough." : "Add dated ground signals."),
     ownerIntelLane("Evidence vault", `${noEvidence} unbacked`, noEvidence ? "warning" : documents.length ? "ready" : "missing", noEvidence ? "Attach proof to important projects." : documents.length ? "Evidence exists." : "Add source proof."),
+    ownerIntelLane("Research studies", `${researchStudies.length} validated`, researchStudies.length ? "ready" : "missing", researchStudies.length ? "Strict research can now support market questions." : "Import a strictly validated study bundle when one is ready."),
     ownerIntelLane("Backup rhythm", backupReminder.label, backupReminder.status, backupReminder.action),
     ownerIntelLane("Production ops", ownerOpsStatusText(ops.status), ops.status || "warning", ops.summary ? `${ops.summary.ready || 0} ready, ${ops.summary.warning || 0} warning, ${ops.summary.missing || 0} blocked.` : "Load owner token to check launch readiness.")
   ].join("");
@@ -3442,6 +3552,7 @@ function renderOwnerIntelligence({ projects = {}, observations = {}, cases = {},
   if (missingCase) next = { title: "Write missing case opinions", detail: `${missingCase} tracked project${missingCase === 1 ? "" : "s"} do not have founder case notes yet.`, action: "cases" };
   else if (staleObservation) next = { title: "Refresh stale market signals", detail: `${staleObservation} observation${staleObservation === 1 ? " is" : "s are"} stale and should be re-verified.`, action: "market" };
   else if (noEvidence) next = { title: "Attach evidence proof", detail: `${noEvidence} project${noEvidence === 1 ? "" : "s"} have no obvious evidence document match.`, action: "evidence" };
+  else if (!researchStudies.length) next = { title: "Import validated market research", detail: "The framework is ready; add a strict research bundle to extend it with dated external evidence.", action: "research" };
   else if (projectItems.length) next = { title: "Coverage looks healthy", detail: "Keep adding dated observations and update case notes when the market changes.", action: "refresh" };
   ownerIntelNextTitle.textContent = next.title;
   ownerIntelNextDetail.textContent = next.detail;
@@ -3450,6 +3561,7 @@ function renderOwnerIntelligence({ projects = {}, observations = {}, cases = {},
     <button type="button" data-owner-intel-action="market">PROJECTS / SIGNALS</button>
     <button type="button" data-owner-intel-action="cases">CASES</button>
     <button type="button" data-owner-intel-action="evidence">EVIDENCE</button>
+    <button type="button" data-owner-intel-action="research">RESEARCH</button>
   `;
 }
 
@@ -3460,17 +3572,18 @@ async function loadOwnerIntelligence() {
     return null;
   }
   setOwnerIntelMessage("Loading owner intelligence coverage...");
-  const [projects, observations, cases, evidence, history, ops] = await Promise.all([
+  const [projects, observations, cases, evidence, research, history, ops] = await Promise.all([
     ownerIntelRequest("/api/owner/market/projects"),
     ownerIntelRequest("/api/owner/market/observations?limit=500"),
     ownerIntelRequest("/api/owner/development-cases?limit=500"),
     ownerIntelRequest("/api/owner/documents"),
+    ownerIntelRequest("/api/owner/research/studies"),
     ownerIntelRequest("/api/owner/restore/history"),
     ownerIntelRequest("/api/owner/ops")
   ]);
-  renderOwnerIntelligence({ projects, observations, cases, evidence, history, ops });
+  renderOwnerIntelligence({ projects, observations, cases, evidence, research, history, ops });
   setOwnerIntelMessage("Owner intelligence coverage loaded.");
-  return { projects, observations, cases, evidence, history, ops };
+  return { projects, observations, cases, evidence, research, history, ops };
 }
 
 async function ownerCaseRequest(pathname, options = {}) {
@@ -6202,6 +6315,9 @@ ownerIntelClearToken.addEventListener("click", () => {
   ownerIntelRestoreLog.innerHTML = "";
   renderOwnerIntelligence();
   renderOwnerAdminUsers([]);
+  renderOwnerResearch();
+  ownerResearchPendingBundle = null;
+  ownerResearchReplace.hidden = true;
   setOwnerIntelMessage("Owner token cleared from this device.");
 });
 ownerIntelControls.addEventListener("click", (event) => {
@@ -6233,6 +6349,20 @@ ownerIntelActions.addEventListener("click", (event) => {
   if (action === "market") void openOwnerMarketPanel();
   if (action === "cases") void openOwnerCasePanel();
   if (action === "evidence") void openOwnerEvidencePanel();
+  if (action === "research") {
+    ownerResearchPanel.open = true;
+    ownerResearchPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+});
+ownerResearchRefresh.addEventListener("click", () => void loadOwnerResearch().catch((error) => setOwnerResearchMessage(error.message || "Research studies could not be loaded.", "danger")));
+ownerResearchImport.addEventListener("click", () => ownerResearchFile.click());
+ownerResearchReplace.addEventListener("click", () => {
+  if (ownerResearchPendingBundle) void submitOwnerResearchBundle(ownerResearchPendingBundle, true).catch((error) => setOwnerResearchMessage(error.message || "Research study could not be replaced.", "danger"));
+});
+ownerResearchFile.addEventListener("change", () => void importOwnerResearchFile(ownerResearchFile.files?.[0]).catch((error) => setOwnerResearchMessage(error.message || "Research study could not be imported.", "danger")));
+ownerResearchList.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-owner-research-action='delete']");
+  if (button) void deleteOwnerResearchStudy(button.getAttribute("data-owner-research-id")).catch((error) => setOwnerResearchMessage(error.message || "Research study could not be deleted.", "danger"));
 });
 ownerIntelCoverage.addEventListener("click", (event) => {
   const button = event.target.closest("[data-owner-intel-action]");
