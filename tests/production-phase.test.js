@@ -110,7 +110,8 @@ test("production phase keeps evidence owner-only and completes the account lifec
   assert.equal(query.payload.message.mode, "framework");
   assert.equal(query.payload.message.model, "");
   assert.ok(query.payload.sources.some((source) => source.type === "evidence" && source.title === "Bayan Lepas tenant interview"));
-  assert.match(query.payload.answer, /Owner evidence/i);
+  assert.match(query.payload.answer, /retrieved decision evidence/i);
+  assert.match(query.payload.answer, /Bayan Lepas tenant interview/i);
 
   const metrics = await request(baseUrl, "/api/owner/retrieval/metrics", { owner: true });
   assert.equal(metrics.response.status, 200);
@@ -141,8 +142,9 @@ test("production phase keeps evidence owner-only and completes the account lifec
   });
   assert.equal(guidedChat.response.status, 200);
   assert.equal(guidedChat.payload.mode, "framework");
-  assert.match(guidedChat.payload.answer, /Plain-English read/i);
-  assert.match(guidedChat.payload.answer, /Beginner trap/i);
+  assert.match(guidedChat.payload.answer, /Current view/i);
+  assert.match(guidedChat.payload.answer, /Strongest counter-case/i);
+  assert.match(guidedChat.payload.answer, /What would change the view/i);
   assert.ok(guidedChat.payload.contextCoach.prompts.length >= 2);
   assert.ok(guidedChat.payload.contextCoach.missing.includes("completed transaction comparables"));
   assert.deepEqual(guidedChat.payload.message.contextCoach, guidedChat.payload.contextCoach);

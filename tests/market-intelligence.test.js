@@ -300,8 +300,10 @@ test("owner market observations add dated trends and freshness warnings to Apex 
     }
   });
   assert.equal(chat.response.status, 200);
-  assert.match(chat.payload.answer, /Market intelligence/i);
-  assert.match(chat.payload.answer, /Owner case library/i);
+  assert.match(chat.payload.answer, /What supports it/i);
+  assert.match(chat.payload.answer, /Evidence Residence - Rent/i);
+  assert.match(chat.payload.answer, /Evidence Residence: Watch/i);
+  assert.doesNotMatch(chat.payload.answer, /No deal-specific owner evidence was retrieved/i);
   assert.match(chat.payload.answer, /stale and must be re-verified/i);
   assert.ok(chat.payload.sources.some((source) => source.type === "market"));
   assert.ok(chat.payload.sources.some((source) => source.type === "case"));

@@ -224,7 +224,9 @@ test("owner research studies are private, durable, retrievable, and included in 
   });
   assert.equal(chat.response.status, 200);
   assert.ok(chat.payload.sources.some((source) => source.type === "research"));
-  assert.match(chat.payload.answer, /Verified market research/i);
+  assert.match(chat.payload.answer, /What supports it/i);
+  assert.match(chat.payload.answer, /latest verified Bayan Lepas snapshot/i);
+  assert.doesNotMatch(chat.payload.answer, /No deal-specific owner evidence was retrieved/i);
 
   const deal = await request(baseUrl, "/api/jarvis/analyze-deal", {
     method: "POST",

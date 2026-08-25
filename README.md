@@ -7,6 +7,7 @@ The public user experience is intentionally simple: users interact with one Apex
 ## What Is Included
 
 - Apex Analytic browser UI with browser voice plus server speech fallback.
+- Decision-first starter paths, structured decision briefs, evidence-calibrated confidence, explicit counter-cases, and source previews; spoken replies are opt-in.
 - Optional member accounts with private, resumable chat sessions; guests remain device-scoped.
 - Reviewed long-term memory for signed-in users, with pending suggestions, explicit approval, and cross-session recall.
 - Email verification, password recovery, and owner-only account administration.
@@ -47,7 +48,7 @@ Then open:
 http://localhost:3000
 ```
 
-`GET /api/health` reports the package release, decision-engine version, deployment revision, state store, and object store. Release `10.4.0` adds the residential high-rise DCF and evidence-gated Excel valuation workflow while retaining the `residential-deal-review.v1` contract and `Apex v10.10` decision engine.
+`GET /api/health` reports the package release, decision-engine version, deployment revision, state store, and object store. Release `10.5.0` retains the v10.4 residential high-rise DCF and the `residential-deal-review.v1` contract while adding the decision-first interface, stricter response structure, safer retrieval, local `.env` loading, and privacy-aware OpenRouter routing. The protected `Apex v10.10` decision engine and founder framework remain unchanged.
 
 Run a deployment smoke test against any live URL:
 
@@ -73,6 +74,8 @@ OPENAI_API_KEY=your-server-side-api-key
 OPENAI_MODEL=gpt-4.1-mini
 OPENROUTER_API_KEY=your-openrouter-key
 OPENROUTER_FREE_ROUTING=true
+OPENROUTER_DATA_COLLECTION=deny
+OPENROUTER_ZDR=false
 OPENAI_SERVICES_API_KEY=optional-separate-openai-key
 OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 OPENAI_TRANSCRIPTION_MODEL=gpt-4o-mini-transcribe

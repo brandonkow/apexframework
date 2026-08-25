@@ -9,30 +9,10 @@
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <div class="hud" aria-hidden="true">
-      <div class="starfield"></div>
-      <div class="nebula"></div>
-      <div class="gridPlane"></div>
-      <div class="gridPlane gridPlaneFar"></div>
-      <div class="reticle reticleLeft"></div>
-      <div class="reticle reticleRight"></div>
-      <div class="telemetryRail railLeft">
-        <span></span><span></span><span></span><span></span>
-      </div>
-      <div class="telemetryRail railRight">
-        <span></span><span></span><span></span><span></span>
-      </div>
-      <div class="glow glowOne"></div>
-      <div class="glow glowTwo"></div>
-      <div class="scanLine"></div>
-      <div class="corner cornerTopLeft"></div>
-      <div class="corner cornerTopRight"></div>
-      <div class="corner cornerBottomLeft"></div>
-      <div class="corner cornerBottomRight"></div>
-    </div>
+    <a class="skipLink" href="#chatInput">Skip to your question</a>
 
     <header class="systemBar">
-      <span class="systemBrand">APEX ANALYTIC</span>
+      <a class="systemBrand" href="/">APEX ANALYTIC <small>SECOND BRAIN</small></a>
       <span id="systemStatus" class="systemStatus"><i></i> READY</span>
       <button id="accountToggle" class="accountStatus" type="button" aria-expanded="false" aria-controls="authPanel">
         <span id="accountLabel">GUEST</span>
@@ -41,28 +21,30 @@
     </header>
 
     <main class="interface">
-      <section class="assistantStage" aria-label="Apex Analytic real estate assistant">
-        <button id="jarvisOrb" class="jarvisOrb" type="button" aria-label="Talk to Apex Analytic">
-          <span class="orbHalo"></span>
-          <span class="orbPlate"></span>
-          <span class="orbit orbitOuter"></span>
-          <span class="orbit orbitOuterAlt"></span>
-          <span class="orbit orbitMiddle"></span>
-          <span class="orbit orbitInner"></span>
-          <span class="orbTicks"></span>
-          <span class="orbCore"><b>A</b></span>
-          <span class="voiceBars" aria-hidden="true">
-            <i></i><i></i><i></i><i></i><i></i>
-          </span>
-        </button>
-
+      <section class="assistantStage" aria-labelledby="pageTitle">
         <div class="identity">
-          <p class="kicker">PERSONAL REAL ESTATE INTELLIGENCE</p>
-          <p id="assistantPrompt">Ready when you are.</p>
+          <p class="kicker">YOUR PROPERTY THINKING PARTNER</p>
+          <h1 id="pageTitle">Turn a property question into a clearer decision.</h1>
+          <p class="stageIntro">Ask naturally. Apex will separate evidence from assumptions, challenge the thesis, and identify the next best move.</p>
+          <div class="frameworkPromise" aria-label="How Apex Analytic responds">
+            <span>Evidence before confidence</span>
+            <span>Strongest counter-case</span>
+            <span>Practical next step</span>
+          </div>
+          <button id="jarvisOrb" class="voiceLaunch" type="button" aria-label="Speak a question to Apex Analytic">
+            <span aria-hidden="true">●</span> Speak a question
+          </button>
+          <p id="assistantPrompt" class="stageStatus">Ready when you are.</p>
         </div>
       </section>
 
       <section id="conversation" class="conversation" aria-live="polite">
+        <section class="starterPanel" aria-label="Start with a common property decision">
+          <button type="button" data-starter-action="deal"><b>Screen a deal</b><span>Add only the essential facts first.</span></button>
+          <button type="button" data-starter-prompt="Compare buying one RM600k condo with three RM200k flats."><b>Compare options</b><span>Test the trade-offs across the whole portfolio.</span></button>
+          <button type="button" data-starter-prompt="What evidence should I collect before paying the booking fee?"><b>Check evidence</b><span>Find the cheapest checks that could stop a bad decision.</span></button>
+          <button type="button" data-starter-prompt="I like this property. Challenge my view and identify what I may be missing."><b>Challenge my thesis</b><span>Expose the counter-case and blind spots.</span></button>
+        </section>
         <div id="transcript" class="transcript"></div>
 
         <section id="authPanel" class="authPanel" aria-label="Apex Analytic account" hidden>
@@ -114,10 +96,10 @@
             <button id="memoryToggle" type="button" aria-expanded="false" aria-controls="memoryPanel" hidden>MEMORY</button>
             <button id="reportsToggle" type="button" aria-expanded="false" aria-controls="reportsPanel" hidden>REPORTS</button>
             <button id="journalToggle" type="button" aria-expanded="false" aria-controls="journalPanel" hidden>JOURNAL</button>
-            <button id="ownerIntelToggle" type="button" aria-expanded="false" aria-controls="ownerIntelPanel">OWNER</button>
-            <button id="ownerMarketToggle" type="button" aria-expanded="false" aria-controls="ownerMarketPanel">MARKET</button>
-            <button id="ownerCaseToggle" type="button" aria-expanded="false" aria-controls="ownerCasePanel">CASES</button>
-            <button id="ownerEvidenceToggle" type="button" aria-expanded="false" aria-controls="ownerEvidencePanel">EVIDENCE</button>
+            <button id="ownerIntelToggle" type="button" aria-expanded="false" aria-controls="ownerIntelPanel">OWNER TOOLS</button>
+            <button id="ownerMarketToggle" type="button" aria-expanded="false" aria-controls="ownerMarketPanel" hidden>MARKET</button>
+            <button id="ownerCaseToggle" type="button" aria-expanded="false" aria-controls="ownerCasePanel" hidden>CASES</button>
+            <button id="ownerEvidenceToggle" type="button" aria-expanded="false" aria-controls="ownerEvidencePanel" hidden>EVIDENCE</button>
             <button id="trustToggle" type="button" aria-expanded="false" aria-controls="trustPanel">TRUST</button>
           </div>
         </section>
@@ -1370,7 +1352,7 @@
           <button id="sessionBriefBtn" type="button" aria-label="Copy current session brief">BRIEF</button>
           <button id="historyToggle" type="button" aria-expanded="false" aria-controls="sessionPanel">HISTORY</button>
           <button id="resetChatBtn" type="button" aria-label="Start a new chat">NEW CHAT</button>
-          <button id="soundToggle" type="button" aria-pressed="true" aria-label="Toggle voice responses">VOICE ON</button>
+          <button id="soundToggle" type="button" aria-pressed="false" aria-label="Toggle voice responses">VOICE OFF</button>
           <button id="stopVoiceBtn" class="stopVoiceBtn" type="button" hidden>STOP</button>
         </div>
       </section>

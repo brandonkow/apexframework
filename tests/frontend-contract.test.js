@@ -29,7 +29,10 @@ test("frontend selectors and stylesheet structure stay valid", async () => {
   assert.equal(braceDepth, 0, "Stylesheet has an unclosed block.");
 
   assert.match(html, /<title>Apex Analytic<\/title>/);
-  assert.match(html, /class="orbCore"><b>A<\/b>/, "The orb must use only the Apex A mark.");
+  assert.match(html, /<h1 id="pageTitle">Turn a property question into a clearer decision\.<\/h1>/, "V10.5 needs a decision-first first viewport.");
+  assert.match(html, /id="jarvisOrb" class="voiceLaunch"[\s\S]*?Speak a question/, "Voice input must remain available as a compact secondary action.");
+  assert.match(html, /class="starterPanel"[\s\S]*?data-starter-action="deal"[\s\S]*?data-starter-prompt=/, "V10.5 needs clear starter paths into the existing decision workflows.");
+  assert.doesNotMatch(html, /class="hud"|class="orbCore"/, "The decorative HUD and dominant orb must stay out of the decision-first interface.");
   assert.doesNotMatch(html, /<h1>APEX<\/h1>|class="productSuffix"/, "The central Apex Analytic wordmark must stay removed.");
   assert.match(html, /<form id="chatForm"[\s\S]*?id="analyzeDealBtn"[\s\S]*?<\/form>/, "Deal analysis must remain visible inside the message bar.");
   assert.match(html, /id="screenDealBtn"[\s\S]*?>SCREEN<\/button>/, "The quick deal-screening action must stay available without opening the full report flow.");
@@ -126,8 +129,11 @@ test("frontend selectors and stylesheet structure stay valid", async () => {
   assert.match(app, /responseFeedback:\s*responseFeedbackSummary\(\)/, "V5.6 must send recent answer feedback into future chat requests.");
   assert.match(server, /responseFeedback[\s\S]*?Recent answer feedback/, "V5.6 feedback must reach the server persona prompt.");
   assert.match(server, /feedbackPrefersShort[\s\S]*?feedbackPrefersWarmer[\s\S]*?feedbackPrefersEvidence/, "V5.6 server persona must translate feedback into answer-shape instructions.");
-  assert.match(server, /kind === "balanced"[\s\S]*?My read:[\s\S]*?Main risk:[\s\S]*?Check next:/, "Default balanced framework replies must use a compact mentor shape.");
-  assert.match(server, /For normal questions[\s\S]*?My read[\s\S]*?Missing proof[\s\S]*?under about 150 words/, "External-model instructions must keep ordinary answers short and human.");
+  assert.match(server, /formatStructuredAnswer[\s\S]*?currentView[\s\S]*?counterCase[\s\S]*?evidenceGaps[\s\S]*?alternativeAngle[\s\S]*?nextSteps/, "V10.5 framework fallbacks must return a complete decision brief.");
+  assert.match(server, /Use High confidence only[\s\S]*?current, dated, deal-specific evidence[\s\S]*?under about 220 words/, "External-model instructions must calibrate confidence to evidence and stay concise.");
+  assert.match(app, /const voicePreferenceKey[\s\S]*?localStorage\.getItem\(voicePreferenceKey\) === "true"/, "Voice responses must remain off until the user explicitly opts in.");
+  assert.match(app, /function answerHeading[\s\S]*?function answerMarkup[\s\S]*?answerSection/, "Structured answers need readable on-screen sections.");
+  assert.doesNotMatch(app, /sourceConfidence/, "Source counts must not be presented as synthetic confidence.");
   assert.match(app, /function syncResponseFeedback[\s\S]*?\/api\/memory\/answer-style/, "V5.7 must sync answer-style feedback for signed-in users.");
   assert.match(app, /answerStyle\.feedbackCount/, "V5.7 memory settings must surface account-level answer-style learning.");
   assert.match(server, /function normalizeAnswerStyle[\s\S]*?slice\(0, 40\)/, "V5.7 must keep account answer-style memory compact.");
@@ -392,6 +398,6 @@ test("frontend selectors and stylesheet structure stay valid", async () => {
   assert.match(styles, /max-height:\s*calc\(100dvh - 260px\)/, "Mobile expanded cards need a viewport-bound field area.");
   assert.match(styles, /\.identity #assistantPrompt[\s\S]*?text-align:\s*center;/, "The ready prompt must remain centered beneath the orb on mobile.");
   assert.match(styles, /\.sourceSummary p[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\);/, "Mobile source details must stack instead of squeezing text into columns.");
-  assert.match(styles, /\.cornerBottomLeft[\s\S]*?bottom:\s*max\(4px, env\(safe-area-inset-bottom\)\);[\s\S]*?left:\s*10px;/, "The mobile HUD frame must sit outside the bottom controls.");
-  assert.match(styles, /\.conversation[\s\S]*?bottom:\s*max\(24px, calc\(env\(safe-area-inset-bottom\) \+ 16px\)\);/, "Mobile controls need clearance above the HUD frame.");
+  assert.match(styles, /\.starterPanel[\s\S]*?grid-template-columns:[\s\S]*?\.answerSection/, "The decision starters and structured answer sections need dedicated styling.");
+  assert.match(styles, /@media \(max-width: 520px\)[\s\S]*?\.starterPanel[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\);/, "Decision starters must stack cleanly on narrow mobile screens.");
 });

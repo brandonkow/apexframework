@@ -67,7 +67,16 @@ test("OpenRouter uses its free router and reports the model that actually answer
         finish_reason: truncated ? "length" : "stop",
         message: {
           role: "assistant",
-          content: truncated ? "Hello. What property" : "Hello. What property are we thinking about today?"
+          content: truncated ? '{"currentView":"Possible shortlist' : JSON.stringify({
+            currentView: "Possible shortlist, but rent and exit evidence are still too weak for approval.",
+            confidence: "Low",
+            reasons: ["The asking price is within the stated range, but price alone does not prove value."],
+            counterCase: ["The achieved rent may be below the advertised figure."],
+            evidenceGaps: ["Recent completed transactions and signed rent."],
+            alternativeAngle: ["Borrowing capacity may be more valuable than this specific unit."],
+            nextSteps: ["Verify rent and transaction evidence before negotiating."],
+            questions: ["What is the all-in monthly holding cost?"]
+          })
         }
       }]
     }));
@@ -108,13 +117,14 @@ test("OpenRouter uses its free router and reports the model that actually answer
   assert.equal(before.payload.llm.provider, "openrouter");
   assert.equal(before.payload.llm.configuredModel, "openrouter/free");
   assert.equal(before.payload.llm.resolvedModel, null);
+  assert.deepEqual(before.payload.llm.privacy, { dataCollection: "deny", zeroDataRetention: false });
 
   const session = await jsonRequest(baseUrl, "/api/jarvis/sessions", { method: "POST", body: {} });
   const answer = await jsonRequest(baseUrl, "/api/jarvis/query", {
     method: "POST",
     body: {
       sessionId: session.payload.session.id,
-      query: "Hello Apex Analytic",
+      query: "Should I buy a RM500k condo if the advertised rent is RM2,500?",
       financialProfile: { guidanceMode: "Concise", preferredOutput: "Short answer" }
     }
   });
@@ -122,7 +132,9 @@ test("OpenRouter uses its free router and reports the model that actually answer
   assert.equal(answer.payload.mode, "llm");
   assert.equal(answer.payload.provider, "openrouter");
   assert.equal(answer.payload.model, "anthropic/claude-test-resolved");
-  assert.equal(answer.payload.answer, "Hello. What property are we thinking about today?");
+  assert.match(answer.payload.answer, /^Current view\nPossible shortlist/);
+  assert.match(answer.payload.answer, /Strongest counter-case\n- The achieved rent may be below the advertised figure\./);
+  assert.match(answer.payload.answer, /Blind spot \/ alternative angle/);
   assert.equal(answer.payload.message.mode, "llm");
   assert.equal(answer.payload.message.provider, "openrouter");
   assert.equal(answer.payload.message.model, "anthropic/claude-test-resolved");
@@ -134,8 +146,14 @@ test("OpenRouter uses its free router and reports the model that actually answer
   assert.equal(captured[0].body.messages[0].role, "system");
   assert.match(captured[0].body.messages[1].content, /RESPONSE PERSONA/);
   assert.match(captured[0].body.messages[1].content, /Concise mode/);
+  assert.equal(captured[0].body.provider.data_collection, "deny");
+  assert.equal(captured[0].body.provider.require_parameters, true);
+  assert.equal(captured[0].body.response_format.type, "json_schema");
+  assert.equal(captured[0].body.response_format.json_schema.strict, true);
+  assert.ok(captured[0].body.response_format.json_schema.schema.required.includes("alternativeAngle"));
   assert.ok(captured[1].body.max_tokens > captured[0].body.max_tokens);
-  assert.match(captured[1].body.messages[0].content, /complete answer/i);
+  assert.match(captured[1].body.messages[0].content, /previous draft was incomplete/i);
+  assert.match(captured[1].body.messages[0].content, /valid JSON that matches it/i);
 
   const after = await jsonRequest(baseUrl, "/api/jarvis/status");
   assert.equal(after.payload.llm.resolvedModel, "anthropic/claude-test-resolved");

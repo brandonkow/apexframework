@@ -266,6 +266,7 @@ const dcfDownloadBtn = document.querySelector("#dcfDownloadBtn");
 const dcfMessage = document.querySelector("#dcfMessage");
 const contextToggles = Array.from(document.querySelectorAll("[data-context-toggle]"));
 const contextResetButtons = Array.from(document.querySelectorAll("[data-context-reset]"));
+const starterButtons = Array.from(document.querySelectorAll("[data-starter-prompt], [data-starter-action]"));
 
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 const recognition = SpeechRecognition ? new SpeechRecognition() : null;
@@ -278,11 +279,12 @@ const contextPanelKey = "estatelab.jarvis.contextPanels";
 const contextFieldModeKey = "apex.contextFieldMode.v1";
 const shortlistKey = "apex.shortlist.v1";
 const responseFeedbackKey = "apex.responseFeedback.v1";
+const voicePreferenceKey = "apex.voiceResponses.v1";
 const ownerMarketTokenKey = "apex.ownerMarket.token";
 const ownerBackupMarkerKey = "apex.ownerKnowledge.lastBackup.v1";
 const trustBoundaryKey = "apex.trustBoundary.accepted.v1";
 const analysisRegistry = new Map();
-let voiceResponsesEnabled = true;
+let voiceResponsesEnabled = window.localStorage.getItem(voicePreferenceKey) === "true";
 let listening = false;
 let speaking = false;
 let voiceStopRequested = false;
@@ -1552,37 +1554,36 @@ function sourceName(source) {
   return sourceLabel(source?.type).toLowerCase();
 }
 
-function sourceConfidence(sources = []) {
-  const researchSources = sources.filter((source) => source.type === "research");
-  if (researchSources.some((source) => source.stale)) return "Medium - validated research matched, but at least one source is old";
-  if (researchSources.some((source) => Number(source.confidence || 0) >= 0.8)) return "Medium-high - validated research matched, still verify this exact deal";
-  const marketSources = sources.filter((source) => source.type === "market");
-  if (marketSources.some((source) => source.freshness === "stale")) return "Medium - includes owner observations that need refreshing";
-  if (marketSources.some((source) => source.freshness === "fresh")) return "Medium-high - dated owner evidence matched, still verify the deal";
-  const hasBelief = sources.some((source) => source.type === "belief");
-  if (sources.length >= 4 || hasBelief) return "Medium - framework-backed, still needs live market proof";
-  if (sources.length >= 2) return "Low-medium - useful framework match, evidence still thin";
-  return "Low - ask with more deal details";
-}
-
-function missingEvidence(sources = []) {
-  const text = sources.map((source) => `${source.title} ${source.preview || ""}`.toLowerCase()).join(" ");
-  const missing = [];
-  if (text.includes("rental") || text.includes("tenant") || text.includes("installment")) missing.push("actual signed rent");
-  if (text.includes("supply") || text.includes("competition") || text.includes("substitute")) missing.push("nearby supply comparison");
-  if (text.includes("transaction") || text.includes("auction") || text.includes("evidence")) missing.push("recent transaction proof");
-  if (!missing.length) missing.push("property-specific evidence");
-  return missing.slice(0, 3).join(", ");
-}
-
 function sourcesMarkup(sources = []) {
   if (!sources.length) return "";
-  const basedOn = [...new Set(sources.map(sourceName))].slice(0, 4).join(", ");
+  const counts = sources.reduce((summary, source) => {
+    const type = source?.type || "reference";
+    summary[type] = (summary[type] || 0) + 1;
+    return summary;
+  }, {});
+  const basis = Object.entries(counts)
+    .map(([type, count]) => `${count} ${sourceLabel(type).toLowerCase()}${count === 1 ? "" : " sources"}`)
+    .slice(0, 5)
+    .join(" / ");
+  const hasDealEvidence = sources.some((source) => ["evidence", "market", "case", "research", "saved_report"].includes(source.type));
+  const evidenceNote = hasDealEvidence
+    ? "Deal-specific or dated evidence matched. Confirm its date, scope, and fit before acting."
+    : "Framework guidance only. No deal-specific market evidence matched this answer.";
+  const sourceItems = sources.slice(0, 8).map((source) => `
+    <li>
+      <span class="sourceType">${escapeHtml(sourceLabel(source.type))}</span>
+      <b>${escapeHtml(source.title || "Untitled source")}</b>
+      ${source.preview ? `<small>${escapeHtml(source.preview)}</small>` : ""}
+    </li>
+  `).join("");
   return `
     <div class="sourceSummary">
-      <p><b>Based on</b><span>${escapeHtml(basedOn)}</span></p>
-      <p><b>Confidence</b><span>${escapeHtml(sourceConfidence(sources))}</span></p>
-      <p><b>Missing</b><span>${escapeHtml(missingEvidence(sources))}</span></p>
+      <p><b>Reasoning basis</b><span>${escapeHtml(basis)}</span></p>
+      <p><b>Evidence level</b><span>${escapeHtml(evidenceNote)}</span></p>
+      <details>
+        <summary>See the sources used</summary>
+        <ul class="sourceList">${sourceItems}</ul>
+      </details>
     </div>
   `;
 }
@@ -1611,6 +1612,88 @@ function contextCoachMarkup(coach = {}) {
   `;
 }
 
+function answerHeading(value) {
+  const clean = String(value || "")
+    .replace(/^#{1,6}\s*/, "")
+    .replace(/^\*{1,2}|\*{1,2}$/g, "")
+    .replace(/:$/, "")
+    .trim();
+  const normalized = clean.toLowerCase();
+  const headings = [
+    [/^current view(?:\b|\s*[—-])/, "Current view"],
+    [/^(what supports it|what drives it|reasons|why)$/, "What supports it"],
+    [/^(strongest counter-case|counter-case|what could make it wrong|watch-outs)$/, "Strongest counter-case"],
+    [/^(what would change my mind|what would change the view|evidence gaps|missing evidence)$/, "What would change the view"],
+    [/^(next best move|next move|check next|next steps?)$/, "Next best move"],
+    [/^(questions? for you|my challenge back|questions? that can change the answer)$/, "Questions for you"],
+    [/^(blind spot|alternative angle|blind spot \/ alternative angle|what you may be missing)$/, "Blind spot / alternative angle"]
+  ];
+  return headings.find(([pattern]) => pattern.test(normalized))?.[1] || "";
+}
+
+function answerLinesMarkup(lines, lead = false) {
+  const groups = [];
+  let current = null;
+  const pushCurrent = () => {
+    if (current?.items.length) groups.push(current);
+    current = null;
+  };
+  for (const rawLine of lines) {
+    const line = String(rawLine || "").replace(/\*\*/g, "").trim();
+    if (!line) {
+      pushCurrent();
+      continue;
+    }
+    const unordered = line.match(/^[-*•]\s+(.+)/);
+    const ordered = line.match(/^\d+[.)]\s+(.+)/);
+    const type = ordered ? "ol" : unordered ? "ul" : "p";
+    const content = ordered?.[1] || unordered?.[1] || line;
+    if (!current || current.type !== type) {
+      pushCurrent();
+      current = { type, items: [] };
+    }
+    current.items.push(content);
+  }
+  pushCurrent();
+
+  let leadUsed = false;
+  return groups.map((group) => {
+    if (group.type === "ul" || group.type === "ol") {
+      return `<${group.type}>${group.items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</${group.type}>`;
+    }
+    return group.items.map((item) => {
+      const className = lead && !leadUsed ? ' class="answerLead"' : "";
+      leadUsed = true;
+      return `<p${className}>${escapeHtml(item)}</p>`;
+    }).join("");
+  }).join("");
+}
+
+function answerMarkup(text) {
+  const lines = String(text || "").replace(/\r\n/g, "\n").trim().split("\n");
+  const sections = [];
+  let section = { title: "", lines: [] };
+  const pushSection = () => {
+    if (section.title || section.lines.some((line) => line.trim())) sections.push(section);
+    section = { title: "", lines: [] };
+  };
+  for (const line of lines) {
+    const heading = answerHeading(line);
+    if (heading) {
+      pushSection();
+      section.title = heading;
+    } else {
+      section.lines.push(line);
+    }
+  }
+  pushSection();
+  return sections.map((item, index) => {
+    const body = answerLinesMarkup(item.lines, index === 0 && !item.title);
+    if (!item.title) return `<div class="answerBody">${body}</div>`;
+    return `<section class="answerSection"><h3>${escapeHtml(item.title)}</h3>${body}</section>`;
+  }).join("");
+}
+
 function intelligenceMarkup({ mode = "", provider = "", model = "" } = {}) {
   if (mode === "framework") {
     return '<span class="intelligenceBadge framework" title="No external reasoning model generated this response"><i></i>FRAMEWORK ONLY</span>';
@@ -1629,7 +1712,7 @@ function addMessage(role, text, sources = [], intelligence = {}) {
   message.innerHTML = `
     <strong>${role === "jarvis" ? "APEX" : "YOU"}</strong>
     ${role === "jarvis" ? intelligenceMarkup(intelligence) : ""}
-    <div class="messageText">${escapeHtml(text).replace(/\n/g, "<br>")}</div>
+    <div class="messageText">${role === "jarvis" ? answerMarkup(text) : escapeHtml(text).replace(/\n/g, "<br>")}</div>
     ${role === "jarvis" ? sourcesMarkup(sources) : ""}
     ${role === "jarvis" ? contextCoachMarkup(intelligence.contextCoach) : ""}
     ${role === "jarvis" ? responseFeedbackMarkup(messageId) : ""}
@@ -6854,8 +6937,20 @@ chatInput.addEventListener("focus", () => {
   setSystemState("System ready", mode.prompt);
 });
 
+for (const button of starterButtons) {
+  button.addEventListener("click", () => {
+    if (button.getAttribute("data-starter-action") === "deal") {
+      openJourneyPanel("deal");
+      return;
+    }
+    const prompt = button.getAttribute("data-starter-prompt");
+    if (prompt) void submitQuestion(prompt);
+  });
+}
+
 soundToggle.addEventListener("click", () => {
   voiceResponsesEnabled = !voiceResponsesEnabled;
+  window.localStorage.setItem(voicePreferenceKey, String(voiceResponsesEnabled));
   soundToggle.textContent = voiceResponsesEnabled ? "VOICE ON" : "VOICE OFF";
   soundToggle.setAttribute("aria-pressed", String(voiceResponsesEnabled));
   document.body.classList.toggle("voiceMuted", !voiceResponsesEnabled);
@@ -6882,6 +6977,9 @@ dcfCalculateBtn?.addEventListener("click", () => void calculateDcfValuation());
 dcfDownloadBtn?.addEventListener("click", () => void downloadDcfWorkbook());
 
 async function bootJarvis() {
+  soundToggle.textContent = voiceResponsesEnabled ? "VOICE ON" : "VOICE OFF";
+  soundToggle.setAttribute("aria-pressed", String(voiceResponsesEnabled));
+  document.body.classList.toggle("voiceMuted", !voiceResponsesEnabled);
   restoreContext(dealFields, "data-deal-field", dealContextKey);
   restoreContext(profileFields, "data-profile-field", profileContextKey);
   restoreDcfContext();
