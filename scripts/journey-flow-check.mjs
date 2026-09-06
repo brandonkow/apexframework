@@ -102,6 +102,20 @@ try {
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `Overflow at ${width}px`);
     assert.equal(await page.locator("#workspaceLink").isVisible(), true);
   }
+  await page.addInitScript(full => {
+    const key = Object.keys(localStorage).find(key => key.startsWith("apex.journey.v1:"));
+    const first = { ...full, id: crypto.randomUUID(), chat: [], dealCard: { ...full.dealCard, projectName: "Qualified A" } };
+    const second = { ...full, id: crypto.randomUUID(), chat: [], dealCard: { ...full.dealCard, projectName: "Qualified B" } };
+    const unfinished = { id: crypto.randomUUID(), dealCard: { projectName: "Not qualified" }, financialProfile: {}, evidence: {}, chat: [] };
+    localStorage.setItem(key, JSON.stringify({ candidates: [first, second, unfinished], active: first.id }));
+  }, full);
+  await page.reload({ waitUntil: "networkidle" });
+  await page.waitForSelector('body[data-ready="true"]');
+  await page.locator("#compareButton").click();
+  await page.waitForSelector(".compare-card");
+  assert.equal(await page.locator(".compare-card").count(), 3);
+  assert.match(await page.locator("#dialogContent").innerText(), /no clear winner/);
+  assert.equal(await page.locator('.compare-card small', { hasText: "QUALIFIED FOR SHORTLIST REVIEW" }).count(), 2);
   assert.deepEqual(errors, []);
   console.log("PASS: all 18 checkpoints, 7 levels, report, chat, comparison, export, isolation, invalidation, reset, fallback and responsive widths.");
 } finally { await browser.close(); }
