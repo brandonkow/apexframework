@@ -1,0 +1,2004 @@
+{
+  "area": {
+    "key": "area",
+    "scope": "dealCard",
+    "label": "Area",
+    "type": "input",
+    "placeholder": "Penang, KL, Selangor...",
+    "inputMode": "text",
+    "options": []
+  },
+  "projectName": {
+    "key": "projectName",
+    "scope": "dealCard",
+    "label": "Project",
+    "type": "input",
+    "placeholder": "Development name",
+    "inputMode": "text",
+    "options": []
+  },
+  "propertyType": {
+    "key": "propertyType",
+    "scope": "dealCard",
+    "label": "Property Type",
+    "type": "input",
+    "placeholder": "Condo, serviced apartment...",
+    "inputMode": "text",
+    "options": []
+  },
+  "propertyAge": {
+    "key": "propertyAge",
+    "scope": "dealCard",
+    "label": "Property Age",
+    "type": "input",
+    "placeholder": "Years",
+    "inputMode": "decimal",
+    "options": []
+  },
+  "floorArea": {
+    "key": "floorArea",
+    "scope": "dealCard",
+    "label": "Floor Area",
+    "type": "input",
+    "placeholder": "1,000 sf",
+    "inputMode": "decimal",
+    "options": []
+  },
+  "askingPrice": {
+    "key": "askingPrice",
+    "scope": "dealCard",
+    "label": "Asking Price",
+    "type": "input",
+    "placeholder": "RM500k",
+    "inputMode": "decimal",
+    "options": []
+  },
+  "conservativeFairValue": {
+    "key": "conservativeFairValue",
+    "scope": "dealCard",
+    "label": "Conservative Value",
+    "type": "input",
+    "placeholder": "RM520k from transactions",
+    "inputMode": "decimal",
+    "options": []
+  },
+  "expectedRent": {
+    "key": "expectedRent",
+    "scope": "dealCard",
+    "label": "Expected Rent",
+    "type": "input",
+    "placeholder": "RM2,500/month",
+    "inputMode": "decimal",
+    "options": []
+  },
+  "maintenance": {
+    "key": "maintenance",
+    "scope": "dealCard",
+    "label": "Maintenance + Sinking",
+    "type": "input",
+    "placeholder": "RM385/month total",
+    "inputMode": "decimal",
+    "options": []
+  },
+  "estimatedInstallment": {
+    "key": "estimatedInstallment",
+    "scope": "dealCard",
+    "label": "Loan Instalment",
+    "type": "input",
+    "placeholder": "RM2,100/month",
+    "inputMode": "decimal",
+    "options": []
+  },
+  "cashOutlay": {
+    "key": "cashOutlay",
+    "scope": "dealCard",
+    "label": "Cash Outlay",
+    "type": "input",
+    "placeholder": "RM80k all-in cash",
+    "inputMode": "decimal",
+    "options": []
+  },
+  "bankValuationSupport": {
+    "key": "bankValuationSupport",
+    "scope": "dealCard",
+    "label": "Bank Valuation",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "Multiple banker support",
+        "label": "Multiple banker support"
+      },
+      {
+        "value": "One banker indicative support",
+        "label": "One banker indicative support"
+      },
+      {
+        "value": "Agent valuation claim only",
+        "label": "Agent valuation claim only"
+      },
+      {
+        "value": "Valuation below price",
+        "label": "Valuation below price"
+      },
+      {
+        "value": "Not checked",
+        "label": "Not checked"
+      }
+    ]
+  },
+  "loanPrecheckStatus": {
+    "key": "loanPrecheckStatus",
+    "scope": "dealCard",
+    "label": "Loan Precheck",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "Pre-approved / eligibility checked",
+        "label": "Pre-approved / eligibility checked"
+      },
+      {
+        "value": "Banker says likely",
+        "label": "Banker says likely"
+      },
+      {
+        "value": "Not checked",
+        "label": "Not checked"
+      },
+      {
+        "value": "Rejected / weak profile",
+        "label": "Rejected / weak profile"
+      }
+    ]
+  },
+  "loanMarginPlan": {
+    "key": "loanMarginPlan",
+    "scope": "dealCard",
+    "label": "Loan Margin",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "80% or lower",
+        "label": "80% or lower"
+      },
+      {
+        "value": "Around 90% standard",
+        "label": "Around 90% standard"
+      },
+      {
+        "value": "Above 90% / cash-out",
+        "label": "Above 90% / cash-out"
+      },
+      {
+        "value": "Unknown",
+        "label": "Unknown"
+      }
+    ]
+  },
+  "instalmentStress": {
+    "key": "instalmentStress",
+    "scope": "dealCard",
+    "label": "Instalment Stress",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "10% higher instalment tested",
+        "label": "10% higher instalment tested"
+      },
+      {
+        "value": "Base instalment only",
+        "label": "Base instalment only"
+      },
+      {
+        "value": "Not tested",
+        "label": "Not tested"
+      }
+    ]
+  },
+  "cashBufferAfterPurchase": {
+    "key": "cashBufferAfterPurchase",
+    "scope": "dealCard",
+    "label": "Cash Buffer",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "6+ months reserve after purchase",
+        "label": "6+ months reserve after purchase"
+      },
+      {
+        "value": "3-6 months reserve after purchase",
+        "label": "3-6 months reserve after purchase"
+      },
+      {
+        "value": "Below 3 months reserve after purchase",
+        "label": "Below 3 months reserve after purchase"
+      },
+      {
+        "value": "Unknown",
+        "label": "Unknown"
+      }
+    ]
+  },
+  "financingDocumentReadiness": {
+    "key": "financingDocumentReadiness",
+    "scope": "dealCard",
+    "label": "Loan Documents",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "Complete income / CTOS / CCRIS documents",
+        "label": "Complete income / CTOS / CCRIS documents"
+      },
+      {
+        "value": "Partial documents",
+        "label": "Partial documents"
+      },
+      {
+        "value": "Weak score / rejected documents",
+        "label": "Weak score / rejected documents"
+      },
+      {
+        "value": "Unknown",
+        "label": "Unknown"
+      }
+    ]
+  },
+  "financingNotes": {
+    "key": "financingNotes",
+    "scope": "dealCard",
+    "label": "Financing Notes",
+    "type": "input",
+    "placeholder": "Valuation basis, DSR concern, loan margin, approval risk, banker comment...",
+    "inputMode": "text",
+    "options": []
+  },
+  "supplyRadius": {
+    "key": "supplyRadius",
+    "scope": "dealCard",
+    "label": "Supply Radius",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "Within 2.5km checked",
+        "label": "Within 2.5km checked"
+      },
+      {
+        "value": "Same road / township only",
+        "label": "Same road / township only"
+      },
+      {
+        "value": "Not checked",
+        "label": "Not checked"
+      },
+      {
+        "value": "Unknown",
+        "label": "Unknown"
+      }
+    ]
+  },
+  "substituteCount": {
+    "key": "substituteCount",
+    "scope": "dealCard",
+    "label": "Substitute Count",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "Less than 5",
+        "label": "Less than 5"
+      },
+      {
+        "value": "5 or more",
+        "label": "5 or more"
+      },
+      {
+        "value": "No direct substitute",
+        "label": "No direct substitute"
+      },
+      {
+        "value": "Unknown",
+        "label": "Unknown"
+      }
+    ]
+  },
+  "substituteThreat": {
+    "key": "substituteThreat",
+    "scope": "dealCard",
+    "label": "Substitute Threat",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "No direct similar substitute",
+        "label": "No direct similar substitute"
+      },
+      {
+        "value": "Different segment only",
+        "label": "Different segment only"
+      },
+      {
+        "value": "Complementary township supply",
+        "label": "Complementary township supply"
+      },
+      {
+        "value": "Newer similar layout or pricing",
+        "label": "Newer similar layout or pricing"
+      },
+      {
+        "value": "Unknown",
+        "label": "Unknown"
+      }
+    ]
+  },
+  "futureSupplyTiming": {
+    "key": "futureSupplyTiming",
+    "scope": "dealCard",
+    "label": "Future Supply Timing",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "No material VP nearby",
+        "label": "No material VP nearby"
+      },
+      {
+        "value": "Announcement / launch only",
+        "label": "Announcement / launch only"
+      },
+      {
+        "value": "Under construction",
+        "label": "Under construction"
+      },
+      {
+        "value": "VP within 12 months",
+        "label": "VP within 12 months"
+      },
+      {
+        "value": "Newly VP units entering market",
+        "label": "Newly VP units entering market"
+      },
+      {
+        "value": "Unknown",
+        "label": "Unknown"
+      }
+    ]
+  },
+  "absorptionEvidence": {
+    "key": "absorptionEvidence",
+    "scope": "dealCard",
+    "label": "Absorption Evidence",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "Occupancy and rent holding strong",
+        "label": "Occupancy and rent holding strong"
+      },
+      {
+        "value": "Sales rate and unsold units healthy",
+        "label": "Sales rate and unsold units healthy"
+      },
+      {
+        "value": "Agent confirms absorption",
+        "label": "Agent confirms absorption"
+      },
+      {
+        "value": "Weak absorption / rental drop",
+        "label": "Weak absorption / rental drop"
+      },
+      {
+        "value": "Unknown",
+        "label": "Unknown"
+      }
+    ]
+  },
+  "unsoldStockSignal": {
+    "key": "unsoldStockSignal",
+    "scope": "dealCard",
+    "label": "Unsold Stock",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "Less than 1% unsold",
+        "label": "Less than 1% unsold"
+      },
+      {
+        "value": "Elevated unsold stock",
+        "label": "Elevated unsold stock"
+      },
+      {
+        "value": "Bulk purchase / clear inventory",
+        "label": "Bulk purchase / clear inventory"
+      },
+      {
+        "value": "Unknown",
+        "label": "Unknown"
+      }
+    ]
+  },
+  "densityLiftStress": {
+    "key": "densityLiftStress",
+    "scope": "dealCard",
+    "label": "Density / Lift Stress",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "Below 1.5k units and lift wait acceptable",
+        "label": "Below 1.5k units and lift wait acceptable"
+      },
+      {
+        "value": "High density but prime pricing",
+        "label": "High density but prime pricing"
+      },
+      {
+        "value": "1.5k+ units or lift wait concern",
+        "label": "1.5k+ units or lift wait concern"
+      },
+      {
+        "value": "Unknown",
+        "label": "Unknown"
+      }
+    ]
+  },
+  "supplyNotes": {
+    "key": "supplyNotes",
+    "scope": "dealCard",
+    "label": "Supply Notes",
+    "type": "input",
+    "placeholder": "Closest substitutes, VP batch, occupancy, rent pressure, unsold stock, lift wait...",
+    "inputMode": "text",
+    "options": []
+  },
+  "annualAssessmentQuitRent": {
+    "key": "annualAssessmentQuitRent",
+    "scope": "dealCard",
+    "label": "Assessment / Quit Rent",
+    "type": "input",
+    "placeholder": "RM1,200/year",
+    "inputMode": "decimal",
+    "options": []
+  },
+  "annualInsuranceTax": {
+    "key": "annualInsuranceTax",
+    "scope": "dealCard",
+    "label": "Insurance / Tax",
+    "type": "input",
+    "placeholder": "RM800/year",
+    "inputMode": "decimal",
+    "options": []
+  },
+  "monthlyRepairReserve": {
+    "key": "monthlyRepairReserve",
+    "scope": "dealCard",
+    "label": "Repair Reserve",
+    "type": "input",
+    "placeholder": "RM150/month",
+    "inputMode": "decimal",
+    "options": []
+  },
+  "furnishingBudget": {
+    "key": "furnishingBudget",
+    "scope": "dealCard",
+    "label": "Furnishing / Reno",
+    "type": "input",
+    "placeholder": "RM20k",
+    "inputMode": "decimal",
+    "options": []
+  },
+  "vacancyStressMonths": {
+    "key": "vacancyStressMonths",
+    "scope": "dealCard",
+    "label": "Vacancy Stress",
+    "type": "input",
+    "placeholder": "2 months",
+    "inputMode": "decimal",
+    "options": []
+  },
+  "tenure": {
+    "key": "tenure",
+    "scope": "dealCard",
+    "label": "Tenure",
+    "type": "input",
+    "placeholder": "Freehold / leasehold",
+    "inputMode": "text",
+    "options": []
+  },
+  "unitPosition": {
+    "key": "unitPosition",
+    "scope": "dealCard",
+    "label": "Unit Position",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "Good",
+        "label": "Good"
+      },
+      {
+        "value": "Neutral",
+        "label": "Neutral"
+      },
+      {
+        "value": "Unfavourable",
+        "label": "Unfavourable"
+      }
+    ]
+  },
+  "ownStayAppeal": {
+    "key": "ownStayAppeal",
+    "scope": "dealCard",
+    "label": "Own-Stay Appeal",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "Strong",
+        "label": "Strong"
+      },
+      {
+        "value": "Mixed",
+        "label": "Mixed"
+      },
+      {
+        "value": "Weak",
+        "label": "Weak"
+      }
+    ]
+  },
+  "managementQuality": {
+    "key": "managementQuality",
+    "scope": "dealCard",
+    "label": "Management / Build",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "Strong",
+        "label": "Strong"
+      },
+      {
+        "value": "Mixed",
+        "label": "Mixed"
+      },
+      {
+        "value": "Weak",
+        "label": "Weak"
+      }
+    ]
+  },
+  "exitBuyerPool": {
+    "key": "exitBuyerPool",
+    "scope": "dealCard",
+    "label": "Exit Buyer Pool",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "Own-stay and investor",
+        "label": "Own-stay and investor"
+      },
+      {
+        "value": "Own-stay mainly",
+        "label": "Own-stay mainly"
+      },
+      {
+        "value": "Investor mainly",
+        "label": "Investor mainly"
+      },
+      {
+        "value": "Unclear",
+        "label": "Unclear"
+      }
+    ]
+  },
+  "comparableTransactions": {
+    "key": "comparableTransactions",
+    "scope": "dealCard",
+    "label": "Completed Comparables",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "None",
+        "label": "None"
+      },
+      {
+        "value": "1 to 2",
+        "label": "1 to 2"
+      },
+      {
+        "value": "3 or more",
+        "label": "3 or more"
+      }
+    ]
+  },
+  "comparableSource": {
+    "key": "comparableSource",
+    "scope": "dealCard",
+    "label": "Comparable Source",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "Brickz / official transaction data",
+        "label": "Brickz / official transaction data"
+      },
+      {
+        "value": "Successful auction result",
+        "label": "Successful auction result"
+      },
+      {
+        "value": "Bank valuation support",
+        "label": "Bank valuation support"
+      },
+      {
+        "value": "Agent supplied completed comps",
+        "label": "Agent supplied completed comps"
+      },
+      {
+        "value": "Property portal listing only",
+        "label": "Property portal listing only"
+      },
+      {
+        "value": "Unknown",
+        "label": "Unknown"
+      }
+    ]
+  },
+  "comparableRecency": {
+    "key": "comparableRecency",
+    "scope": "dealCard",
+    "label": "Comparable Recency",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "0-6 months",
+        "label": "0-6 months"
+      },
+      {
+        "value": "6-12 months",
+        "label": "6-12 months"
+      },
+      {
+        "value": "12-24 months",
+        "label": "12-24 months"
+      },
+      {
+        "value": "Older than 24 months",
+        "label": "Older than 24 months"
+      },
+      {
+        "value": "Unknown",
+        "label": "Unknown"
+      }
+    ]
+  },
+  "comparableMatchQuality": {
+    "key": "comparableMatchQuality",
+    "scope": "dealCard",
+    "label": "Comparable Match",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "Same project",
+        "label": "Same project"
+      },
+      {
+        "value": "Closest substitute project",
+        "label": "Closest substitute project"
+      },
+      {
+        "value": "Same township only",
+        "label": "Same township only"
+      },
+      {
+        "value": "Weak substitute",
+        "label": "Weak substitute"
+      },
+      {
+        "value": "Unknown",
+        "label": "Unknown"
+      }
+    ]
+  },
+  "comparablePriceRange": {
+    "key": "comparablePriceRange",
+    "scope": "dealCard",
+    "label": "Comparable Range",
+    "type": "input",
+    "placeholder": "RM480k - RM520k",
+    "inputMode": "decimal",
+    "options": []
+  },
+  "comparableAdjustmentNotes": {
+    "key": "comparableAdjustmentNotes",
+    "scope": "dealCard",
+    "label": "Comparable Adjustments",
+    "type": "input",
+    "placeholder": "Floor, view, size, layout, renovation, parking, facing adjustments...",
+    "inputMode": "text",
+    "options": []
+  },
+  "rentEvidence": {
+    "key": "rentEvidence",
+    "scope": "dealCard",
+    "label": "Rental Evidence",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "Signed tenancy or achieved rent",
+        "label": "Signed tenancy or achieved rent"
+      },
+      {
+        "value": "Agent-confirmed",
+        "label": "Agent-confirmed"
+      },
+      {
+        "value": "Listing only",
+        "label": "Listing only"
+      },
+      {
+        "value": "None",
+        "label": "None"
+      }
+    ]
+  },
+  "rentalSource": {
+    "key": "rentalSource",
+    "scope": "dealCard",
+    "label": "Rental Source",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "Signed tenancy / achieved rent record",
+        "label": "Signed tenancy / achieved rent record"
+      },
+      {
+        "value": "Active rental agent achieved rent",
+        "label": "Active rental agent achieved rent"
+      },
+      {
+        "value": "Property manager / owner actual rent",
+        "label": "Property manager / owner actual rent"
+      },
+      {
+        "value": "Agent verbal estimate",
+        "label": "Agent verbal estimate"
+      },
+      {
+        "value": "Property portal listing only",
+        "label": "Property portal listing only"
+      },
+      {
+        "value": "Unknown",
+        "label": "Unknown"
+      }
+    ]
+  },
+  "rentalRecency": {
+    "key": "rentalRecency",
+    "scope": "dealCard",
+    "label": "Rental Recency",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "0-3 months",
+        "label": "0-3 months"
+      },
+      {
+        "value": "3-6 months",
+        "label": "3-6 months"
+      },
+      {
+        "value": "6-12 months",
+        "label": "6-12 months"
+      },
+      {
+        "value": "Older than 12 months",
+        "label": "Older than 12 months"
+      },
+      {
+        "value": "Unknown",
+        "label": "Unknown"
+      }
+    ]
+  },
+  "tenantUrgency": {
+    "key": "tenantUrgency",
+    "scope": "dealCard",
+    "label": "Tenant Urgency",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "High inquiry",
+        "label": "High inquiry"
+      },
+      {
+        "value": "Normal inquiry",
+        "label": "Normal inquiry"
+      },
+      {
+        "value": "Slow inquiry",
+        "label": "Slow inquiry"
+      },
+      {
+        "value": "No inquiry",
+        "label": "No inquiry"
+      },
+      {
+        "value": "Unknown",
+        "label": "Unknown"
+      }
+    ]
+  },
+  "vacancySignal": {
+    "key": "vacancySignal",
+    "scope": "dealCard",
+    "label": "Vacancy Signal",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "0-1 month",
+        "label": "0-1 month"
+      },
+      {
+        "value": "1-2 months",
+        "label": "1-2 months"
+      },
+      {
+        "value": "More than 2 months",
+        "label": "More than 2 months"
+      },
+      {
+        "value": "Unknown",
+        "label": "Unknown"
+      }
+    ]
+  },
+  "rentalSustainability": {
+    "key": "rentalSustainability",
+    "scope": "dealCard",
+    "label": "Rental Sustainability",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "Stable year-round demand",
+        "label": "Stable year-round demand"
+      },
+      {
+        "value": "Seasonal but explainable",
+        "label": "Seasonal but explainable"
+      },
+      {
+        "value": "Incentive-supported",
+        "label": "Incentive-supported"
+      },
+      {
+        "value": "New supply pressure",
+        "label": "New supply pressure"
+      },
+      {
+        "value": "Unknown",
+        "label": "Unknown"
+      }
+    ]
+  },
+  "rentalAdjustmentNotes": {
+    "key": "rentalAdjustmentNotes",
+    "scope": "dealCard",
+    "label": "Rental Adjustments",
+    "type": "input",
+    "placeholder": "Tenant profile, furnishing, vacancy, seasonality, incentives, new supply...",
+    "inputMode": "text",
+    "options": []
+  },
+  "siteVisit": {
+    "key": "siteVisit",
+    "scope": "dealCard",
+    "label": "Site Visit",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "Completed",
+        "label": "Completed"
+      },
+      {
+        "value": "Not yet",
+        "label": "Not yet"
+      }
+    ]
+  },
+  "siteVisitEvidence": {
+    "key": "siteVisitEvidence",
+    "scope": "dealCard",
+    "label": "Site Visit Evidence",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "Physical visit with photos / notes",
+        "label": "Physical visit with photos / notes"
+      },
+      {
+        "value": "Physical visit, light notes only",
+        "label": "Physical visit, light notes only"
+      },
+      {
+        "value": "Desk review only",
+        "label": "Desk review only"
+      },
+      {
+        "value": "Unknown",
+        "label": "Unknown"
+      }
+    ]
+  },
+  "lobbyGuardhouseSignal": {
+    "key": "lobbyGuardhouseSignal",
+    "scope": "dealCard",
+    "label": "Lobby / Guardhouse",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "Welcoming lobby and professional guardhouse",
+        "label": "Welcoming lobby and professional guardhouse"
+      },
+      {
+        "value": "Acceptable but not memorable",
+        "label": "Acceptable but not memorable"
+      },
+      {
+        "value": "Poor arrival / weak security",
+        "label": "Poor arrival / weak security"
+      },
+      {
+        "value": "Unknown",
+        "label": "Unknown"
+      }
+    ]
+  },
+  "liftCarparkCorridorSignal": {
+    "key": "liftCarparkCorridorSignal",
+    "scope": "dealCard",
+    "label": "Lift / Car Park / Corridor",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "Fast lift, bright car park, good corridor",
+        "label": "Fast lift, bright car park, good corridor"
+      },
+      {
+        "value": "Acceptable daily use",
+        "label": "Acceptable daily use"
+      },
+      {
+        "value": "Lift wait / dark car park / corridor issue",
+        "label": "Lift wait / dark car park / corridor issue"
+      },
+      {
+        "value": "Unknown",
+        "label": "Unknown"
+      }
+    ]
+  },
+  "commonAreaCondition": {
+    "key": "commonAreaCondition",
+    "scope": "dealCard",
+    "label": "Common Areas",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "Clean and well maintained",
+        "label": "Clean and well maintained"
+      },
+      {
+        "value": "Average but functional",
+        "label": "Average but functional"
+      },
+      {
+        "value": "Dirty, broken, or short-stay heavy",
+        "label": "Dirty, broken, or short-stay heavy"
+      },
+      {
+        "value": "Unknown",
+        "label": "Unknown"
+      }
+    ]
+  },
+  "residentBehaviourSignal": {
+    "key": "residentBehaviourSignal",
+    "scope": "dealCard",
+    "label": "Resident Behaviour",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "Respectful and responsible",
+        "label": "Respectful and responsible"
+      },
+      {
+        "value": "Mixed but acceptable",
+        "label": "Mixed but acceptable"
+      },
+      {
+        "value": "Complaints, nuisance, or overcrowding",
+        "label": "Complaints, nuisance, or overcrowding"
+      },
+      {
+        "value": "Unknown",
+        "label": "Unknown"
+      }
+    ]
+  },
+  "managementResponseSignal": {
+    "key": "managementResponseSignal",
+    "scope": "dealCard",
+    "label": "Management Response",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "Fast reply and solution-oriented",
+        "label": "Fast reply and solution-oriented"
+      },
+      {
+        "value": "Mixed / average response",
+        "label": "Mixed / average response"
+      },
+      {
+        "value": "No reply / late / irresponsible",
+        "label": "No reply / late / irresponsible"
+      },
+      {
+        "value": "Unknown",
+        "label": "Unknown"
+      }
+    ]
+  },
+  "defectLeakageSignal": {
+    "key": "defectLeakageSignal",
+    "scope": "dealCard",
+    "label": "Defect / Leakage",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "No major defect or leakage",
+        "label": "No major defect or leakage"
+      },
+      {
+        "value": "Minor wear only",
+        "label": "Minor wear only"
+      },
+      {
+        "value": "Leakage / structural / material concern",
+        "label": "Leakage / structural / material concern"
+      },
+      {
+        "value": "Unknown",
+        "label": "Unknown"
+      }
+    ]
+  },
+  "arrearsJmbSignal": {
+    "key": "arrearsJmbSignal",
+    "scope": "dealCard",
+    "label": "Arrears / JMB",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "Healthy collection and JMB culture",
+        "label": "Healthy collection and JMB culture"
+      },
+      {
+        "value": "Some arrears but improving",
+        "label": "Some arrears but improving"
+      },
+      {
+        "value": "High arrears / dispute / lawsuit",
+        "label": "High arrears / dispute / lawsuit"
+      },
+      {
+        "value": "Unknown",
+        "label": "Unknown"
+      }
+    ]
+  },
+  "siteManagementNotes": {
+    "key": "siteManagementNotes",
+    "scope": "dealCard",
+    "label": "Site / Management Notes",
+    "type": "input",
+    "placeholder": "Management response, arrears, JMB culture, defects, resident behaviour, daily friction...",
+    "inputMode": "text",
+    "options": []
+  },
+  "legalCheck": {
+    "key": "legalCheck",
+    "scope": "dealCard",
+    "label": "Title / Legal Check",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "Clear",
+        "label": "Clear"
+      },
+      {
+        "value": "Pending",
+        "label": "Pending"
+      },
+      {
+        "value": "Issue found",
+        "label": "Issue found"
+      }
+    ]
+  },
+  "legalTitleType": {
+    "key": "legalTitleType",
+    "scope": "dealCard",
+    "label": "Title Type",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "Residential title / HDA serviced residence",
+        "label": "Residential title / HDA serviced residence"
+      },
+      {
+        "value": "Commercial title with residential use clarified",
+        "label": "Commercial title with residential use clarified"
+      },
+      {
+        "value": "Fully office-commercial title",
+        "label": "Fully office-commercial title"
+      },
+      {
+        "value": "Unknown",
+        "label": "Unknown"
+      }
+    ]
+  },
+  "titleTransferStatus": {
+    "key": "titleTransferStatus",
+    "scope": "dealCard",
+    "label": "Transfer Path",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "Issued title / transfer path clear",
+        "label": "Issued title / transfer path clear"
+      },
+      {
+        "value": "Master title but developer solvent",
+        "label": "Master title but developer solvent"
+      },
+      {
+        "value": "Perfection / transfer timeline pending",
+        "label": "Perfection / transfer timeline pending"
+      },
+      {
+        "value": "Transfer blocked / developer issue",
+        "label": "Transfer blocked / developer issue"
+      },
+      {
+        "value": "Unknown",
+        "label": "Unknown"
+      }
+    ]
+  },
+  "caveatRestrictionStatus": {
+    "key": "caveatRestrictionStatus",
+    "scope": "dealCard",
+    "label": "Caveat / Restriction",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "No caveat or blocking restriction",
+        "label": "No caveat or blocking restriction"
+      },
+      {
+        "value": "State consent / affordable restriction understood",
+        "label": "State consent / affordable restriction understood"
+      },
+      {
+        "value": "Caveat / Malay reserve / Bumi lot / blocking restriction",
+        "label": "Caveat / Malay reserve / Bumi lot / blocking restriction"
+      },
+      {
+        "value": "Unknown",
+        "label": "Unknown"
+      }
+    ]
+  },
+  "sellerAuthorityStatus": {
+    "key": "sellerAuthorityStatus",
+    "scope": "dealCard",
+    "label": "Seller Authority",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "Seller authority and documents verified",
+        "label": "Seller authority and documents verified"
+      },
+      {
+        "value": "Agent supplied partial documents",
+        "label": "Agent supplied partial documents"
+      },
+      {
+        "value": "Seller refuses documents / authority unclear",
+        "label": "Seller refuses documents / authority unclear"
+      },
+      {
+        "value": "Unknown",
+        "label": "Unknown"
+      }
+    ]
+  },
+  "arrearsUtilitiesStatus": {
+    "key": "arrearsUtilitiesStatus",
+    "scope": "dealCard",
+    "label": "Arrears / Utilities",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "Maintenance, quit rent, assessment, utilities clear",
+        "label": "Maintenance, quit rent, assessment, utilities clear"
+      },
+      {
+        "value": "Outstanding amount known and settled on completion",
+        "label": "Outstanding amount known and settled on completion"
+      },
+      {
+        "value": "Unknown or disputed arrears",
+        "label": "Unknown or disputed arrears"
+      },
+      {
+        "value": "Unknown",
+        "label": "Unknown"
+      }
+    ]
+  },
+  "stakeholderFlowStatus": {
+    "key": "stakeholderFlowStatus",
+    "scope": "dealCard",
+    "label": "Stakeholder Flow",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "All payments through lawyer stakeholder / bank channels",
+        "label": "All payments through lawyer stakeholder / bank channels"
+      },
+      {
+        "value": "Payment flow to be confirmed by lawyer",
+        "label": "Payment flow to be confirmed by lawyer"
+      },
+      {
+        "value": "Direct payment / side agreement requested",
+        "label": "Direct payment / side agreement requested"
+      },
+      {
+        "value": "Unknown",
+        "label": "Unknown"
+      }
+    ]
+  },
+  "lawyerCoordinationStatus": {
+    "key": "lawyerCoordinationStatus",
+    "scope": "dealCard",
+    "label": "Lawyer Coordination",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "Lawyer reviewed / responsive with milestones",
+        "label": "Lawyer reviewed / responsive with milestones"
+      },
+      {
+        "value": "Pending but responsive",
+        "label": "Pending but responsive"
+      },
+      {
+        "value": "No lawyer / late reply / no progress report",
+        "label": "No lawyer / late reply / no progress report"
+      },
+      {
+        "value": "Unknown",
+        "label": "Unknown"
+      }
+    ]
+  },
+  "legalTransactionNotes": {
+    "key": "legalTransactionNotes",
+    "scope": "dealCard",
+    "label": "Legal Transaction Notes",
+    "type": "input",
+    "placeholder": "Land search, title, caveat, consent, seller authority, arrears, stakeholder flow, lawyer progress...",
+    "inputMode": "text",
+    "options": []
+  },
+  "dealSource": {
+    "key": "dealSource",
+    "scope": "dealCard",
+    "label": "Deal Source",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "Auction page",
+        "label": "Auction page"
+      },
+      {
+        "value": "Agency in-house app",
+        "label": "Agency in-house app"
+      },
+      {
+        "value": "Agent referral",
+        "label": "Agent referral"
+      },
+      {
+        "value": "Owner direct",
+        "label": "Owner direct"
+      },
+      {
+        "value": "Banker contact",
+        "label": "Banker contact"
+      },
+      {
+        "value": "Developer unit",
+        "label": "Developer unit"
+      },
+      {
+        "value": "Property portal",
+        "label": "Property portal"
+      },
+      {
+        "value": "Social media",
+        "label": "Social media"
+      }
+    ]
+  },
+  "agentBehavior": {
+    "key": "agentBehavior",
+    "scope": "dealCard",
+    "label": "Agent Behaviour",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "One-time genuine approach",
+        "label": "One-time genuine approach"
+      },
+      {
+        "value": "First-hand access",
+        "label": "First-hand access"
+      },
+      {
+        "value": "Repeated follow-up",
+        "label": "Repeated follow-up"
+      },
+      {
+        "value": "Hard sell",
+        "label": "Hard sell"
+      },
+      {
+        "value": "Unknown",
+        "label": "Unknown"
+      }
+    ]
+  },
+  "sellerMotivation": {
+    "key": "sellerMotivation",
+    "scope": "dealCard",
+    "label": "Seller Motivation",
+    "type": "input",
+    "placeholder": "Urgent cash need, open to negotiation, testing price...",
+    "inputMode": "text",
+    "options": []
+  },
+  "professionalConcern": {
+    "key": "professionalConcern",
+    "scope": "dealCard",
+    "label": "Professional Concern",
+    "type": "input",
+    "placeholder": "Agent, banker, lawyer, coordination, fee, delay concern...",
+    "inputMode": "text",
+    "options": []
+  },
+  "siteVisitNotes": {
+    "key": "siteVisitNotes",
+    "scope": "dealCard",
+    "label": "Site Visit Notes",
+    "type": "input",
+    "placeholder": "Lobby, guardhouse, lift, car park, corridor, residents, vibe...",
+    "inputMode": "text",
+    "options": []
+  },
+  "inspectionConcern": {
+    "key": "inspectionConcern",
+    "scope": "dealCard",
+    "label": "Inspection Concern",
+    "type": "input",
+    "placeholder": "Leak, lift wait, refuse room, noise, security, short-stay traffic...",
+    "inputMode": "text",
+    "options": []
+  },
+  "targetTenant": {
+    "key": "targetTenant",
+    "scope": "dealCard",
+    "label": "Target Tenant",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "All / depends on property",
+        "label": "All / depends on property"
+      },
+      {
+        "value": "University students",
+        "label": "University students"
+      },
+      {
+        "value": "Working professionals",
+        "label": "Working professionals"
+      },
+      {
+        "value": "Young couples",
+        "label": "Young couples"
+      },
+      {
+        "value": "Small families",
+        "label": "Small families"
+      },
+      {
+        "value": "Expats",
+        "label": "Expats"
+      },
+      {
+        "value": "Factory workers",
+        "label": "Factory workers"
+      },
+      {
+        "value": "Unknown",
+        "label": "Unknown"
+      }
+    ]
+  },
+  "furnishingStrategy": {
+    "key": "furnishingStrategy",
+    "scope": "dealCard",
+    "label": "Furnishing Strategy",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "Fully furnished",
+        "label": "Fully furnished"
+      },
+      {
+        "value": "Partially furnished",
+        "label": "Partially furnished"
+      },
+      {
+        "value": "Bare unit",
+        "label": "Bare unit"
+      },
+      {
+        "value": "Minimal durable package",
+        "label": "Minimal durable package"
+      }
+    ]
+  },
+  "tenantScreening": {
+    "key": "tenantScreening",
+    "scope": "dealCard",
+    "label": "Tenant Screening",
+    "type": "input",
+    "placeholder": "Work/study proof, identity, occupant count, payment behaviour...",
+    "inputMode": "text",
+    "options": []
+  },
+  "exitStrategyPlan": {
+    "key": "exitStrategyPlan",
+    "scope": "dealCard",
+    "label": "Exit Strategy",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "Sell vacant after renovation",
+        "label": "Sell vacant after renovation"
+      },
+      {
+        "value": "Sell tenanted to investor",
+        "label": "Sell tenanted to investor"
+      },
+      {
+        "value": "Hold for cash flow",
+        "label": "Hold for cash flow"
+      },
+      {
+        "value": "Refinance then hold",
+        "label": "Refinance then hold"
+      },
+      {
+        "value": "Undecided",
+        "label": "Undecided"
+      }
+    ]
+  },
+  "resalePreparation": {
+    "key": "resalePreparation",
+    "scope": "dealCard",
+    "label": "Resale Preparation",
+    "type": "input",
+    "placeholder": "Bank value, staging, renovation, viewing condition, buyer objections...",
+    "inputMode": "text",
+    "options": []
+  },
+  "nearbySupply": {
+    "key": "nearbySupply",
+    "scope": "dealCard",
+    "label": "Nearby Supply",
+    "type": "input",
+    "placeholder": "Newer similar projects within 2.5km?",
+    "inputMode": "text",
+    "options": []
+  },
+  "investmentThesis": {
+    "key": "investmentThesis",
+    "scope": "dealCard",
+    "label": "Investment Thesis",
+    "type": "input",
+    "placeholder": "Why should this property work?",
+    "inputMode": "text",
+    "options": []
+  },
+  "mainConcern": {
+    "key": "mainConcern",
+    "scope": "dealCard",
+    "label": "Main Concern",
+    "type": "input",
+    "placeholder": "What worries you most about this deal?",
+    "inputMode": "text",
+    "options": []
+  },
+  "killCriterion": {
+    "key": "killCriterion",
+    "scope": "dealCard",
+    "label": "Kill Criterion",
+    "type": "input",
+    "placeholder": "What discovery would make you walk away?",
+    "inputMode": "text",
+    "options": []
+  },
+  "monthlyIncome": {
+    "key": "monthlyIncome",
+    "scope": "financialProfile",
+    "label": "Monthly Income",
+    "type": "input",
+    "placeholder": "RM8,000",
+    "inputMode": "decimal",
+    "options": []
+  },
+  "cashReserveMonths": {
+    "key": "cashReserveMonths",
+    "scope": "financialProfile",
+    "label": "Cash Reserve",
+    "type": "input",
+    "placeholder": "Months of expenses/salary",
+    "inputMode": "decimal",
+    "options": []
+  },
+  "cashAvailable": {
+    "key": "cashAvailable",
+    "scope": "financialProfile",
+    "label": "Cash Available",
+    "type": "input",
+    "placeholder": "RM80k",
+    "inputMode": "decimal",
+    "options": []
+  },
+  "currentDebt": {
+    "key": "currentDebt",
+    "scope": "financialProfile",
+    "label": "Current Debt",
+    "type": "input",
+    "placeholder": "RM1,500/month",
+    "inputMode": "decimal",
+    "options": []
+  },
+  "riskStyle": {
+    "key": "riskStyle",
+    "scope": "financialProfile",
+    "label": "Risk Style",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "Conservative",
+        "label": "Conservative"
+      },
+      {
+        "value": "Balanced",
+        "label": "Balanced"
+      },
+      {
+        "value": "Aggressive",
+        "label": "Aggressive"
+      }
+    ]
+  },
+  "investmentGoal": {
+    "key": "investmentGoal",
+    "scope": "financialProfile",
+    "label": "Investment Goal",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "Cash flow",
+        "label": "Cash flow"
+      },
+      {
+        "value": "Capital appreciation",
+        "label": "Capital appreciation"
+      },
+      {
+        "value": "Balanced rental and resale",
+        "label": "Balanced rental and resale"
+      },
+      {
+        "value": "Refinancing or cash-out",
+        "label": "Refinancing or cash-out"
+      }
+    ]
+  },
+  "holdingPeriod": {
+    "key": "holdingPeriod",
+    "scope": "financialProfile",
+    "label": "Holding Period",
+    "type": "input",
+    "placeholder": "Years",
+    "inputMode": "decimal",
+    "options": []
+  },
+  "existingProperties": {
+    "key": "existingProperties",
+    "scope": "financialProfile",
+    "label": "Existing Properties",
+    "type": "input",
+    "placeholder": "Number owned",
+    "inputMode": "numeric",
+    "options": []
+  },
+  "portfolioRole": {
+    "key": "portfolioRole",
+    "scope": "financialProfile",
+    "label": "Portfolio Role",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "First investment asset",
+        "label": "First investment asset"
+      },
+      {
+        "value": "Cash-flow base",
+        "label": "Cash-flow base"
+      },
+      {
+        "value": "Appreciation play",
+        "label": "Appreciation play"
+      },
+      {
+        "value": "Own-stay property",
+        "label": "Own-stay property"
+      },
+      {
+        "value": "Refinancing capital",
+        "label": "Refinancing capital"
+      }
+    ]
+  },
+  "existingPortfolioHealth": {
+    "key": "existingPortfolioHealth",
+    "scope": "financialProfile",
+    "label": "Existing Portfolio Health",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "No existing investment property",
+        "label": "No existing investment property"
+      },
+      {
+        "value": "Stable rent and costs",
+        "label": "Stable rent and costs"
+      },
+      {
+        "value": "Weak rent or vacancy",
+        "label": "Weak rent or vacancy"
+      },
+      {
+        "value": "Not reviewed",
+        "label": "Not reviewed"
+      }
+    ]
+  },
+  "concentrationRisk": {
+    "key": "concentrationRisk",
+    "scope": "financialProfile",
+    "label": "Concentration Risk",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "Low",
+        "label": "Low"
+      },
+      {
+        "value": "Same area or township",
+        "label": "Same area or township"
+      },
+      {
+        "value": "Same property type",
+        "label": "Same property type"
+      },
+      {
+        "value": "Same tenant pool",
+        "label": "Same tenant pool"
+      },
+      {
+        "value": "Unclear",
+        "label": "Unclear"
+      }
+    ]
+  },
+  "nextPurchaseReason": {
+    "key": "nextPurchaseReason",
+    "scope": "financialProfile",
+    "label": "Next Purchase Reason",
+    "type": "input",
+    "placeholder": "Why add this property now?",
+    "inputMode": "text",
+    "options": []
+  },
+  "nearTermCommitment": {
+    "key": "nearTermCommitment",
+    "scope": "financialProfile",
+    "label": "Near-Term Commitment",
+    "type": "input",
+    "placeholder": "Any major capital need in the next 2 years?",
+    "inputMode": "text",
+    "options": []
+  },
+  "financialConcern": {
+    "key": "financialConcern",
+    "scope": "financialProfile",
+    "label": "Financial Concern",
+    "type": "input",
+    "placeholder": "What financial risk worries you most?",
+    "inputMode": "text",
+    "options": []
+  },
+  "experienceLevel": {
+    "key": "experienceLevel",
+    "scope": "financialProfile",
+    "label": "Experience Level",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "Beginner",
+        "label": "Beginner"
+      },
+      {
+        "value": "Intermediate",
+        "label": "Intermediate"
+      },
+      {
+        "value": "Seasoned investor",
+        "label": "Seasoned investor"
+      },
+      {
+        "value": "Professional",
+        "label": "Professional"
+      }
+    ]
+  },
+  "guidanceMode": {
+    "key": "guidanceMode",
+    "scope": "financialProfile",
+    "label": "Guidance Mode",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "Guided",
+        "label": "Guided"
+      },
+      {
+        "value": "Balanced",
+        "label": "Balanced"
+      },
+      {
+        "value": "Concise",
+        "label": "Concise"
+      },
+      {
+        "value": "Professional",
+        "label": "Professional"
+      }
+    ]
+  },
+  "decisionIntent": {
+    "key": "decisionIntent",
+    "scope": "financialProfile",
+    "label": "Decision Intent",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "Learn the framework",
+        "label": "Learn the framework"
+      },
+      {
+        "value": "Screen a deal",
+        "label": "Screen a deal"
+      },
+      {
+        "value": "Prepare an offer",
+        "label": "Prepare an offer"
+      },
+      {
+        "value": "Compare deals",
+        "label": "Compare deals"
+      },
+      {
+        "value": "Portfolio review",
+        "label": "Portfolio review"
+      }
+    ]
+  },
+  "preferredOutput": {
+    "key": "preferredOutput",
+    "scope": "financialProfile",
+    "label": "Preferred Output",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "Short answer",
+        "label": "Short answer"
+      },
+      {
+        "value": "Full report",
+        "label": "Full report"
+      },
+      {
+        "value": "Checklist",
+        "label": "Checklist"
+      },
+      {
+        "value": "Voice summary",
+        "label": "Voice summary"
+      }
+    ]
+  },
+  "confidenceComfort": {
+    "key": "confidenceComfort",
+    "scope": "financialProfile",
+    "label": "Confidence Comfort",
+    "type": "select",
+    "placeholder": "",
+    "inputMode": "text",
+    "options": [
+      {
+        "value": "Conservative",
+        "label": "Conservative"
+      },
+      {
+        "value": "Normal",
+        "label": "Normal"
+      },
+      {
+        "value": "Comfortable with uncertainty",
+        "label": "Comfortable with uncertainty"
+      }
+    ]
+  },
+  "onboardingNotes": {
+    "key": "onboardingNotes",
+    "scope": "financialProfile",
+    "label": "Guidance Notes",
+    "type": "input",
+    "placeholder": "Tell Apex how direct, detailed, or beginner-friendly to be.",
+    "inputMode": "text",
+    "options": []
+  }
+}

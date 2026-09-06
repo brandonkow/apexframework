@@ -1,0 +1,6 @@
+# Preserve the founder documents exactly, including their original line endings.
+docs/*.md -text
+*.glb binary
+*.blend binary
+*.png binary
+public/journey/app.js -whitespace linguist-generated=true

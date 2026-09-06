@@ -6,6 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { completeCandidate } from "./fixtures/journey-candidate.js";
 
 const repoDir = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const OWNER_TOKEN = "security-test-owner-token-1234567890";
@@ -96,6 +97,29 @@ test("security hardening and Malaysian deal-cost engine", async (t) => {
     assert.ok(!body.includes("ESTATELAB_OWNER_TOKEN"), "server source must not leak");
     const malformed = await fetch(`${baseUrl}/%zz`);
     assert.ok([400, 404].includes(malformed.status));
+  });
+
+  await t.test("journey serves its Blender assets and preserves the existing workspace", async () => {
+    assert.match(await (await fetch(`${baseUrl}/`)).text(), /id="worldCanvas"/);
+    assert.match(await (await fetch(`${baseUrl}/index.html`)).text(), /id="chatInput"/);
+    const model = await fetch(`${baseUrl}/journey/assets/apex-world.glb`);
+    assert.equal(model.status, 200);
+    assert.match(model.headers.get("content-type"), /model\/gltf-binary/);
+    const bytes = Buffer.from(await model.arrayBuffer());
+    assert.equal(bytes.subarray(0, 4).toString(), "glTF");
+  });
+
+  await t.test("journey API validates inputs and computes qualification server-side", async () => {
+    const valid = await post(baseUrl, "/api/journey/evaluate", { candidate: completeCandidate() });
+    assert.equal(valid.response.status, 200);
+    assert.equal(valid.payload.completed, 7);
+    assert.equal(valid.payload.qualified, true);
+    const forged = await post(baseUrl, "/api/journey/evaluate", { candidate: { completed: 7, qualified: true } });
+    assert.equal(forged.payload.completed, 0);
+    assert.equal(forged.payload.qualified, false);
+    const invalid = await post(baseUrl, "/api/journey/evaluate", { candidate: { dealCard: { askingPrice: -100 } } });
+    assert.equal(invalid.response.status, 400);
+    assert.match(invalid.payload.error, /non-negative/);
   });
 
   await t.test("owner APIs refuse missing and wrong tokens", async () => {

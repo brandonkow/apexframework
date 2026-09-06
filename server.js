@@ -20,6 +20,7 @@ import { calculateResidentialDcf } from "./dcf-engine.js";
 import { generateResidentialDcfWorkbook } from "./dcf-workbook.js";
 import { loadLocalEnvironment } from "./environment.js";
 import { formatStructuredAnswer, parseStructuredAnswer, STRUCTURED_ANSWER_SCHEMA } from "./structured-response.js";
+import { evaluateJourney } from "./journey-engine.js";
 
 loadLocalEnvironment();
 
@@ -302,7 +303,9 @@ const mimeTypes = {
   ".css": "text/css; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
   ".json": "application/json; charset=utf-8",
-  ".svg": "image/svg+xml"
+  ".svg": "image/svg+xml",
+  ".png": "image/png",
+  ".glb": "model/gltf-binary"
 };
 
 async function readJson(file, fallback) {
@@ -10134,6 +10137,7 @@ function isPublicApiRoute(method, pathname) {
     || (method === "PATCH" && pathname === "/api/memory/settings")
     || (["PATCH", "DELETE"].includes(method) && pathname.startsWith("/api/memory/"))
     || (method === "POST" && pathname === "/api/tools/deal-costs")
+    || (method === "POST" && pathname === "/api/journey/evaluate")
     || (method === "POST" && pathname === "/api/tools/affordability")
     || (method === "POST" && pathname === "/api/tools/residential-dcf")
     || (method === "POST" && pathname === "/api/tools/residential-dcf/workbook")
@@ -10168,7 +10172,7 @@ async function serveStatic(req, res) {
     return send(res, 400, "Bad request", { "Content-Type": "text/plain" });
   }
   if (rawPath.includes("\0")) return send(res, 400, "Bad request", { "Content-Type": "text/plain" });
-  const safePath = rawPath === "/" ? "/index.html" : rawPath;
+  const safePath = rawPath === "/" ? "/journey.html" : rawPath;
   const filePath = path.normalize(path.join(PUBLIC_DIR, safePath));
   if (filePath !== PUBLIC_DIR && !filePath.startsWith(PUBLIC_DIR + path.sep)) {
     return send(res, 403, "Forbidden", { "Content-Type": "text/plain" });
@@ -10233,6 +10237,18 @@ async function router(req, res) {
     } catch (error) {
       console.error("Apex Analytic health check failed", error);
       return send(res, 503, { status: "unavailable", app: "apex-analytic" });
+    }
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/journey/evaluate") {
+    if (!allowRequest(req, "journey", 90, 10 * 60 * 1000)) {
+      return send(res, 429, { error: "Pause briefly before checking this journey again." }, { ...jsonHeaders, "Retry-After": "600" });
+    }
+    const body = await readBody(req);
+    try {
+      return send(res, 200, evaluateJourney(body.candidate, analyzeSevenStageDeal));
+    } catch (error) {
+      return send(res, 400, { error: error.message });
     }
   }
 

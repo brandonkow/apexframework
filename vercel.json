@@ -1,8 +1,25 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
+  "buildCommand": "npm run build:journey",
+  "outputDirectory": "public",
   "regions": ["sin1"],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self' blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" }
+      ]
+    }
+  ],
   "rewrites": [
+    {
+      "source": "/",
+      "destination": "/journey.html"
+    },
     {
       "source": "/api/:__apex_path*",
       "destination": "/api/router?__apex_path=:__apex_path*"
@@ -11,7 +28,7 @@
   "functions": {
     "api/router.js": {
       "maxDuration": 60,
-      "includeFiles": "{data/**,rag/**,package.json}"
+      "includeFiles": "{data/**,rag/**,package.json,public/journey/fields.json,public/journey/levels.js}"
     }
   }
 }
