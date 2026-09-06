@@ -9,6 +9,13 @@ const fields = JSON.parse(readFileSync(new URL("../public/journey/fields.json", 
 
 import { completeCandidate } from "./fixtures/journey-candidate.js";
 
+test("Vercel routes the homepage ahead of its existing static index", () => {
+  const config = JSON.parse(readFileSync(new URL("../vercel.json", import.meta.url), "utf8"));
+  assert.deepEqual(config.redirects.find(route => route.source === "/"), { source: "/", destination: "/journey.html", permanent: false });
+  assert.equal(config.outputDirectory, "public");
+  assert.match(config.functions["api/router.js"].includeFiles, /public\/journey\/fields\.json/);
+});
+
 test("every existing input appears exactly once in the journey or preference roles", () => {
   const keys = [...LEVELS.flatMap(level => level.checkpoints.flatMap(point => point.fields)), ...PREFERENCE_FIELDS];
   assert.equal(new Set(keys).size, keys.length);

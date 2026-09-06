@@ -18,7 +18,7 @@ Replace the default Vercel landing experience with a Blender-authored, animated 
 
 ## Architecture
 
-The browser renders exported Blender geometry using a locally bundled Three.js runtime. Scene authoring is offline; Vercel does not need Blender. Vercel builds the browser bundle and serves `public` with an explicit homepage rewrite to `journey.html`. Its API function includes the checkpoint field schema. `/index.html` remains the account, owner, research, DCF, and report workspace. The Node server uses the same homepage for local testing.
+The browser renders exported Blender geometry using a locally bundled Three.js runtime. Scene authoring is offline; Vercel does not need Blender. Vercel builds the browser bundle and serves `public` with an explicit homepage redirect to `journey.html`. A redirect is intentional: Vercel's existing static index took precedence over a homepage rewrite in the production check. Its API function includes the checkpoint field schema. `/index.html` remains the account, owner, research, DCF, and report workspace. The Node server serves the journey directly at `/` for local testing.
 
 Checkpoint controls are mechanically derived from the existing application HTML by `scripts/build-journey-fields.py`. Level definitions group those controls and cite the corresponding canonical framework documents. The founder's 407 inputs inform these rules; they are not a questionnaire that every retail user must answer again.
 

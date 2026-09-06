@@ -15,11 +15,14 @@
       ]
     }
   ],
-  "rewrites": [
+  "redirects": [
     {
       "source": "/",
-      "destination": "/journey.html"
-    },
+      "destination": "/journey.html",
+      "permanent": false
+    }
+  ],
+  "rewrites": [
     {
       "source": "/api/:__apex_path*",
       "destination": "/api/router?__apex_path=:__apex_path*"
