@@ -44,6 +44,11 @@ try {
   await page.waitForTimeout(500);
   console.log("candidate isolation", await page.locator("#candidateSelect option").count());
   assert.equal(await page.locator("#candidateSelect option").count(), 2);
+  await page.locator('[data-area="desk"]').click();
+  await page.waitForSelector('#workbench[data-ready="true"]');
+  await page.locator('[data-area="journey"]').click();
+  await page.waitForSelector('#worldWrap.world-ready');
+  assert.ok(await page.locator('#worldCanvas').evaluate(node => node.width > 0 && node.height > 0));
   await page.close();
   const mobile = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, isMobile: true, hasTouch: true, reducedMotion: "reduce" });
   mobile.on("pageerror", error => { errors.push(error.message); console.log("mobile error", error.message); });
@@ -55,7 +60,7 @@ try {
   console.log("mobile", await mobile.evaluate(() => ({ overflow: document.documentElement.scrollWidth > innerWidth, width: innerWidth, canvas: document.querySelector("#worldCanvas").clientWidth })));
   assert.equal(await mobile.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
   assert.equal(await mobile.locator("#motionToggle").getAttribute("aria-pressed"), "true");
-  assert.equal(await mobile.locator("#workspaceLink").isVisible(), true);
+  assert.equal(await mobile.locator('[data-area="desk"]').isVisible(), true);
   await mobile.locator("#mapToggle").tap();
   assert.equal(await mobile.locator("body").evaluate(node => node.classList.contains("flat-view")), true);
   await mobile.locator("#mapToggle").tap();

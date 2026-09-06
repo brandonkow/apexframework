@@ -10172,7 +10172,7 @@ async function serveStatic(req, res) {
     return send(res, 400, "Bad request", { "Content-Type": "text/plain" });
   }
   if (rawPath.includes("\0")) return send(res, 400, "Bad request", { "Content-Type": "text/plain" });
-  const safePath = rawPath === "/" ? "/journey.html" : rawPath;
+  const safePath = rawPath === "/" || rawPath === "/journey.html" ? "/index.html" : rawPath;
   const filePath = path.normalize(path.join(PUBLIC_DIR, safePath));
   if (filePath !== PUBLIC_DIR && !filePath.startsWith(PUBLIC_DIR + path.sep)) {
     return send(res, 403, "Forbidden", { "Content-Type": "text/plain" });

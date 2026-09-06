@@ -17,8 +17,8 @@
   ],
   "redirects": [
     {
-      "source": "/",
-      "destination": "/journey.html",
+      "source": "/journey.html",
+      "destination": "/",
       "permanent": false
     }
   ],

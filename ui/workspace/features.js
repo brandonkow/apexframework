@@ -1,3 +1,12 @@
+// Feature behavior is mounted into the unified studio, never a separate legacy page.
+let activeCandidateId = "";
+function publishContext(extra = {}) {
+  if (!activeCandidateId) return;
+  document.dispatchEvent(new CustomEvent("apex:context", { detail: { candidateId: activeCandidateId, dealCard: collectDealCard(), financialProfile: collectFinancialProfile(), dcfContext: collectDcfContext(), ...extra } }));
+}
+function navigateSurface(surface) {
+  document.dispatchEvent(new CustomEvent("apex:surface", { detail: surface }));
+}
 const jarvisOrb = document.querySelector("#jarvisOrb");
 const chatForm = document.querySelector("#chatForm");
 const chatInput = document.querySelector("#chatInput");
@@ -323,6 +332,7 @@ let interactionBusy = false;
 
 function setInteractionBusy(busy) {
   interactionBusy = busy;
+  document.dispatchEvent(new CustomEvent("apex:busy", { detail: interactionBusy }));
   chatInput.disabled = busy;
   sendButton.disabled = busy;
   analyzeDealBtn.disabled = busy;
@@ -350,11 +360,11 @@ const contextCoreFieldKeys = {
 };
 
 function clientId() {
-  const existing = window.localStorage.getItem(clientKey);
-  if (/^[A-Za-z0-9_-]{16,128}$/.test(existing || "")) return existing;
-  const next = crypto.randomUUID();
-  window.localStorage.setItem(clientKey, next);
-  return next;
+  try {
+    const current = JSON.parse(window.localStorage.getItem("apex.journey.client"));
+    if (/^[A-Za-z0-9_-]{16,128}$/.test(current || "")) return current;
+  } catch {}
+  return activeCandidateId || crypto.randomUUID();
 }
 
 function brandVisibleText(value) {
@@ -382,6 +392,7 @@ function setSystemState(state, prompt) {
   }[state] || state;
   systemStatus.innerHTML = `<i></i> ${escapeHtml(compactState).toUpperCase()}`;
   assistantPrompt.textContent = prompt;
+  if (document.querySelector("#conversation").hidden && /Connection issue|Voice interrupted/.test(state)) document.dispatchEvent(new CustomEvent("apex:notice", { detail: prompt }));
 }
 
 function setSessionState(text) {
@@ -625,6 +636,7 @@ function showAuthRecovery(show) {
 
 function renderAuthState(user) {
   authenticatedUser = user || null;
+  document.dispatchEvent(new CustomEvent("apex:auth", { detail: authenticatedUser }));
   const signedIn = Boolean(authenticatedUser);
   const firstName = String(authenticatedUser?.displayName || "GUEST").trim().split(/\s+/)[0];
   accountLabel.textContent = firstName.slice(0, 16).toUpperCase();
@@ -663,6 +675,7 @@ function renderAuthState(user) {
 }
 
 function openAuthPanel() {
+  navigateSurface("account");
   closeMemoryPanel();
   closeReportsPanel();
   closeJournalPanel();
@@ -696,6 +709,7 @@ function closeTrustPanel() {
 }
 
 function openTrustPanel(action = "") {
+  navigateSurface("trust");
   pendingTrustAction = action;
   closeAuthPanel();
   closeMemoryPanel();
@@ -1589,6 +1603,7 @@ function sourcesMarkup(sources = []) {
 }
 
 function contextCoachMarkup(coach = {}) {
+  if (!coach || typeof coach !== "object") return "";
   const prompts = Array.isArray(coach.prompts) ? coach.prompts.slice(0, 4) : [];
   const missing = Array.isArray(coach.missing) ? coach.missing.slice(0, 4) : [];
   if (!prompts.length && !missing.length) return "";
@@ -1717,6 +1732,13 @@ function addMessage(role, text, sources = [], intelligence = {}) {
     ${role === "jarvis" ? contextCoachMarkup(intelligence.contextCoach) : ""}
     ${role === "jarvis" ? responseFeedbackMarkup(messageId) : ""}
   `;
+  const coach = message.querySelector(".contextCoach");
+  if (coach) {
+    const disclosure = document.createElement("details");
+    disclosure.className = "response-detail";
+    disclosure.innerHTML = "<summary>Context and suggested checks</summary>";
+    coach.replaceWith(disclosure); disclosure.append(coach);
+  }
   transcript.append(message);
   if (role === "jarvis") hydrateResponseFeedback(message);
   transcript.scrollTop = transcript.scrollHeight;
@@ -1809,6 +1831,7 @@ function closeMemoryPanel() {
 }
 
 async function openMemoryPanel() {
+  navigateSurface("memory");
   if (!authenticatedUser) return openAuthPanel();
   closeAuthPanel();
   closeReportsPanel();
@@ -1960,6 +1983,8 @@ function reportHistoryItemMarkup(report) {
 }
 
 function renderReportHistory(payload = {}) {
+  document.querySelector("#savedReportView").hidden = true;
+  reportsList.hidden = false;
   const reports = Array.isArray(payload.reports) ? payload.reports : [];
   reportsSavedCount.textContent = String(reports.length);
   reportsList.innerHTML = reports.length
@@ -1975,6 +2000,7 @@ function closeReportsPanel() {
 }
 
 async function openReportsPanel() {
+  navigateSurface("reports");
   if (!authenticatedUser) return openAuthPanel();
   closeAuthPanel();
   closeMemoryPanel();
@@ -2000,7 +2026,8 @@ async function openReportsPanel() {
 async function handleReportAction(button) {
   const id = button.getAttribute("data-report-id");
   const action = button.getAttribute("data-report-action");
-  if (!id || !action) return;
+  if (!id || !action || interactionBusy) return;
+  setInteractionBusy(true);
   button.disabled = true;
   try {
     if (action === "delete") {
@@ -2009,16 +2036,18 @@ async function handleReportAction(button) {
       return;
     }
     const result = await requestJson(`/api/reports/${encodeURIComponent(id)}`);
-    closeReportsPanel();
-    transcript.innerHTML = "";
+    const reader = document.querySelector("#savedReportView");
+    reportsList.hidden = true;
+    reader.hidden = false;
+    reader.innerHTML = '<button type="button" data-report-back>Back to saved reports</button>';
     result.report.analysis.savedReportId = result.report.id;
-    addDealAnalysis(result.report.analysis);
+    addDealAnalysis(result.report.analysis, [], {}, reader);
     renderBillingStatus(result.billing);
     setSystemState("System ready", `${result.report.subject} report loaded.`);
   } catch (error) {
     setSystemState("Connection issue", error.message || "The saved report is unavailable.");
     button.disabled = false;
-  }
+  } finally { button.disabled = false; setInteractionBusy(false); }
 }
 
 function journalItemMarkup(item) {
@@ -2059,6 +2088,7 @@ async function loadJournalCollection() {
 }
 
 async function openJournalPanel(decisionId = "") {
+  navigateSurface("journal");
   if (!authenticatedUser) return openAuthPanel();
   closeAuthPanel();
   closeMemoryPanel();
@@ -2248,19 +2278,23 @@ async function createJournalDecision(analysis) {
 
 function readShortlist() {
   try {
-    const items = JSON.parse(window.localStorage.getItem(shortlistKey) || "[]");
+    const items = JSON.parse(window.localStorage.getItem(scopedShortlistKey()) || "[]");
     return Array.isArray(items) ? items.slice(0, 4) : [];
   } catch {
-    window.localStorage.removeItem(shortlistKey);
+    window.localStorage.removeItem(scopedShortlistKey());
     return [];
   }
 }
 
 function writeShortlist(items) {
   const next = items.slice(0, 4);
-  window.localStorage.setItem(shortlistKey, JSON.stringify(next));
+  window.localStorage.setItem(scopedShortlistKey(), JSON.stringify(next));
   shortlistToggle.textContent = next.length ? `SHORTLIST ${next.length}` : "SHORTLIST";
   return next;
+}
+
+function scopedShortlistKey() {
+  return authenticatedUser ? `${shortlistKey}:${authenticatedUser.id}` : shortlistKey;
 }
 
 function analysisSubject(analysis) {
@@ -2357,6 +2391,7 @@ function closeShortlistPanel() {
 }
 
 function openShortlistPanel() {
+  navigateSurface("shortlist");
   closeAuthPanel();
   closeMemoryPanel();
   closeReportsPanel();
@@ -2472,6 +2507,7 @@ function printAnalysis(message) {
   printTarget = message;
   printTarget.classList.add("printTarget");
   document.body.classList.add("printMode");
+  for (const detail of message.querySelectorAll("details")) { detail.dataset.printWasOpen = String(detail.open); detail.open = true; }
   window.print();
 }
 
@@ -2831,6 +2867,7 @@ async function copyAnalysisReport(button, analysis) {
 }
 
 function finishPrinting() {
+  for (const detail of printTarget?.querySelectorAll("details[data-print-was-open]") || []) { detail.open = detail.dataset.printWasOpen === "true"; delete detail.dataset.printWasOpen; }
   printTarget?.classList.remove("printTarget");
   printTarget = null;
   document.body.classList.remove("printMode");
@@ -4168,6 +4205,7 @@ function closeOwnerIntelligencePanel() {
 }
 
 async function openOwnerIntelligencePanel() {
+  navigateSurface("owner");
   closeAuthPanel();
   closeMemoryPanel();
   closeReportsPanel();
@@ -4191,6 +4229,7 @@ async function openOwnerIntelligencePanel() {
 }
 
 async function openOwnerCasePanel() {
+  navigateSurface("cases");
   closeAuthPanel();
   closeMemoryPanel();
   closeReportsPanel();
@@ -4214,6 +4253,7 @@ async function openOwnerCasePanel() {
 }
 
 async function openOwnerEvidencePanel() {
+  navigateSurface("evidence");
   closeAuthPanel();
   closeMemoryPanel();
   closeReportsPanel();
@@ -4236,6 +4276,7 @@ async function openOwnerEvidencePanel() {
 }
 
 async function openOwnerMarketPanel() {
+  navigateSurface("market");
   closeAuthPanel();
   closeMemoryPanel();
   closeReportsPanel();
@@ -5172,16 +5213,15 @@ function addDcfValuation(result) {
   message.className = "message jarvis dcfValuationMessage";
   message.innerHTML = `${dcfValuationMarkup(result)}<div class="analysisActions"><button type="button">DOWNLOAD DCF WORKBOOK</button></div>`;
   message.querySelector("button")?.addEventListener("click", () => void downloadDcfWorkbook(result));
-  transcript.append(message);
-  transcript.scrollTop = transcript.scrollHeight;
+  document.querySelector("#valuationResult").replaceChildren(message);
 }
 
-function addDealAnalysis(analysis, sources = [], intelligence = {}) {
+function addDealAnalysis(analysis, sources = [], intelligence = {}, target = transcript) {
   document.body.classList.add("conversationActive");
   const message = document.createElement("article");
   const analysisId = crypto.randomUUID();
   analysisRegistry.set(analysisId, analysis);
-  latestAnalysisId = analysisId;
+  if (target === transcript) latestAnalysisId = analysisId;
   message.dataset.analysisId = analysisId;
   const verdictClass = String(analysis.verdict || "investigate").toLowerCase();
   const stageMarkup = (analysis.stages || []).map((stage) => `
@@ -5308,17 +5348,39 @@ function addDealAnalysis(analysis, sources = [], intelligence = {}) {
     </div>
     ${sourcesMarkup(sources)}
   `;
-  transcript.append(message);
-  const messageTop = message.getBoundingClientRect().top - transcript.getBoundingClientRect().top + transcript.scrollTop;
-  transcript.scrollTop = Math.max(0, messageTop - 6);
-  renderDealJourney();
+  organizeAssessment(message);
+  target.append(message);
+  if (target === transcript) {
+    const messageTop = message.getBoundingClientRect().top - transcript.getBoundingClientRect().top + transcript.scrollTop;
+    transcript.scrollTop = Math.max(0, messageTop - 6);
+    renderDealJourney();
+  }
+}
+
+function organizeAssessment(message) {
+  const retain = ".analysisReportTitle,.intelligenceBadge,.analysisHeader,.analysisSummary,.analysisDetails,.analysisCounter,.analysisActions,.analysisMeta,.analysisDimensions";
+  const groups = new Map();
+  for (const node of Array.from(message.children)) {
+    if (node.matches(retain)) continue;
+    const title = /Metrics|Scenario|dcf|Snapshot/i.test(node.className) ? "Numbers and downside" : /Memory|Belief|Personal|Learning|Experience/i.test(node.className) ? "Personal context and learning" : "Evidence and seven-stage checks";
+    if (!groups.has(title)) {
+      const details = document.createElement("details");
+      details.className = "response-detail";
+      details.innerHTML = `<summary>${title}</summary>`;
+      groups.set(title, details);
+    }
+    groups.get(title).append(node);
+  }
+  const anchor = message.querySelector(".analysisActions");
+  for (const group of groups.values()) message.insertBefore(group, anchor);
+  for (const heading of message.querySelectorAll("h3")) heading.textContent = heading.textContent.replace(/^V\d+(?:\.\d+)?\s+/i, "");
 }
 
 function renderSession(session) {
   transcript.innerHTML = "";
   if (!session?.messages?.length) return;
   for (const message of session.messages) {
-    addMessage(message.role, message.content, message.sources || [], message);
+    addMessage(message.role === "assistant" ? "jarvis" : message.role, message.content, message.sources || [], message);
   }
 }
 
@@ -5372,8 +5434,7 @@ function collectDcfContext() {
 
 function saveDcfContext() {
   const context = collectDcfContext();
-  if (Object.keys(context).length) window.localStorage.setItem(dcfContextKey, JSON.stringify(context));
-  else window.localStorage.removeItem(dcfContextKey);
+  publishContext();
 }
 
 function restoreDcfContext() {
@@ -5452,11 +5513,13 @@ function setDcfMessage(message, tone = "") {
 }
 
 async function calculateDcfValuation() {
+  if (interactionBusy) return null;
   const issue = dcfInputIssue();
   if (issue) {
     setDcfMessage(issue, "danger");
     return null;
   }
+  setInteractionBusy(true);
   dcfCalculateBtn.disabled = true;
   dcfCalculateBtn.textContent = "CALCULATING...";
   setDcfMessage("Running income, comparable, debt, and evidence checks...");
@@ -5474,17 +5537,20 @@ async function calculateDcfValuation() {
     setDcfMessage(error.message || "DCF calculation is unavailable.", "danger");
     return null;
   } finally {
+    setInteractionBusy(false);
     dcfCalculateBtn.disabled = false;
     dcfCalculateBtn.textContent = "CALCULATE VALUE";
   }
 }
 
 async function downloadDcfWorkbook(result = null) {
+  if (interactionBusy) return;
   const issue = result ? "" : dcfInputIssue();
   if (issue) {
     setDcfMessage(issue, "danger");
     return;
   }
+  setInteractionBusy(true);
   if (dcfDownloadBtn) {
     dcfDownloadBtn.disabled = true;
     dcfDownloadBtn.textContent = "GENERATING...";
@@ -5514,6 +5580,7 @@ async function downloadDcfWorkbook(result = null) {
   } catch (error) {
     setDcfMessage(error.message || "DCF workbook could not be generated.", "danger");
   } finally {
+    setInteractionBusy(false);
     if (dcfDownloadBtn) {
       dcfDownloadBtn.disabled = false;
       dcfDownloadBtn.textContent = "DOWNLOAD EXCEL";
@@ -5583,62 +5650,8 @@ function journeyStepClass(step) {
 }
 
 function renderDealJourney() {
-  if (!dealJourney) return;
-  const deal = contextPanelReadiness("deal");
-  const profile = contextPanelReadiness("profile");
-  const guidance = contextPanelReadiness("guidance");
-  const analysis = latestAnalysis();
-  const shortlistCount = readShortlist().length;
-  const hasAnalysis = Boolean(analysis);
-  const hasSavedReport = Boolean(analysis?.savedReportId);
-  const guidanceReady = guidance.percent >= 60;
-  const steps = [
-    {
-      label: "Context",
-      status: deal.percent >= 50 && profile.percent >= 34 ? "done" : "active",
-      detail: `${deal.percent}% deal / ${profile.percent}% profile`
-    },
-    {
-      label: "Screen",
-      status: hasAnalysis ? "done" : deal.percent >= 34 ? "active" : "blocked",
-      detail: deal.percent >= 34 ? "quick read ready" : "needs area or price"
-    },
-    {
-      label: "Report",
-      status: hasAnalysis ? "done" : deal.percent >= 50 ? "active" : "pending",
-      detail: hasAnalysis ? `${analysis.verdict || "Analysed"} / ${analysis.averageScore || 0}` : "formal scorecard"
-    },
-    {
-      label: "Decide",
-      status: hasAnalysis && (shortlistCount || hasSavedReport) ? "active" : "pending",
-      detail: shortlistCount ? `${shortlistCount} shortlisted` : hasSavedReport ? "journal ready" : "save or journal"
-    }
-  ];
-  let action = { label: "ADD DEAL", type: "deal", detail: "Start with area/project, price, rent, and concern." };
-  if (deal.percent < 50) action = { label: "ADD DEAL", type: "deal", detail: `Missing ${deal.missing.slice(0, 2).join(", ") || "deal context"}.` };
-  else if (profile.percent < 34) action = { label: "ADD PROFILE", type: "profile", detail: `Missing ${profile.missing.slice(0, 2).join(", ") || "financial profile"}.` };
-  else if (!guidanceReady) action = { label: "SET STYLE", type: "guidance", detail: "Tune how direct, short, or guided Apex should be." };
-  else if (!hasAnalysis && deal.percent < 80) action = { label: "SCREEN", type: "screen", detail: "Do a fast mentor check before full report." };
-  else if (!hasAnalysis) action = { label: "ANALYSE", type: "analyze", detail: "Run the full Apex scorecard." };
-  else if (!shortlistCount) action = { label: "SAVE", type: "save", detail: "Keep this report for comparison." };
-  else if (shortlistCount >= 2) action = { label: "COMPARE", type: "shortlist", detail: "Open the shortlist and compare weak links." };
-  else if (authenticatedUser && hasSavedReport) action = { label: "JOURNAL", type: "journal", detail: "Lock the pre-purchase thesis." };
-  else action = { label: "BRIEF", type: "brief", detail: "Copy the current context and Apex view." };
-
-  dealJourney.innerHTML = `
-    <div class="dealJourneyHeader">
-      <span><small>APEX DEAL JOURNEY</small><b>${escapeHtml(action.detail)}</b></span>
-      <button type="button" data-journey-action="${escapeHtml(action.type)}">${escapeHtml(action.label)}</button>
-    </div>
-    <div class="dealJourneySteps">
-      ${steps.map((step, index) => `
-        <button class="${escapeHtml(journeyStepClass(step))}" type="button" data-journey-action="${escapeHtml(index === 0 ? "deal" : index === 1 ? "screen" : index === 2 ? "analyze" : "shortlist")}">
-          <i>${escapeHtml(String(index + 1))}</i>
-          <span><b>${escapeHtml(step.label)}</b><small>${escapeHtml(step.detail)}</small></span>
-        </button>
-      `).join("")}
-    </div>
-  `;
+  const deal = collectDealCard();
+  dealJourney.innerHTML = '<span>Current investigation</span><b>' + escapeHtml(deal.projectName || deal.area || 'Your next property') + '</b><small>' + escapeHtml([deal.askingPrice, deal.expectedRent ? deal.expectedRent + ' rent' : ''].filter(Boolean).join(' / ') || 'Add a property or explore a question first.') + '</small>';
 }
 
 function focusFirstMissingContextField(panelName) {
@@ -5856,7 +5869,7 @@ async function runDealScreening() {
 
 function saveContext(fields, attributeName, storageKey) {
   const context = collectContext(fields, attributeName);
-  window.localStorage.setItem(storageKey, JSON.stringify(context));
+  publishContext();
   renderDealJourney();
   refreshContextGuides();
 }
@@ -5888,6 +5901,7 @@ function resetContextCard(panelName) {
   } else {
     window.localStorage.removeItem(storageKey);
   }
+  publishContext();
   const label = panelName === "guidance" ? "Guidance" : isDeal ? "Deal" : "Profile";
   renderDealJourney();
   refreshContextGuides();
@@ -5910,6 +5924,7 @@ function setContextPanelState(toggle, expanded, persist = true) {
   if (!body) return;
 
   if (expanded) {
+    navigateSurface(panelName);
     for (const otherToggle of contextToggles) {
       if (otherToggle === toggle) continue;
       setContextPanelState(otherToggle, false, false);
@@ -6061,6 +6076,7 @@ async function startServerListening() {
     return;
   }
   try {
+    listening = true;
     mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
     recordedAudio = [];
     const preferredType = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"]
@@ -6076,6 +6092,7 @@ async function startServerListening() {
       const audio = new Blob(recordedAudio, { type: mediaRecorder.mimeType || "audio/webm" });
       if (!audio.size) return setSystemState("Voice interrupted", "No recording was captured.");
       setSystemState("Analyzing", "Transcribing your message.");
+      setInteractionBusy(true);
       try {
         const result = await requestJson("/api/jarvis/transcribe", {
           method: "POST",
@@ -6086,16 +6103,18 @@ async function startServerListening() {
           })
         });
         chatInput.value = result.text;
+        setInteractionBusy(false);
         await submitQuestion(result.text);
       } catch (error) {
         setSystemState("Voice interrupted", error.message || "Voice transcription failed.");
-      }
+      } finally { setInteractionBusy(false); }
     };
     mediaRecorder.start();
     listening = true;
     jarvisOrb.classList.add("listening");
     setSystemState("Listening", "Speak naturally. Tap again when finished.");
   } catch {
+    listening = false;
     setSystemState("Voice interrupted", "Microphone access was not available.");
   }
 }
@@ -6118,7 +6137,9 @@ async function requestJson(url, options = {}) {
     throw error;
   }
   if (response.status === 204) return null;
-  return response.json();
+  const payload = await response.json();
+  if (payload.session) publishContext({ sessionId: payload.session.id, messages: payload.session.messages || [], ...(payload.analysis ? { report: { analysis: { ...payload.analysis, savedReportId: payload.savedReport?.id }, sources: payload.sources || [], mode: payload.mode, messageId: payload.message?.id } } : {}) });
+  return payload;
 }
 
 async function loadAuthState() {
@@ -6144,7 +6165,6 @@ async function submitAuth() {
     });
     renderAuthState(result.user);
     authPassword.value = "";
-    await ensureSession();
     setSystemState("System ready", result.verificationPending ? "Account ready. Verify your email when convenient." : `Welcome back, ${result.user.displayName}.`);
   } catch (error) {
     authMessage.textContent = error.message || "Account access is unavailable.";
@@ -6255,6 +6275,7 @@ function closeSessionPanel() {
 }
 
 async function openSessionPanel() {
+  navigateSurface("history");
   closeAuthPanel();
   closeMemoryPanel();
   closeReportsPanel();
@@ -6286,6 +6307,7 @@ async function handleSessionAction(button) {
     if (action === "open") {
       await loadSession(id);
       closeSessionPanel();
+      navigateSurface("chat");
       setSystemState("System ready", "Conversation restored.");
       return;
     }
@@ -6315,12 +6337,11 @@ async function logout() {
     closeOwnerEvidencePanel();
     closeSessionPanel();
     await requestJson("/api/auth/logout", { method: "POST", body: "{}" });
-    renderAuthState(null);
-    setAuthMode("login");
     window.localStorage.removeItem(sessionKey);
     sessionId = null;
-    await createSession();
-    setSystemState("System ready", "Signed out. Guest session ready.");
+    renderAuthState(null);
+    setAuthMode("login");
+    setSystemState("System ready", "Signed out. Guest space ready.");
   } catch (error) {
     authMessage.textContent = error.message || "Sign out is unavailable.";
   } finally {
@@ -6328,7 +6349,7 @@ async function logout() {
   }
 }
 
-async function createSession() {
+async function createSession(render = true) {
   const result = await requestJson("/api/jarvis/sessions", {
     method: "POST",
     body: JSON.stringify({ clientId: clientId() })
@@ -6336,7 +6357,7 @@ async function createSession() {
   sessionId = result.session.id;
   window.localStorage.setItem(sessionKey, sessionId);
   setSessionState("READY");
-  transcript.innerHTML = "";
+  if (render) transcript.innerHTML = "";
   latestAnalysisId = "";
   document.body.classList.remove("conversationActive");
   renderDealJourney();
@@ -6349,6 +6370,7 @@ async function resetChat() {
   stopSpeaking("Chat reset.");
   closeSessionPanel();
   setSystemState("Starting", "Creating a new conversation.");
+  navigateSurface("chat");
   transcript.innerHTML = "";
   latestAnalysisId = "";
   document.body.classList.remove("conversationActive");
@@ -6367,29 +6389,21 @@ async function resetChat() {
   }
 }
 
-async function loadSession(id) {
+async function loadSession(id, render = true) {
   const result = await requestJson(`/api/jarvis/sessions/${id}`);
   sessionId = result.session.id;
   window.localStorage.setItem(sessionKey, sessionId);
-  renderSession(result.session);
+  if (render) renderSession(result.session);
   setSessionState(`${result.session.messages.length} MSG`);
   return result.session;
 }
 
 async function ensureSession() {
-  if (!sessionId && authenticatedUser) {
-    try {
-      const history = await requestJson("/api/jarvis/sessions");
-      if (history.sessions?.length) return loadSession(history.sessions[0].id);
-    } catch {
-      // A new private session is safer than blocking assistant startup.
-    }
-  }
-  if (!sessionId) return createSession();
+  if (!sessionId) return createSession(false);
   try {
-    return await loadSession(sessionId);
+    return await loadSession(sessionId, false);
   } catch {
-    return createSession();
+    return createSession(false);
   }
 }
 
@@ -6462,6 +6476,7 @@ async function runDealAnalysis() {
   }
   if (!requireTrustBoundary("deal-analysis")) return;
 
+  navigateSurface("chat");
   setInteractionBusy(true);
   collapseContextPanels();
   stopSpeaking("Running the full framework.");
@@ -6496,7 +6511,7 @@ async function runDealAnalysis() {
     addMessage("jarvis", message);
     setSystemState("Connection issue", "Deal analysis could not be completed.");
   } finally {
-    analyzeDealBtn.textContent = "ANALYSE";
+    analyzeDealBtn.textContent = "Decision report";
     setInteractionBusy(false);
     if (!speaking && !window.speechSynthesis?.speaking) jarvisOrb.classList.remove("speaking");
   }
@@ -6858,7 +6873,7 @@ memoryForm.addEventListener("submit", async (event) => {
     submitButton.disabled = false;
   }
 });
-for (const container of [transcript, memoryList]) {
+for (const container of [transcript, memoryList, document.querySelector("#savedReportView")]) {
   container.addEventListener("click", (event) => {
     const memoryButton = event.target.closest("[data-memory-action]");
     if (memoryButton) void handleMemoryAction(memoryButton);
@@ -6885,6 +6900,7 @@ dealJourney?.addEventListener("click", (event) => {
   if (button) handleJourneyAction(button);
 });
 document.addEventListener("click", (event) => {
+  if (event.target.closest("[data-report-back]")) { document.querySelector("#savedReportView").hidden = true; reportsList.hidden = false; return; }
   const modeButton = event.target.closest("[data-context-field-mode]");
   if (modeButton) {
     const panelName = modeButton.getAttribute("data-context-field-mode");
@@ -6916,19 +6932,6 @@ recoveryCancel.addEventListener("click", () => showAuthRecovery(false));
 verificationRequest.addEventListener("click", requestVerification);
 verificationSubmit.addEventListener("click", verifyEmail);
 logoutButton.addEventListener("click", logout);
-document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && !authPanel.hidden) closeAuthPanel();
-  if (event.key === "Escape" && !memoryPanel.hidden) closeMemoryPanel();
-  if (event.key === "Escape" && !sessionPanel.hidden) closeSessionPanel();
-  if (event.key === "Escape" && !reportsPanel.hidden) closeReportsPanel();
-  if (event.key === "Escape" && !journalPanel.hidden) closeJournalPanel();
-  if (event.key === "Escape" && !ownerIntelPanel.hidden) closeOwnerIntelligencePanel();
-  if (event.key === "Escape" && !ownerMarketPanel.hidden) closeOwnerMarketPanel();
-  if (event.key === "Escape" && !ownerCasePanel.hidden) closeOwnerCasePanel();
-  if (event.key === "Escape" && !ownerEvidencePanel.hidden) closeOwnerEvidencePanel();
-  if (event.key === "Escape" && !trustPanel.hidden) closeTrustPanel();
-  if (event.key === "Escape" && !shortlistPanel.hidden) closeShortlistPanel();
-});
 window.addEventListener("afterprint", finishPrinting);
 
 chatInput.addEventListener("input", () => updateInputModeHint());
@@ -6960,12 +6963,10 @@ soundToggle.addEventListener("click", () => {
 
 for (const field of dealFields) {
   field.addEventListener("input", () => saveContext(dealFields, "data-deal-field", dealContextKey));
-  field.addEventListener("change", () => saveContext(dealFields, "data-deal-field", dealContextKey));
 }
 
 for (const field of profileFields) {
   field.addEventListener("input", () => saveContext(profileFields, "data-profile-field", profileContextKey));
-  field.addEventListener("change", () => saveContext(profileFields, "data-profile-field", profileContextKey));
 }
 
 for (const field of [...dcfFields, ...dcfComparableRows.flatMap((row) => Array.from(row.querySelectorAll("[data-dcf-comp-field]")))]) {
@@ -6976,13 +6977,11 @@ for (const field of [...dcfFields, ...dcfComparableRows.flatMap((row) => Array.f
 dcfCalculateBtn?.addEventListener("click", () => void calculateDcfValuation());
 dcfDownloadBtn?.addEventListener("click", () => void downloadDcfWorkbook());
 
-async function bootJarvis() {
+export async function initializeFeatures() {
   soundToggle.textContent = voiceResponsesEnabled ? "VOICE ON" : "VOICE OFF";
   soundToggle.setAttribute("aria-pressed", String(voiceResponsesEnabled));
   document.body.classList.toggle("voiceMuted", !voiceResponsesEnabled);
-  restoreContext(dealFields, "data-deal-field", dealContextKey);
-  restoreContext(profileFields, "data-profile-field", profileContextKey);
-  restoreDcfContext();
+
   markContextFieldDepth();
   renderTrustAcceptance();
   updateInputModeHint();
@@ -7001,7 +7000,6 @@ async function bootJarvis() {
     setAuthMode(authMode);
     aiDisclosure.hidden = !status.llm?.enabled;
     await loadAuthState();
-    await ensureSession();
     setSessionState(`${intelligenceMode} READY`);
     setSystemState("System ready", "Ready when you are.");
   } catch {
@@ -7010,23 +7008,55 @@ async function bootJarvis() {
   }
 }
 
-const conversationPanel = document.querySelector("#conversation");
+export function workspaceBusy() { return interactionBusy || listening; }
 
-function updateConversationClearance() {
-  if (!conversationPanel) return;
-  const reserved = Math.min(
-    Math.round(window.innerHeight * 0.7),
-    conversationPanel.offsetHeight + 40
-  );
-  document.documentElement.style.setProperty("--conversation-clearance", `${reserved}px`);
-  const freeSpace = window.innerHeight - reserved - 64;
-  document.body.classList.toggle("stageCompact", freeSpace < 340);
+export function setWorkspaceCandidate(candidate) {
+  if (interactionBusy) return false;
+  activeCandidateId = "";
+  stopSpeaking("Ready for this property.");
+  for (const field of dealFields) field.value = candidate.dealCard?.[field.dataset.dealField] ?? "";
+  for (const field of profileFields) field.value = candidate.financialProfile?.[field.dataset.profileField] ?? "";
+  resetDcfContext(false);
+  const dcf = candidate.dcfContext || {};
+  for (const field of dcfFields) if (dcf[field.dataset.dcfField] !== undefined) field.value = dcf[field.dataset.dcfField];
+  for (const [index, row] of dcfComparableRows.entries()) for (const field of row.querySelectorAll("[data-dcf-comp-field]")) {
+    const value = dcf.comparables?.[index]?.[field.dataset.dcfCompField];
+    if (field.type === "checkbox") field.checked = value === true;
+    else field.value = value ?? "";
+  }
+  document.querySelector("#valuationResult").replaceChildren();
+  sessionId = candidate.sessionId || null;
+  analysisRegistry.clear(); latestAnalysisId = "";
+  const messages = candidate.messages || (candidate.chat || []).map(item => ({ role: item.role, content: item.text, mode: item.mode }));
+  renderSession({ messages: candidate.report?.analysis ? messages.filter(message => message.id !== candidate.report.messageId) : messages });
+  if (candidate.report?.analysis) addDealAnalysis(candidate.report.analysis, candidate.report.sources, { mode: candidate.report.mode });
+  activeCandidateId = candidate.id;
+  renderDealJourney(); refreshContextGuides();
+  return true;
 }
 
-if (conversationPanel && typeof ResizeObserver === "function") {
-  new ResizeObserver(updateConversationClearance).observe(conversationPanel);
+export async function openWorkspaceFeature(surface, options = {}) {
+  if (interactionBusy) return;
+  if (surface === "account") return openAuthPanel();
+  if (surface === "trust") return openTrustPanel();
+  if (surface === "reports") return openReportsPanel();
+  if (surface === "journal") return openJournalPanel();
+  if (surface === "memory") return openMemoryPanel();
+  if (surface === "history") return openSessionPanel();
+  if (surface === "shortlist") return openShortlistPanel();
+  if (surface === "owner") return openOwnerIntelligencePanel();
+  if (surface === "market") return openOwnerMarketPanel();
+  if (surface === "cases") return openOwnerCasePanel();
+  if (surface === "evidence") return openOwnerEvidencePanel();
+  closeAuthPanel(); closeTrustPanel(); closeReportsPanel(); closeJournalPanel(); closeMemoryPanel(); closeSessionPanel(); closeShortlistPanel();
+  closeOwnerIntelligencePanel(); closeOwnerMarketPanel(); closeOwnerCasePanel(); closeOwnerEvidencePanel();
+  collapseContextPanels();
+  if (["deal", "profile", "guidance"].includes(surface)) {
+    setContextPanelState(contextToggles.find(toggle => toggle.dataset.contextToggle === surface), true, false);
+  } else navigateSurface(surface);
+  if (surface === "chat") {
+    if (options.prompt) chatInput.value = options.prompt;
+    if (options.analyze && !latestAnalysis()) await runDealAnalysis();
+    else chatInput.focus({ preventScroll: true });
+  }
 }
-window.addEventListener("resize", updateConversationClearance);
-updateConversationClearance();
-
-bootJarvis();

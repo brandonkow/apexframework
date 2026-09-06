@@ -1,5 +1,7 @@
 import { LEVELS, OPTIONAL_FIELDS, checkpointMissing, valueFor } from "../../public/journey/levels.js";
 import { createWorld } from "./world.js";
+import { createWorkspace } from "../workspace/workspace.js";
+let workspace;
 
 const $ = selector => document.querySelector(selector);
 const escape = value => String(value ?? "").replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
@@ -9,6 +11,7 @@ const uid = () => crypto.randomUUID();
 const store = { read(key, fallback) { try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; } }, write(key, value) { localStorage.setItem(key, JSON.stringify(value)); } };
 let fields = {};
 let clientId = store.read("apex.journey.client", null);
+if (!clientId) { try { clientId = localStorage.getItem("estatelab.jarvis.clientId"); if (clientId) store.write("apex.journey.client", clientId); } catch {} }
 if (!/^[\w-]{16,128}$/.test(clientId || "")) { clientId = uid(); try { store.write("apex.journey.client", clientId); } catch {} }
 const motionQuery = matchMedia("(prefers-reduced-motion: reduce)");
 const state = { candidates: [], active: "", level: 0, checkpoint: null, evaluation: null, busy: false, revision: 0, paused: motionQuery.matches, flat: false, storageKey: null, world: null, noticeTimer: null };
@@ -146,7 +149,7 @@ function renderPanel() {
 }
 
 function selectLevel(index) {
-  if (state.busy) return;
+  if (state.busy || workspace?.isBusy()) return;
   if (!canOpen(index)) { notify("Clear the earlier levels first. Each decision builds on the evidence before it."); return; }
   state.level = index;
   state.checkpoint = null;
@@ -166,7 +169,7 @@ async function evaluate() {
 }
 
 async function checkCurrent() {
-  if (state.busy) return;
+  if (state.busy || workspace?.isBusy()) return;
   state.busy = true;
   $("#levelPanel").setAttribute("aria-busy", "true");
   try {
@@ -205,7 +208,7 @@ function exportCandidate() {
 }
 
 async function compare() {
-  if (state.busy) return;
+  if (state.busy || workspace?.isBusy()) return;
   openDialog("Which property earns its place?", '<p role="status">Rechecking each candidate against the same framework...</p>', "YOUR PROPERTY COLLECTION");
   try {
     const results = [];
@@ -219,76 +222,19 @@ async function compare() {
   } catch (error) { $("#dialogContent").textContent = error.message; }
 }
 
-function askApex(prompt = "") {
-  const candidate = current();
-  openDialog("Think it through with Apex", `<p>Discuss ${escape(candidate.dealCard.projectName || candidate.dealCard.area || "your current property")}. Your saved property inputs accompany each question.</p><div class="chat-log" id="chatLog"></div><form id="journeyChatForm" class="chat-form"><label class="sr-only" for="journeyChatInput">Your question</label><textarea id="journeyChatInput" rows="2" maxlength="4000" required placeholder="What am I missing?">${escape(prompt)}</textarea><button class="primary-button" type="submit">Send</button></form><div class="chat-tools"><button id="voiceInput" type="button">Speak</button><button id="readAnswer" type="button">Read reply</button><button id="stopReading" type="button">Stop audio</button></div>`, "YOUR SECOND BRAIN");
-  renderChat();
-  $("#journeyChatInput").focus();
-}
-
-function renderChat() {
-  const log = $("#chatLog");
-  if (!log) return;
-  log.innerHTML = current().chat.map(message => `<div class="chat-message ${message.role === "user" ? "user" : ""}">${message.role !== "user" ? `<small>${message.mode === "llm" ? "FRAMEWORK + AI" : "FRAMEWORK ONLY"}</small>` : ""}${escape(brand(message.text))}</div>`).join("");
-  log.scrollTop = log.scrollHeight;
-}
-
-async function sendChat(form) {
-  if (state.busy) return;
-  const input = $("#journeyChatInput");
-  const query = input.value.trim();
-  if (!query) return;
-  const candidate = current();
-  state.busy = true;
-  form.querySelector("button").disabled = true;
-  candidate.chat.push({ role: "user", text: query });
-  candidate.chat = candidate.chat.slice(-40);
-  input.value = "";
-  renderChat(); save();
-  try {
-    const result = await api("/api/jarvis/query", { query, sessionId: candidate.sessionId, dealCard: candidate.dealCard, financialProfile: candidate.financialProfile }, 95000);
-    candidate.sessionId = result.session?.id || candidate.sessionId;
-    candidate.chat.push({ role: "assistant", text: result.message?.content || result.answer || "No reply was returned. Please try again.", mode: result.mode });
-    save(); renderChat();
-  } catch (error) { notify(error.message, true); input.value = query; }
-  finally { state.busy = false; form.querySelector("button").disabled = false; }
-}
+function askApex(prompt = "") { workspace.setCandidate(current()); void workspace.open("chat", { prompt }); }
 
 async function decisionReport() {
-  if (state.busy) return;
-  if (current().report) {
-    openDialog("Your saved decision report", "", "THE SUMMIT");
-    renderReport(current().report);
-    return;
-  }
-  openDialog("Your decision, supported by evidence", '<p>The report uses your saved inputs and the existing seven-stage engine. Its verdict can remain Investigate, Pause or Reject even after a thorough investigation.</p><p>Formal reports use your account allowance where applicable. Apex supports due diligence; it does not replace a valuation, legal review or lender approval.</p><button class="primary-button" data-dialog-action="run-report">Generate decision report <span aria-hidden="true">&#8599;</span></button>', "THE SUMMIT");
-}
-
-function renderReport(report) {
-  $("#dialogContent").innerHTML = `<p class="report-mode">${report.mode === "llm" ? "FRAMEWORK + AI" : "FRAMEWORK ONLY"}</p><h3>${escape(report.verdict)}</h3><p class="source-line">Saved ${escape(report.createdAt.slice(0, 10))}. Based on inputs and evidence available at that time.</p><div class="report-body">${escape(brand(report.content))}</div><div class="dialog-actions"><button class="secondary-button" data-dialog-action="print">Print report</button><button class="secondary-button" data-dialog-action="export">Export journey</button><a class="secondary-button" href="/index.html">Open saved reports &amp; DCF</a></div>`;
-}
-
-async function runReport() {
-  if (state.busy) return;
-  state.busy = true;
-  $("#dialogContent").innerHTML = '<p role="status">Apex is checking the full decision. This can take a little longer when AI reasoning is enabled.</p>';
-  try {
-    const evaluation = await evaluate();
-    if (!evaluation || evaluation.completed !== 7) throw new Error("Complete and clear all seven levels before requesting the final journey report.");
-    const candidate = current();
-    const result = await api("/api/jarvis/analyze-deal", { sessionId: candidate.sessionId, dealCard: candidate.dealCard, financialProfile: candidate.financialProfile }, 95000);
-    candidate.sessionId = result.session?.id || candidate.sessionId;
-    candidate.report = { content: result.message?.content || result.analysis?.summary, verdict: result.analysis?.verdict, mode: result.mode, createdAt: new Date().toISOString() };
-    save();
-    renderReport(candidate.report);
-  } catch (error) { $("#dialogContent").innerHTML = `<p class="error-note">${escape(error.message)}</p><a class="secondary-button" href="/index.html">Open account workspace</a>`; }
-  finally { state.busy = false; renderPanel(); }
+  if (state.busy || workspace.isBusy()) return;
+  workspace.setCandidate(current());
+  await workspace.open("chat", { analyze: true });
 }
 
 async function switchCandidate(id) {
-  if (state.busy || !state.candidates.some(candidate => candidate.id === id)) return;
+  if (state.busy || workspace?.isBusy() || !state.candidates.some(candidate => candidate.id === id)) { renderCandidates(); return; }
   window.speechSynthesis?.cancel();
   state.active = id; state.level = 0; state.checkpoint = null; state.evaluation = null; state.revision++;
+  workspace?.setCandidate(current());
   save(); renderCandidates(); renderPanel(); renderRail(); state.world?.overview();
   try { await evaluate(); renderPanel(); } catch (error) { notify(error.message); }
 }
@@ -321,7 +267,7 @@ function bindEvents() {
   });
   $("#levelContent").addEventListener("submit", event => { event.preventDefault(); checkCurrent(); });
   $("#newCandidate").addEventListener("click", () => {
-    if (state.busy) return;
+    if (state.busy || workspace?.isBusy()) return;
     if (state.candidates.length >= 4) { notify("Keep up to four active properties. Export and reset one to start another."); return; }
     const candidate = makeCandidate(); state.candidates.push(candidate); switchCandidate(candidate.id);
   });
@@ -329,7 +275,7 @@ function bindEvents() {
   $("#assistantButton").addEventListener("click", () => askApex());
   $("#exportButton").addEventListener("click", exportCandidate);
   $("#resetButton").addEventListener("click", () => {
-    if (state.busy) return;
+    if (state.busy || workspace?.isBusy()) return;
     openDialog("Reset this property?", '<p>This clears the selected property\'s inputs, checkpoint notes, browser chat and local report. Other properties and your account history remain available.</p><div class="dialog-actions"><button class="secondary-button" data-dialog-action="cancel">Keep my progress</button><button class="primary-button" data-dialog-action="reset">Clear this property</button></div>');
   });
   $("#dialogClose").addEventListener("click", () => { window.speechSynthesis?.cancel(); $("#workspaceDialog").close(); });
@@ -343,26 +289,9 @@ function bindEvents() {
       const i = state.candidates.findIndex(candidate => candidate.id === state.active);
       state.candidates[i] = makeCandidate(); $("#workspaceDialog").close(); switchCandidate(state.candidates[i].id);
     }
-    if (button.dataset.dialogAction === "run-report") runReport();
     if (button.dataset.dialogAction === "export") exportCandidate();
     if (button.dataset.dialogAction === "print") window.print();
-    if (button.id === "stopReading") window.speechSynthesis?.cancel();
-    if (button.id === "readAnswer") {
-      const last = current().chat.findLast(message => message.role === "assistant");
-      if (!last) { notify("Ask a question first, then read the reply."); return; }
-      if (!window.speechSynthesis) { notify("Speech output is unavailable in this browser."); return; }
-      window.speechSynthesis.cancel(); window.speechSynthesis.speak(new SpeechSynthesisUtterance(brand(last.text)));
-    }
-    if (button.id === "voiceInput") {
-      const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!Recognition) { notify("Voice input is unavailable here. You can type your question."); return; }
-      const recognition = new Recognition(); recognition.lang = "en-MY";
-      recognition.onresult = event => { const input = $("#journeyChatInput"); if (input) input.value = event.results[0][0].transcript; };
-      recognition.onerror = () => notify("Microphone input could not start. Check browser permissions or type instead.");
-      recognition.start();
-    }
   });
-  $("#dialogContent").addEventListener("submit", event => { if (event.target.id === "journeyChatForm") { event.preventDefault(); sendChat(event.target); } });
   $("#resetView").addEventListener("click", () => state.world?.overview());
   $("#motionToggle").addEventListener("click", () => {
     state.paused = !state.paused; state.world?.pause(state.paused); updateViewButtons();
@@ -382,10 +311,20 @@ function updateViewButtons() {
   $("#mapToggle").setAttribute("aria-pressed", String(state.flat));
 }
 
+function restoreScope(userId) {
+  state.userId = userId || null;
+  state.storageKey = `apex.journey.v1:${userId || `guest-${clientId}`}`;
+  const stored = store.read(state.storageKey, {});
+  state.candidates = (Array.isArray(stored.candidates) ? stored.candidates : []).filter(candidate => candidate && typeof candidate.id === "string" && candidate.dealCard && candidate.financialProfile && candidate.evidence).slice(0, 4).map(candidate => ({ ...candidate, chat: Array.isArray(candidate.chat) ? candidate.chat.slice(-40) : [] }));
+  if (!state.candidates.length) state.candidates.push(makeCandidate());
+  state.active = state.candidates.some(candidate => candidate.id === stored.active) ? stored.active : state.candidates[0].id;
+  state.level = 0; state.checkpoint = null; state.evaluation = null; state.revision++;
+}
+
 async function init() {
   fields = await api("/journey/fields.json", null, 20000);
   createWorld({ selectLevel, notify, reducedMotion: state.paused }).then(world => {
-    state.world = world; renderRail(); updateViewButtons();
+    state.world = world; world.pause(state.paused || document.body.classList.contains("workspace-active")); renderRail(); updateViewButtons();
   }).catch(() => {
     document.body.classList.add("flat-view");
     $("#worldLoading").hidden = true;
@@ -394,16 +333,57 @@ async function init() {
   let user;
   try { user = (await api("/api/auth/me", null, 12000)).user; }
   catch { notify("Account connection is unavailable. The journey will use this browser's guest space."); }
-  state.storageKey = `apex.journey.v1:${user?.id || `guest-${clientId}`}`;
-  const stored = store.read(state.storageKey, {});
-  state.candidates = (Array.isArray(stored.candidates) ? stored.candidates : []).filter(candidate => candidate && typeof candidate.id === "string" && candidate.dealCard && candidate.financialProfile && candidate.evidence).slice(0, 4).map(candidate => ({ ...candidate, chat: Array.isArray(candidate.chat) ? candidate.chat.slice(-40) : [] }));
-  if (!state.candidates.length) state.candidates.push(makeCandidate());
-  state.active = state.candidates.some(candidate => candidate.id === stored.active) ? stored.active : state.candidates[0].id;
+  restoreScope(user?.id);
+  workspace = createWorkspace({ getCandidate: current, notify, onVisibility(open) {
+    state.world?.pause(open || state.paused);
+    if (!open) {
+      renderPanel();
+      void evaluate().then(() => { if (!canOpen(state.level)) { state.level = 0; state.checkpoint = null; } renderPanel(); }).catch(error => notify(error.message));
+    }
+  } });
+  document.addEventListener("apex:context", event => {
+    const input = event.detail;
+    const candidate = current();
+    if (input.candidateId !== candidate.id) return;
+    const changed = JSON.stringify(candidate.dealCard) !== JSON.stringify(input.dealCard) || JSON.stringify(candidate.financialProfile) !== JSON.stringify(input.financialProfile);
+    candidate.dealCard = input.dealCard; candidate.financialProfile = input.financialProfile; candidate.dcfContext = input.dcfContext;
+    if (input.sessionId !== undefined) { if (candidate.sessionId !== input.sessionId) candidate.report = null; candidate.sessionId = input.sessionId; }
+    if (input.messages) candidate.messages = input.messages.slice(-40);
+    if (changed) invalidate(); else save();
+    if (input.report) { candidate.report = input.report; save(); }
+  });
+  document.addEventListener("apex:busy", event => {
+    for (const id of ["candidateSelect", "newCandidate", "compareButton"]) $("#" + id).disabled = event.detail;
+  });
+  document.addEventListener("apex:recover-draft", event => {
+    if (state.busy || workspace.isBusy()) return;
+    const emptySlot = state.candidates.findIndex(candidate => !Object.keys(candidate.dealCard).length && !Object.keys(candidate.financialProfile).length && !Object.keys(candidate.evidence).length && !candidate.messages?.length && !candidate.chat?.length);
+    if (state.candidates.length >= 4 && emptySlot < 0) { notify("Export and reset an unused property before recovering another draft."); return; }
+    const candidate = makeCandidate();
+    for (const [key, field] of Object.entries(fields)) {
+      const value = event.detail?.[field.scope]?.[key];
+      if (typeof value === "string" || typeof value === "number") candidate[field.scope][key] = String(value).slice(0, 500);
+    }
+    if (emptySlot >= 0) state.candidates[emptySlot] = candidate;
+    else state.candidates.push(candidate);
+    void switchCandidate(candidate.id).then(() => workspace.open("deal"));
+    try { localStorage.setItem("apex.workspace.recovered", "true"); } catch {}
+    document.querySelector(".draft-recovery")?.remove();
+    notify("Earlier inputs recovered as a separate property. Recheck the evidence before proceeding.");
+  });
+  document.addEventListener("apex:auth", event => {
+    const id = event.detail?.id || null;
+    if (state.userId === id) return;
+    save(); restoreScope(id); workspace.setCandidate(current());
+    renderCandidates(); renderPanel(); renderRail(); save();
+    void evaluate().then(renderPanel).catch(error => notify(error.message));
+  });
   renderCandidates(); renderPanel(); renderRail(); updateViewButtons(); bindEvents(); save();
   try { await evaluate(); renderPanel(); } catch (error) { notify(error.message, true); }
   document.body.dataset.ready = "true";
+  workspace.restoreRoute();
 }
 
 init().catch(error => {
-  notify(`The journey could not finish loading: ${error.message}. Your existing workspace is available from the header.`, true);
+  notify(`The journey could not finish loading: ${error.message}. Please reload to reconnect. Your saved property data is retained.`, true);
 });

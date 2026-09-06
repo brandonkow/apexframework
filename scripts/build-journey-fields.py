@@ -52,7 +52,7 @@ class Controls(HTMLParser):
 
 
 parser = Controls()
-parser.feed((ROOT / "public/index.html").read_text(encoding="utf-8"))
+parser.feed((ROOT / "ui/workspace/panels.html").read_text(encoding="utf-8"))
 output = ROOT / "public/journey/fields.json"
 output.parent.mkdir(parents=True, exist_ok=True)
 output.write_text(json.dumps(parser.fields, indent=2) + "\n", encoding="utf-8", newline="\n")

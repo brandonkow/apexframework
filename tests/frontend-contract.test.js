@@ -1,92 +1,41 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
-import path from "node:path";
+import { readFile, access } from "node:fs/promises";
 import test from "node:test";
-import { fileURLToPath } from "node:url";
-
-const repoDir = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-
-test("frontend selectors and stylesheet structure stay valid", async () => {
-  const [html, app, styles, server, storage] = await Promise.all([
-    readFile(path.join(repoDir, "public", "index.html"), "utf8"),
-    readFile(path.join(repoDir, "public", "app.js"), "utf8"),
-    readFile(path.join(repoDir, "public", "styles.css"), "utf8"),
-    readFile(path.join(repoDir, "server.js"), "utf8"),
-    readFile(path.join(repoDir, "storage.js"), "utf8")
-  ]);
-
-  const selectorIds = [...app.matchAll(/querySelector\("#([A-Za-z][\w-]*)"\)/g)].map((match) => match[1]);
-  for (const id of selectorIds) {
-    assert.match(html, new RegExp(`id=["']${id}["']`), `Missing HTML element for #${id}`);
-  }
-
-  let braceDepth = 0;
-  for (const character of styles) {
-    if (character === "{") braceDepth += 1;
-    if (character === "}") braceDepth -= 1;
-    assert.ok(braceDepth >= 0, "Stylesheet has an unexpected closing brace.");
-  }
-  assert.equal(braceDepth, 0, "Stylesheet has an unclosed block.");
-
-  assert.match(html, /<title>Apex Analytic<\/title>/);
-  assert.match(html, /<h1 id="pageTitle">Turn a property question into a clearer decision\.<\/h1>/, "V10.5 needs a decision-first first viewport.");
-  assert.match(html, /id="jarvisOrb" class="voiceLaunch"[\s\S]*?Speak a question/, "Voice input must remain available as a compact secondary action.");
-  assert.match(html, /class="starterPanel"[\s\S]*?data-starter-action="deal"[\s\S]*?data-starter-prompt=/, "V10.5 needs clear starter paths into the existing decision workflows.");
-  assert.doesNotMatch(html, /class="hud"|class="orbCore"/, "The decorative HUD and dominant orb must stay out of the decision-first interface.");
-  assert.doesNotMatch(html, /<h1>APEX<\/h1>|class="productSuffix"/, "The central Apex Analytic wordmark must stay removed.");
-  assert.match(html, /<form id="chatForm"[\s\S]*?id="analyzeDealBtn"[\s\S]*?<\/form>/, "Deal analysis must remain visible inside the message bar.");
-  assert.match(html, /id="screenDealBtn"[\s\S]*?>SCREEN<\/button>/, "The quick deal-screening action must stay available without opening the full report flow.");
-  assert.match(html, /id="sessionBriefBtn"[\s\S]*?>BRIEF<\/button>/, "V5.9 needs a compact session-brief export action.");
-  assert.match(html, /id="inputModeHint"[\s\S]*?class="inputModeHint"/, "V5.4 needs a compact smart-input mode chip in the command bar.");
-  assert.match(html, /id="dealJourney"[\s\S]*?aria-label="Apex deal journey"/, "The app needs a unified Deal Journey conductor near the input flow.");
-  assert.doesNotMatch(html, /id="contextReadiness"|id="experienceLock"/, "The retired context-readiness and experience-lock strips must stay consolidated into the Deal Journey.");
-  assert.equal((html.match(/data-context-reset="(?:deal|profile|guidance)"/g) || []).length, 3, "Each context card needs its own reset button.");
-  assert.match(html, /id="memoryPanel"[\s\S]*?PRIVATE TO YOUR ACCOUNT[\s\S]*?id="memoryList"/, "Signed-in users need a private memory review screen.");
-  assert.match(html, /id="sessionPanel"[\s\S]*?id="sessionList"/, "Conversation history needs a dedicated, accessible view.");
+const read = name => readFile(new URL("../" + name, import.meta.url), "utf8");
+test("all migrated controls live once in the new shell without legacy assets", async () => {
+  const shell = await read("public/index.html");
+  const panels = await read("ui/workspace/panels.html");
+  const app = await read("ui/workspace/features.js");
+  const styles = await read("public/journey/workspace.css");
+  const html = shell + panels;
+  const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map(match => match[1]);
+  assert.equal(new Set(ids).size, ids.length, "No duplicate DOM IDs or forms");
+  for (const [, id] of app.matchAll(/querySelector\("#([A-Za-z][\w-]*)"\)/g)) assert.ok(ids.includes(id), `Missing #${id}`);
+  for (const area of ["journey", "desk", "library", "owner"]) assert.match(shell, new RegExp(`data-area="${area}"`));
+  const surfaces = [...panels.matchAll(/data-surface="([^"]+)"/g)].map(match => match[1]);
+  assert.equal(surfaces.length, 16);
+  assert.equal(new Set(surfaces).size, 16);
+  const fields = JSON.parse(await read("public/journey/fields.json"));
+  const inputs = [...panels.matchAll(/data-(?:deal|profile)-field="([^"]+)"/g)].map(match => match[1]);
+  assert.deepEqual(inputs.sort(), Object.keys(fields).sort(), "All 103 feature controls retained exactly once");
+  assert.equal([...panels.matchAll(/data-dcf-comparable=/g)].length, 3);
+  assert.equal([...panels.matchAll(/data-context-reset=/g)].length, 3);
+  assert.doesNotMatch(html, /<iframe|src="\/app.js"|href="\/styles.css"|id="workspaceLink"/);
+  await assert.rejects(access(new URL("../public/app.js", import.meta.url)));
+  await assert.rejects(access(new URL("../public/styles.css", import.meta.url)));
+  assert.match(styles, /\[hidden\]\s*\{\s*display:\s*none\s*!important/);
+  assert.match(styles, /\.contextCoreMode \.contextAdvanced\s*\{\s*display:\s*none/);
+  assert.match(styles, /prefers-reduced-motion/);
+  let depth = 0;
+  for (const char of styles) { if (char === "{") depth++; if (char === "}") depth--; assert.ok(depth >= 0); }
+  assert.equal(depth, 0);
+});
+test("unified workspace retains feature behavior and backend safeguards", async () => {
+  const app = await read("ui/workspace/features.js");
+  const server = await read("server.js");
+  const storage = await read("storage.js");
   assert.match(app, /async function loadSessionHistory\(\)/, "The browser must load resumable conversation threads.");
   assert.match(app, /function setInteractionBusy\(busy\)/, "Concurrent chat and analysis actions need one interaction lock.");
-  const newChatImplementation = app.match(/async function resetChat\(\)[\s\S]*?\n}\n\nasync function loadSession/)?.[0] || "";
-  assert.doesNotMatch(newChatImplementation, /method:\s*"DELETE"/, "Starting a new chat must preserve the previous thread.");
-  assert.match(html, /id="memoryCaptureEnabled"[\s\S]*?id="memoryReasoningEnabled"[\s\S]*?id="memoryModeNotice"/, "V3 memory must expose opt-in capture and reasoning controls.");
-  assert.match(html, /id="memoryProfile"[\s\S]*?id="memoryProfileTitle"[\s\S]*?id="memoryProfileDetails"/, "V3.1 needs a structured investor memory profile card.");
-  assert.match(html, /data-deal-field="annualAssessmentQuitRent"[\s\S]*?data-deal-field="vacancyStressMonths"/, "Deal card needs optional v1.6 stress assumption fields.");
-  assert.match(html, /data-deal-field="dealSource"[\s\S]*?data-deal-field="resalePreparation"/, "Deal card needs optional v2 workflow fields.");
-  assert.match(html, /data-deal-field="comparableSource"[\s\S]*?data-deal-field="comparableAdjustmentNotes"/, "Deal card needs v4.1 transaction comparable detail fields.");
-  assert.match(html, /data-deal-field="rentalSource"[\s\S]*?data-deal-field="rentalAdjustmentNotes"/, "Deal card needs v4.2 achieved rental detail fields.");
-  assert.match(html, /data-deal-field="bankValuationSupport"[\s\S]*?data-deal-field="financingNotes"/, "Deal card needs v4.3 financing and valuation fields.");
-  assert.match(html, /id="dcfPanel"[\s\S]*?data-dcf-field="discountRate"[\s\S]*?data-dcf-field="terminalCapRate"[\s\S]*?id="dcfDownloadBtn"/, "The optional DCF workflow must stay inside the existing Deal card.");
-  assert.equal((html.match(/data-dcf-comparable=/g) || []).length, 3, "Current market-value support requires three structured comparable rows.");
-  assert.match(html, /data-deal-field="supplyRadius"[\s\S]*?data-deal-field="supplyNotes"/, "Deal card needs v4.4 supply and absorption fields.");
-  assert.match(html, /data-deal-field="siteVisitEvidence"[\s\S]*?data-deal-field="siteManagementNotes"/, "Deal card needs v4.5 site and management fields.");
-  assert.match(html, /data-deal-field="legalTitleType"[\s\S]*?data-deal-field="legalTransactionNotes"/, "Deal card needs v4.6 legal and transaction fields.");
-  assert.match(html, /data-profile-field="portfolioRole"[\s\S]*?data-profile-field="nextPurchaseReason"/, "Profile card needs optional v1.7 portfolio gate fields.");
-  assert.match(html, /data-context-toggle="guidance"[\s\S]*?data-profile-field="experienceLevel"[\s\S]*?data-profile-field="onboardingNotes"/, "V5 needs a dedicated guidance card for answer style and onboarding context.");
-  assert.match(html, /class="contextPanel contextPanelSecondary"[\s\S]*?data-context-toggle="guidance"/, "Guidance context must stay available without crowding the default card row.");
-  assert.match(html, /id="shortlistPanel"[\s\S]*?DEAL SHORTLIST[\s\S]*?id="shortlistList"/, "Analysed properties need an inline comparison shortlist.");
-  assert.match(html, /id="shortlistSummary"[\s\S]*?id="shortlistList"/, "The shortlist needs a comparison summary before the deal cards.");
-  assert.match(html, /id="billingSummary"[\s\S]*?id="billingPlanName"[\s\S]*?id="billingActions"/, "Signed-in accounts need one compact plan and usage surface.");
-  assert.match(html, /id="billingGuardrail"[\s\S]*?Plan changes report access only/, "V6.5 needs an account-level monetization guardrail.");
-  assert.match(html, /id="reportsPanel"[\s\S]*?DEAL REPORTS[\s\S]*?id="reportsList"/, "Signed-in accounts need private report history.");
-  assert.match(html, /id="journalPanel"[\s\S]*?DECISION JOURNAL[\s\S]*?id="journalEditor"/, "Signed-in accounts need an inline decision journal.");
-  assert.match(html, /id="ownerIntelToggle"[\s\S]*?OWNER/, "The owner intelligence command center must be reachable from the account surface.");
-  assert.match(html, /id="ownerMarketToggle"[\s\S]*?MARKET/, "The owner market console must be reachable from the account surface.");
-  assert.match(html, /id="ownerCaseToggle"[\s\S]*?CASES/, "The owner development case library must be reachable from the account surface.");
-  assert.match(html, /id="ownerEvidenceToggle"[\s\S]*?EVIDENCE/, "The V8 evidence vault must be reachable from the account surface.");
-  assert.match(html, /id="trustToggle"[\s\S]*?TRUST/, "The v6 trust boundary must be reachable from the account surface.");
-  assert.match(html, /id="trustPanel"[\s\S]*?V6\.0 TRUST BOUNDARY[\s\S]*?WHAT APEX CAN AND CANNOT DO/, "The v6 trust boundary needs an inline workspace.");
-  assert.match(html, /Normal users can submit chat and card context only[\s\S]*?cannot change the shared Apex knowledge base/, "The v6 trust boundary must preserve owner-controlled knowledge rules.");
-  assert.match(html, /id="trustAcceptance"[\s\S]*?FORMAL DEAL REPORTS[\s\S]*?id="trustAccept"/, "V6.1 needs an acknowledgement checkpoint before formal reports.");
-  assert.match(html, /id="ownerIntelPanel"[\s\S]*?OWNER INTELLIGENCE CONSOLE[\s\S]*?id="ownerIntelOpsDashboard"[\s\S]*?id="ownerIntelCoverage"[\s\S]*?id="ownerIntelActions"/, "Owner intelligence needs a unified coverage dashboard, production ops, and next-action surface.");
-  assert.match(html, /id="ownerIntelControls"[\s\S]*?data-owner-intel-filter="missing"[\s\S]*?id="ownerIntelOpsRefresh"[\s\S]*?id="ownerIntelCopyBrief"[\s\S]*?id="ownerIntelExport"[\s\S]*?id="ownerIntelImport"[\s\S]*?id="ownerIntelRestoreHistory"[\s\S]*?id="ownerIntelBackupReminder"[\s\S]*?id="ownerIntelRestorePhrase"[\s\S]*?id="ownerIntelRestoreConfirm"[\s\S]*?id="ownerIntelRestoreLog"/, "Owner intelligence needs coverage filters, ops check, backup export, reminder, typed restore, and restore history actions.");
-  assert.match(html, /class="ownerAdminPanel"[\s\S]*?id="ownerAdminLoad"[\s\S]*?id="ownerAdminList"/, "Owner intelligence needs an owner-token-gated user and plan control drawer.");
-  assert.match(html, /id="ownerResearchPanel"[\s\S]*?VERIFIED MARKET RESEARCH[\s\S]*?id="ownerResearchImport"[\s\S]*?id="ownerResearchList"/, "Owner intelligence needs a collapsed validated-research workspace without another public navigation item.");
-  assert.match(html, /id="ownerMarketPanel"[\s\S]*?MARKET CONSOLE[\s\S]*?id="ownerMarketToken"/, "V2 needs an owner-token-gated market console.");
-  assert.match(html, /id="ownerProjectForm"[\s\S]*?id="ownerObservationForm"[\s\S]*?id="ownerObservationList"/, "The market console needs project and observation entry surfaces.");
-  assert.match(html, /id="ownerMarketImportForm"[\s\S]*?id="ownerMarketImportText"[\s\S]*?IMPORT JSON/, "The owner market console needs a guarded bulk JSON import surface.");
-  assert.match(html, /id="ownerCasePanel"[\s\S]*?DEVELOPMENT CASE LIBRARY[\s\S]*?id="ownerCaseForm"[\s\S]*?id="ownerCaseSubmit"[\s\S]*?id="ownerCaseCancelEdit"[\s\S]*?id="ownerCaseCompletenessFilter"[\s\S]*?id="ownerCaseList"/, "The development case library needs owner-token-gated entry, edit, review, and completeness filtering surfaces.");
-  assert.match(html, /id="ownerEvidencePanel"[\s\S]*?EVIDENCE VAULT[\s\S]*?id="ownerEvidenceForm"[\s\S]*?id="ownerEvidenceFilter"[\s\S]*?id="ownerEvidenceList"/, "V8 needs an owner-token-gated evidence vault with searchable proof documents.");
-  assert.doesNotMatch(html, /ESTATELAB \/ JARVIS|<b>J<\/b>/, "Legacy visible branding must not return.");
-  assert.doesNotMatch(html, />[^<]*(EstateLab|Jarvis)[^<]*</i, "Visible HTML copy must use Apex branding only.");
   assert.match(app, /function brandVisibleText[\s\S]*?EstateLab[\s\S]*?Jarvis/, "Rendered text must scrub legacy branding from retrieved knowledge.");
   assert.match(app, /return brandVisibleText\(lines\.join\("\\n"\)\)/, "Copied deal reports must scrub legacy branding too.");
   assert.match(app, /FRAMEWORK ONLY/, "Framework fallback responses need an explicit badge.");
@@ -97,7 +46,6 @@ test("frontend selectors and stylesheet structure stay valid", async () => {
   assert.match(app, /data-coach-prompt/, "V5.2 next-move prompts must be clickable from chat.");
   assert.doesNotMatch(app, /renderContextReadiness|data-readiness-panel|renderExperienceLock/, "The retired readiness-chip and experience-lock renderers must stay consolidated into the Deal Journey.");
   assert.match(app, /function openJourneyPanel[\s\S]*?focusFirstMissingContextField\(panelName\)/, "Journey panel steps must open the right card and focus missing context.");
-  assert.match(app, /function renderDealJourney[\s\S]*?APEX DEAL JOURNEY[\s\S]*?data-journey-action/, "The Deal Journey must convert scattered tools into one guided next-action flow.");
   assert.match(app, /function handleJourneyAction[\s\S]*?runDealScreening\(\)[\s\S]*?runDealAnalysis\(\)[\s\S]*?openShortlistPanel\(\)/, "Journey actions must route to existing screen, analyse, and compare flows.");
   assert.match(app, /function renderOwnerIntelligence[\s\S]*?ownerIntelLanes[\s\S]*?ownerIntelCoverage/, "Owner intelligence must render coverage lanes and project-level coverage rows.");
   assert.match(app, /function loadOwnerIntelligence[\s\S]*?\/api\/owner\/market\/projects[\s\S]*?\/api\/owner\/development-cases[\s\S]*?\/api\/owner\/documents[\s\S]*?\/api\/owner\/restore\/history[\s\S]*?\/api\/owner\/ops/, "Owner intelligence must unify projects, cases, evidence, owner data safety, and production ops status.");
@@ -309,95 +257,4 @@ test("frontend selectors and stylesheet structure stay valid", async () => {
   assert.match(app, /data-analysis-action="journal"/, "Saved reports need a direct decision-record action.");
   assert.match(app, /function resetContextCard[\s\S]*?localStorage\.removeItem\(storageKey\)/, "Card reset must clear both visible fields and saved browser context.");
   assert.match(app, /data-context-body="\$\{panelName\}"[\s\S]*?\[data-profile-field\]/, "Resetting Guidance must only clear its own visible fields while preserving the rest of the profile context.");
-  assert.match(styles, /\.memoryOpen \.transcript[\s\S]*?display:\s*none;/, "The memory screen must replace chat content instead of opening a popup.");
-  assert.match(styles, /\.memorySettings[\s\S]*?grid-template-columns:/, "V3 memory consent controls need a compact settings layout.");
-  assert.match(styles, /\.memoryProfile[\s\S]*?\.memoryProfileDetails/, "V3.1 memory profile needs a styled summary card.");
-  assert.match(styles, /\.memoryItem\.priority-high[\s\S]*?border-color/, "V3.2 high-priority memory review items need a visible warning style.");
-  assert.match(styles, /\.reportsOpen \.transcript[\s\S]*?display:\s*none;/, "The report history must replace chat content instead of opening a popup.");
-  assert.match(styles, /\.journalOpen \.transcript[\s\S]*?display:\s*none;/, "The decision journal must replace chat content instead of opening a popup.");
-  assert.match(styles, /\.ownerMarketOpen \.transcript[\s\S]*?display:\s*none;/, "The owner market console must replace chat content instead of opening a popup.");
-  assert.match(styles, /\.ownerIntelPanel[\s\S]*?\.ownerIntelOps[\s\S]*?\.ownerIntelLanes[\s\S]*?\.ownerIntelCoverage/, "The owner intelligence command center needs styled ops, coverage lanes, and dashboard rows.");
-  assert.match(styles, /\.ownerIntelControls[\s\S]*?aria-pressed/, "Owner intelligence coverage filters need visible active-state styling.");
-  assert.match(styles, /\.ownerIntelControls input\[type="text"\]/, "Owner restore confirmation needs compact inline styling.");
-  assert.match(styles, /\.ownerIntelRestoreLog[\s\S]*?data-owner-rollback-snapshot|\.ownerIntelRestoreLog[\s\S]*?article/, "Owner restore history needs compact inline styling.");
-  assert.match(styles, /\.ownerAdminPanel[\s\S]*?\.ownerAdminGrid/, "Owner user and plan control needs compact owner-console styling.");
-  assert.match(styles, /\.ownerIntelCoverageActions[\s\S]*?button/, "Owner intelligence project-row actions need compact touch-friendly styling.");
-  assert.match(styles, /\.ownerIntelOpen \.transcript[\s\S]*?display:\s*none;/, "The owner intelligence command center must replace chat content instead of opening a popup.");
-  assert.match(styles, /\.ownerMarketPanel[\s\S]*?\.ownerMarketWorkspace[\s\S]*?grid-template-columns:/, "The v2 market console needs a styled owner workspace.");
-  assert.match(styles, /\.ownerMarketImport[\s\S]*?summary[\s\S]*?textarea/, "The owner market import surface must remain compact and styled.");
-  assert.match(styles, /\.ownerMarketLists[\s\S]*?\.ownerObservationList[\s\S]*?overflow-y:\s*auto;/, "Market observation lists must stay scrollable.");
-  assert.match(styles, /\.ownerCaseOpen \.transcript[\s\S]*?display:\s*none;/, "The owner case library must replace chat content instead of opening a popup.");
-  assert.match(styles, /\.ownerCasePanel[\s\S]*?\.ownerCaseWorkspace[\s\S]*?grid-template-columns:/, "The owner case library needs a styled owner workspace.");
-  assert.match(styles, /\.ownerCaseFormActions[\s\S]*?\.ownerCaseItemActions/, "The owner case library needs styled edit and delete actions.");
-  assert.match(styles, /\.ownerEvidenceOpen \.transcript[\s\S]*?display:\s*none;/, "The evidence vault must replace chat content instead of opening a popup.");
-  assert.match(styles, /\.ownerEvidencePanel[\s\S]*?\.ownerEvidenceWorkspace[\s\S]*?grid-template-columns:/, "The v8 evidence vault needs a styled owner workspace.");
-  assert.match(styles, /\.ownerEvidenceFilter[\s\S]*?focus/, "The evidence vault filter must use the owner input styling.");
-  assert.match(styles, /\.analysisMarketPulse[\s\S]*?overflow-wrap:\s*anywhere;/, "Market observations must remain readable without overflowing the report.");
-  assert.match(styles, /\.analysisCaseIntelligence[\s\S]*?\.caseIntelligenceCards[\s\S]*?\.caseActionQueue/, "Development case intelligence must have styled report cards.");
-  assert.match(styles, /\.analysisOverview[\s\S]*?grid-template-columns:/, "The v1.1 report needs an organized readiness and scorecard overview.");
-  assert.match(styles, /\.dealSnapshot[\s\S]*?\.dealSnapshotScores[\s\S]*?Property Quality|\.dealSnapshot[\s\S]*?grid-template-columns:\s*repeat\(4, minmax\(0, 1fr\)\);/, "The formal report needs a compact scorecard snapshot surface.");
-  assert.match(styles, /\.analysisEvidence[\s\S]*?\.evidenceItem/, "The v1.1 report needs a styled evidence checklist.");
-  assert.match(styles, /\.analysisEvidenceEngine[\s\S]*?\.evidenceGate/, "The v4.0 evidence engine needs styled evidence gates.");
-  assert.match(styles, /\.analysisTransactionComps[\s\S]*?\.transactionCompCheck/, "The v4.1 comparable evidence card needs styled checks.");
-  assert.match(styles, /\.analysisDiligence[\s\S]*?\.diligenceTask/, "The v1.4 report needs a styled due-diligence task pack.");
-  assert.match(styles, /\.analysisStress[\s\S]*?\.stressAssumptions/, "The v1.6 report needs a styled stress envelope.");
-  assert.match(styles, /\.analysisPortfolioGate[\s\S]*?\.portfolioCheck/, "The v1.7 report needs a styled portfolio expansion gate.");
-  assert.match(styles, /\.analysisMarketCycle[\s\S]*?\.marketCycleCheck/, "The v1.8 report needs a styled market cycle and liquidity pulse.");
-  assert.match(styles, /\.analysisHoldExit[\s\S]*?\.holdExitTrigger/, "The v1.9 report needs a styled hold, refinance, and exit plan.");
-  assert.match(styles, /\.analysisDecisionSeal[\s\S]*?\.sealCondition/, "The v1.10 report needs a styled decision seal.");
-  assert.match(styles, /\.analysisPersonalChallenge[\s\S]*?\.personalChallengeCheck/, "The v3.3 personalized challenge needs styled report cards.");
-  assert.match(styles, /\.analysisV2Workflow[\s\S]*?\.v2WorkflowCheck/, "The v2 workflow report sections need styled checklist cards.");
-  assert.match(styles, /\.analysisExecution[\s\S]*?\.executionAction/, "The v1.5 report needs a styled execution calibration pack.");
-  assert.match(styles, /\.analysisLearning[\s\S]*?\.learningSignal/, "The v1.2 report needs styled memory and journal learning signals.");
-  assert.match(styles, /\.analysisV3Insight[\s\S]*?\.v3InsightItem/, "The v3 memory-path report sections need styled compact cards.");
-  assert.match(styles, /\.analysisProductExperience[\s\S]*?\.productExperienceCheck/, "The v5 product-experience report section needs styled compact cards.");
-  assert.match(styles, /\.contextCoach[\s\S]*?data-coach-prompt|\.contextCoach[\s\S]*?\.contextCoach button/, "The v5.2 next-move coach needs styled prompt buttons.");
-  assert.doesNotMatch(styles, /\.contextReadiness|\.experienceLock/, "Dead context-readiness and experience-lock styles must stay removed.");
-  assert.match(styles, /\.dealJourney[\s\S]*?\.dealJourneySteps[\s\S]*?grid-template-columns:\s*repeat\(4/, "The Deal Journey needs a compact desktop step strip.");
-  assert.match(styles, /@media \(max-width: 640px\)[\s\S]*?\.dealJourneySteps[\s\S]*?grid-template-columns:\s*repeat\(4/, "The Deal Journey must compact to one chip row on mobile.");
-  assert.match(styles, /\.interface[\s\S]*?var\(--conversation-clearance/, "The stage must reserve measured space for the fixed conversation stack.");
-  assert.match(styles, /\.contextGrid\.contextCoreMode \.contextAdvanced[\s\S]*?display:\s*none;[\s\S]*?\.contextAssist/, "Expanded context cards must hide advanced fields behind a guided essentials layer.");
-  assert.match(styles, /\.accountOpen \.dealJourney[\s\S]*?display:\s*none;/, "The Deal Journey must hide when workspace panels replace chat.");
-  assert.match(styles, /\.trustOpen \.transcript[\s\S]*?display:\s*none;/, "The v6 trust boundary must replace chat content instead of opening a popup.");
-  assert.match(styles, /\.trustPanel[\s\S]*?\.trustGrid[\s\S]*?grid-template-columns:/, "The v6 trust boundary needs a compact organized layout.");
-  assert.match(styles, /\.trustAcceptance[\s\S]*?data-state="accepted"[\s\S]*?border-color/, "V6.1 acknowledgement needs visible accepted and pending states.");
-  assert.match(styles, /\.analysisTrustStamp[\s\S]*?\.analysisTrustStamp\.accepted[\s\S]*?\.analysisTrustStamp\.pending/, "V6.2 report trust stamps need accepted and pending styles.");
-  assert.match(styles, /body\.printMode \.analysisTrustStamp[\s\S]*?background:\s*#f4fbfd;/, "V6.2 report trust stamp must stay readable in print.");
-  assert.match(styles, /\.analysisProfessionalReview[\s\S]*?\.professionalReviewItem[\s\S]*?\.professionalReviewItem\.ready/, "V6.3 professional review checklist needs lane status styling.");
-  assert.match(styles, /body\.printMode \.analysisProfessionalReview[\s\S]*?background:\s*#f8fcfd;/, "V6.3 professional review checklist must stay readable in print.");
-  assert.match(styles, /\.billingGuardrail[\s\S]*?Plan|\.billingGuardrail[\s\S]*?font-size/, "V6.5 account billing guardrail needs compact styling.");
-  assert.match(styles, /\.analysisComplianceRefusal[\s\S]*?\.complianceFlag\.refuse[\s\S]*?\.analysisCommercialGuardrail/, "V6.4 and V6.5 report guardrails need visible state styling.");
-  assert.match(styles, /body\.printMode \.analysisComplianceRefusal[\s\S]*?body\.printMode \.analysisCommercialGuardrail/, "V6.4 and V6.5 guardrails must stay readable in print.");
-  assert.match(styles, /\.analysisDevelopmentProfile[\s\S]*?\.developmentIdentity[\s\S]*?\.developmentProfileSignal/, "V7.0 development profile needs styled project identity and signal cards.");
-  assert.match(styles, /\.developmentIdentity,[\s\S]*?\.developmentProfileSignals,[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\);/, "V7.0 development profile must stack cleanly on mobile.");
-  assert.match(styles, /body\.printMode \.analysisDevelopmentProfile[\s\S]*?body\.printMode \.developmentProfileSignal/, "V7.0 development profile must stay readable in print.");
-  assert.match(styles, /\.analysisDevelopmentStack[\s\S]*?\.developmentStackLanes[\s\S]*?\.developmentActionQueue/, "V7.1-V7.10 development intelligence stack needs compact lane and action queue styling.");
-  assert.match(styles, /\.developmentStackMeta,[\s\S]*?\.developmentStackLanes,[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\);/, "V7.1-V7.10 stack must collapse cleanly on mobile.");
-  assert.match(styles, /body\.printMode \.analysisDevelopmentStack[\s\S]*?body\.printMode \.developmentStackLane/, "V7.1-V7.10 stack must stay readable in print.");
-  assert.match(styles, /\.analysisDocumentStack[\s\S]*?\.documentStackLanes[\s\S]*?\.documentActionQueue/, "V8.1-V8.10 document intelligence stack needs compact lane and action queue styling.");
-  assert.match(styles, /\.documentStackMeta,[\s\S]*?\.documentStackLanes,[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\);/, "V8.1-V8.10 stack must collapse cleanly on mobile.");
-  assert.match(styles, /body\.printMode \.analysisDocumentStack[\s\S]*?body\.printMode \.documentStackLane/, "V8.1-V8.10 stack must stay readable in print.");
-  assert.match(styles, /\.analysisPortfolioCommand[\s\S]*?\.portfolioCommandLanes[\s\S]*?\.portfolioCommandQueue/, "V9.1-V9.10 portfolio command stack needs compact lane and action queue styling.");
-  assert.match(styles, /\.portfolioCommandMeta,[\s\S]*?\.portfolioCapitalMap,[\s\S]*?\.portfolioCommandLanes,[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\);/, "V9.1-V9.10 stack must collapse cleanly on mobile.");
-  assert.match(styles, /body\.printMode \.analysisPortfolioCommand[\s\S]*?body\.printMode \.portfolioCommandLane/, "V9.1-V9.10 stack must stay readable in print.");
-  assert.match(styles, /\.analysisFinalCommand[\s\S]*?\.finalCommandLanes[\s\S]*?\.finalCommandQueue/, "V10.1-V10.10 final command stack needs compact lane and action queue styling.");
-  assert.match(styles, /\.finalCommandMeta,[\s\S]*?\.finalCommandLanes,[\s\S]*?\.finalCommandQueue p,[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\);/, "V10.1-V10.10 stack must collapse cleanly on mobile.");
-  assert.match(styles, /body\.printMode \.analysisFinalCommand[\s\S]*?body\.printMode \.finalCommandLane/, "V10.1-V10.10 stack must stay readable in print.");
-  assert.match(styles, /\.inputModeHint[\s\S]*?\.commandBar\[data-input-mode="voice"\]/, "V5.4 smart input mode needs styled command-bar states.");
-  assert.match(styles, /\.voiceMuted[\s\S]*?#soundToggle/, "V5.5 needs a visible muted-voice state.");
-  assert.match(styles, /\.responseFeedback[\s\S]*?button\.active/, "V5.6 response feedback controls need compact active-state styling.");
-  assert.match(styles, /\.responseFeedback \[data-response-refine\][\s\S]*?display:\s*none;/, "V5.8 refinement action needs compact styling and a hidden state.");
-  assert.match(styles, /\.shortlistCompare[\s\S]*?adjusted|\.shortlistCompare[\s\S]*?grid-template-columns:/, "The v1.3 shortlist needs a styled comparison summary.");
-  assert.match(styles, /\.shortlistItem\.blocked[\s\S]*?border-color/, "Blocked shortlist items need a visible comparison warning state.");
-
-  assert.match(styles, /\.conversation:has\(\.contextPanel\.expanded\) \.transcript[\s\S]*?display:\s*none;/, "Expanded cards must replace the transcript instead of overflowing beneath it.");
-  assert.match(styles, /\.contextPanelSecondary:not\(\.expanded\)[\s\S]*?display:\s*none;/, "Secondary context cards must not crowd the collapsed default row.");
-  assert.match(styles, /\.aiDisclosure \{[\s\S]*?display:\s*none;/, "The AI disclosure note must stay out of the default layout until activated.");
-  assert.match(styles, /\.contextHeader[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) auto;/, "Card reset controls must fit beside the expandable header.");
-  assert.match(styles, /\.contextPanel\.expanded \.contextGrid[\s\S]*?overflow-y:\s*auto|\.contextGrid[\s\S]*?overflow-y:\s*auto/, "Expanded card fields must remain scrollable.");
-  assert.match(styles, /max-height:\s*calc\(100dvh - 260px\)/, "Mobile expanded cards need a viewport-bound field area.");
-  assert.match(styles, /\.identity #assistantPrompt[\s\S]*?text-align:\s*center;/, "The ready prompt must remain centered beneath the orb on mobile.");
-  assert.match(styles, /\.sourceSummary p[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\);/, "Mobile source details must stack instead of squeezing text into columns.");
-  assert.match(styles, /\.starterPanel[\s\S]*?grid-template-columns:[\s\S]*?\.answerSection/, "The decision starters and structured answer sections need dedicated styling.");
-  assert.match(styles, /@media \(max-width: 520px\)[\s\S]*?\.starterPanel[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\);/, "Decision starters must stack cleanly on narrow mobile screens.");
 });

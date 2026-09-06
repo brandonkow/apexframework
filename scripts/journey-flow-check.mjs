@@ -55,24 +55,27 @@ try {
     if (index < 6) await page.locator('[data-action="next"]').click();
   }
   await page.locator('[data-action="report"]').click();
-  await page.locator('[data-dialog-action="run-report"]').click();
-  await page.waitForSelector(".report-body", { timeout: 100000 });
-  assert.match(await page.locator("#dialogContent").innerText(), /SHORTLIST/);
-  assert.equal(await page.locator(".report-mode").innerText(), "FRAMEWORK ONLY");
-  await page.locator("#dialogClose").click();
+  await page.waitForSelector('#trustPanel:not([hidden])');
+  await page.locator('#trustAccept').click();
+  await page.waitForSelector(".analysisMessage", { timeout: 100000 });
+  await page.waitForFunction(() => !document.querySelector('#chatInput').disabled);
+  assert.match(await page.locator(".analysisHeader").innerText(), /SHORTLIST/);
+  assert.equal(await page.locator(".analysisMessage .intelligenceBadge").innerText(), "FRAMEWORK ONLY");
+  await page.locator('[data-area="journey"]').click();
   await page.locator('[data-action="report"]').click();
-  assert.equal(await page.locator(".report-body").count(), 1, "Reopening a saved report does not consume another report allowance");
-  await page.locator("#dialogClose").click();
+  await page.waitForSelector('.analysisMessage');
+  assert.equal(await page.locator(".analysisMessage").count(), 1, "Reopening a saved report does not consume another report allowance");
+  await page.locator('[data-area="journey"]').click();
   await page.locator("#compareButton").click();
   await page.waitForSelector(".compare-card");
   assert.match(await page.locator("#dialogContent").innerText(), /strongest average/);
   await page.locator("#dialogClose").click();
   await page.locator("#assistantButton").click();
-  await page.locator("#journeyChatInput").fill("What should I double-check about management before buying this property?");
-  await page.locator('#journeyChatForm button[type="submit"]').click();
-  await page.waitForSelector(".chat-message:not(.user)", { timeout: 100000 });
-  assert.equal(await page.locator(".chat-message:not(.user) small").innerText(), "FRAMEWORK ONLY");
-  await page.locator("#dialogClose").click();
+  await page.locator("#chatInput").fill("What should I double-check about management before buying this property?");
+  await page.locator('#chatForm button[type="submit"]').click();
+  await page.waitForFunction(() => !document.querySelector('#chatInput').disabled, { timeout: 100000 });
+  assert.equal(await page.locator(".message.jarvis .intelligenceBadge").last().innerText(), "FRAMEWORK ONLY");
+  await page.locator('[data-area="journey"]').click();
   const download = page.waitForEvent("download");
   await page.locator("#exportButton").click();
   assert.match((await download).suggestedFilename(), /apex-journey-.*\.json/);
@@ -100,7 +103,7 @@ try {
   for (const width of [320, 375, 768, 1024]) {
     await page.setViewportSize({ width, height: 844 });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `Overflow at ${width}px`);
-    assert.equal(await page.locator("#workspaceLink").isVisible(), true);
+    assert.equal(await page.locator('[data-area="desk"]').isVisible(), true);
   }
   await page.addInitScript(full => {
     const key = Object.keys(localStorage).find(key => key.startsWith("apex.journey.v1:"));

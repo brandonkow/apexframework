@@ -99,9 +99,11 @@ test("security hardening and Malaysian deal-cost engine", async (t) => {
     assert.ok([400, 404].includes(malformed.status));
   });
 
-  await t.test("journey serves its Blender assets and preserves the existing workspace", async () => {
+  await t.test("unified workspace serves Blender assets without a legacy page", async () => {
     assert.match(await (await fetch(`${baseUrl}/`)).text(), /id="worldCanvas"/);
-    assert.match(await (await fetch(`${baseUrl}/index.html`)).text(), /id="chatInput"/);
+    assert.match(await (await fetch(`${baseUrl}/index.html`)).text(), /id="workbench"/);
+    assert.equal((await fetch(`${baseUrl}/app.js`)).status, 404);
+    assert.equal((await fetch(`${baseUrl}/styles.css`)).status, 404);
     const model = await fetch(`${baseUrl}/journey/assets/apex-world.glb`);
     assert.equal(model.status, 200);
     assert.match(model.headers.get("content-type"), /model\/gltf-binary/);
