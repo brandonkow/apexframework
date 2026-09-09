@@ -230,7 +230,7 @@ try {
   const duplicateIds = await page.evaluate(() => { const ids = Array.from(document.querySelectorAll("[id]"), node => node.id); return ids.filter((id, index) => ids.indexOf(id) !== index); });
   assert.deepEqual(duplicateIds, []); assert.deepEqual(errors, []);
   assert.deepEqual(browserStepRequests, [], "The browser must poll server work, not drive search steps.");
-  console.log(JSON.stringify({ passed: true, widths: [320, 390, 768, 1440], tested: ["empty catalogue", "natural brief", "current sources", "three candidate shortlist", "selection", "site check", "reload", "bidirectional tool inputs", "working versus source evidence", "DCF persistence", "context-aware reply", "concurrent edit conflict and explicit recovery", "optional 3D", "owner catalogue", "rental stage", "duplicate IDs", "browser errors"], screenshots: output }));
+  console.log(JSON.stringify({ passed: true, widths: [320, 390, 768, 1440], tested: ["empty catalogue", "natural brief", "confirmed financial conversation", "current sources", "three candidate shortlist", "selection", "site check", "reload", "bidirectional tool inputs", "working versus source evidence", "DCF persistence", "context-aware reply", "concurrent edit conflict and explicit recovery", "optional 3D", "owner catalogue", "rental stage", "private file upload/review/conflict/delete", "duplicate IDs", "browser errors"], screenshots: output }));
 } finally {
   await browser?.close();
   if (child.exitCode === null) { const ended = once(child, "exit"); child.kill(); await ended; }

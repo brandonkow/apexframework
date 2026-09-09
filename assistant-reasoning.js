@@ -1,5 +1,6 @@
 import { briefQuestion, selectedSourceStatus, text } from "./investment-assistant.js";
 import { effectiveContext } from "./assistant-context.js";
+import { ownershipPlan } from "./assistant-milestones.js";
 
 export function socialReply(query) {
   const clean = query.toLowerCase().replace(/[^a-z\s]/g, "").trim();
@@ -12,6 +13,12 @@ export function frameworkReply(query, item, data, analysis = null) {
   const social = socialReply(query);
   if (social) return social;
   const property = item.selected, source = selectedSourceStatus(item, data);
+  if (property && /\b(?:deadline|due|overdue|schedule|milestone|responsible|blocked|waiting|what(?:'s| is) next)\b/i.test(query)) {
+    const plan = ownershipPlan(item), row = plan.attention[0] || plan.rows.find(row => row.id === plan.nextId);
+    if (!row) return "No open action is recorded for this stage. Review earlier unresolved checks and add any actual contractual or tenancy dates to the action plan. I do not infer them or send reminders automatically.";
+    const task = item.tasks.find(task => task.id === row.id);
+    return `Next to review: ${row.title}. ${row.responsibility}${row.contactLabel ? ` (${row.contactLabel})` : ""}.${row.dueDate ? ` Recorded ${row.dateKind === "confirmed" ? "user-confirmed date" : "target"}: ${row.dueDate}${row.timing === "overdue" ? " (overdue)" : row.timing === "today" ? " (today)" : ""}.` : " No date recorded."}${row.waitingFor.length ? ` Waiting for: ${row.waitingFor.map(value => value.title).join(", ")}.` : task.status === "blocked" ? ` Blocker: ${task.note}` : ` ${task.prompt}`}\n\nThese are your private records, not legal clearance. Confirm binding dates with your professional; I have not contacted anyone or scheduled a reminder.`;
+  }
   if (/\b(?:learn|train|memory|remember)\b/i.test(query)) return "I keep this investigation's conversation, checks and outcomes as private context. That does not retrain a model or change the founder framework. Storage availability still matters, so check the notice above before relying on long-term recall.";
   if (/\b(?:guarantee|guaranteed|certain|definitely|sure profit)\b/i.test(query)) return "I cannot guarantee appreciation, rental income or an exit. A useful test is whether the property still works if rent falls, costs rise and selling takes longer. Which of those would put the most pressure on you?";
   if (/\b(?:file|document|photo|attachment|uploaded)\b/i.test(query) && item.attachments?.length) {
@@ -38,11 +45,19 @@ export function frameworkReply(query, item, data, analysis = null) {
     }
     return `${property.grossYield == null ? "There is no current, checked unit-specific rent in this record, so I cannot establish its yield." : `The selected snapshot shows ${property.grossYield}% gross yield from owner-checked rent and the asking price. That is not net return or cash flow.`} ${source?.status !== "current" ? source.note : "Next, verify rent sustainability and total costs, including vacancy and repairs."}`;
   }
+  if (property && ["handover", "rental", "review"].includes(item.stage)) {
+    const plan = ownershipPlan(item), row = plan.rows.find(row => row.id === plan.nextId), task = item.tasks.find(task => task.id === row?.id);
+    const stage = { handover: "handover", rental: "tenancy management", review: "holding review" }[item.stage];
+    const caution = { handover: "Receiving the keys does not prove that defects, access and utilities are resolved.", rental: "Receiving rent alone does not show the full holding result; track repairs, vacancy and all recurring costs.", review: "Past profit does not establish today's liquidity or make another leveraged purchase suitable." }[item.stage];
+    const next = row?.waitingFor.length ? `Resolve the prerequisites for ${row.title}: ${row.waitingFor.map(value => value.title).join(", ")}.` : task?.status === "blocked" ? `Resolve the recorded blocker for ${task.title}: ${task.note}` : task?.prompt || "Review the completed checks and add any unresolved action with its actual date.";
+    return `Your record puts ${property.projectName} at ${stage}. That is your declared progress, not independent confirmation.\n\nNext: ${next}\n\nWatch for this: ${caution}${source?.status !== "current" ? `\n\nSource check: ${source.note}` : ""}`;
+  }
   if (source && source.status !== "current") return source.note;
   if (property) {
-    const next = item.tasks.find(task => task.id.startsWith(item.stage + ":") && task.status === "open");
+    const plan = ownershipPlan(item), row = plan.rows.find(row => row.id === plan.nextId), next = item.tasks.find(task => task.id === row?.id);
     const context = item.evidence.at(-1);
-    return `My view: keep ${property.projectName} under investigation, not approved for purchase.\n\nThe counter-case: ${property.counterCase}\n\nNext: ${next?.prompt || "Review the recorded checks and unresolved risks before committing."}${context ? " Your latest observation is saved as user-declared evidence, not independently verified." : ""}`;
+    const nextStep = row?.waitingFor.length ? `Resolve the prerequisites first: ${row.waitingFor.map(value => value.title).join(", ")}.` : next?.status === "blocked" ? `Resolve the recorded blocker: ${next.note}` : next?.prompt || "Review the recorded checks and unresolved risks before committing.";
+    return `My view: keep ${property.projectName} under investigation, not approved for purchase.\n\nThe counter-case: ${property.counterCase}\n\nNext: ${nextStep}${context ? " Your latest observation is saved as user-declared evidence, not independently verified." : ""}`;
   }
   return item.results?.message || (item.confirmedAt ? "The search brief is confirmed. I will use published sources and keep unsupported claims unresolved." : briefQuestion(item.brief));
 }
@@ -55,7 +70,8 @@ export function assistantCaseContext(item, data) {
     confirmedBrief: item.confirmedAt ? item.brief : null,
     selected: property ? { projectName: property.projectName, askingPrice: property.askingPrice, sourceUrl: property.sourceUrl, observedAt: property.observedAt, grossYield: property.grossYield, facts: property.facts, gaps: property.gaps, counterCase: property.counterCase } : null,
     currentSource: selectedSourceStatus(item, data),
-    nextCheck: item.tasks.find(task => task.id.startsWith(item.stage + ":") && task.status === "open") || null,
+    nextCheck: item.tasks.find(task => task.id === ownershipPlan(item).nextId) || null,
+    ownershipPlan: ownershipPlan(item),
     recordedChecks: item.tasks.filter(task => task.status === "done").slice(-8),
     privateObservations: item.evidence.slice(-6),
     privateFileNotes: (item.attachments || []).filter(file => file.review).slice(-6).map(file => ({ id: file.id, filename: file.filename, checksum: file.checksum, review: file.review, extractionCoverage: file.extraction.coverage, status: "User-reviewed note, not independent verification. Do not claim to have read the entire original or unreviewed extraction." })),

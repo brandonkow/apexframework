@@ -1,5 +1,6 @@
 import { createContextSync, contextOf } from "./context-sync.js";
 import { createPrivateFilesView } from "./files.js";
+import { createMilestonesView } from "./milestones.js";
 
 const $ = selector => document.querySelector(selector);
 const escape = value => String(value ?? "").replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
@@ -39,6 +40,12 @@ export function createAssistant({ openTool, useProperty, notify, onContextSaved,
     const result = await request(`/api/assistant/cases/${id}/files${route ? "/" + route : ""}`, body);
     if (epoch !== generation || current?.id !== id) return;
     files.accept(route); current = result.case; render(); renderCleanup(result.pendingFileDeletes);
+  }) });
+  const milestones = createMilestonesView(host, { clearError: () => { $("#investmentError").textContent = ""; }, run: (route, body, key) => safely(async () => {
+    const id = current?.id, epoch = generation; if (!id) return;
+    const result = await request(`/api/assistant/cases/${id}/${route}`, body);
+    if (epoch !== generation || current?.id !== id) return;
+    milestones.accept(key); current = result.case; render();
   }) });
   function renderCleanup(count) {
     if (count === undefined) return;
@@ -89,6 +96,7 @@ export function createAssistant({ openTool, useProperty, notify, onContextSaved,
     $("#investmentResults").hidden = !results || Boolean(current?.selected || current?.profileIntake) || run?.status !== "completed";
     if (results) $("#investmentResults").innerHTML = `<header><p class="eyebrow">${results.coverage.current} CURRENT RECORDS / ${results.coverage.sources.length} PUBLISHED SOURCES</p><h2>${results.candidates.length ? "Worth a closer look" : "No supported match yet"}</h2><p>${escape(results.message)}</p></header><div class="assistant-shortlist">${results.candidates.map(candidate => `<article class="assistant-candidate"><span class="status-pill">INVESTIGATE</span><h3>${escape(candidate.projectName)}</h3><p>${escape(candidate.area)} / ${escape(candidate.propertyType.replaceAll("_", " "))}</p><strong>${cash(candidate.askingPrice)}</strong><small>Asking price / checked ${candidate.observedAt.slice(0, 10)}</small><p>${escape(candidate.reasons[0])}</p><p class="candidate-gap">${escape(candidate.gaps[0])}</p><details><summary>Evidence &amp; contrary case</summary><p>${escape(candidate.counterCase)}</p><ul>${candidate.gaps.map(gap => `<li>${escape(gap)}</li>`).join("")}</ul><a href="${escape(candidate.sourceUrl)}" target="_blank" rel="noopener noreferrer">Original listing</a>${candidate.facts.map(fact => `<p><a href="${escape(fact.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escape(fact.kind.replaceAll("_", " "))}</a> / ${fact.observedAt.slice(0, 10)} / ${escape(fact.verification.replaceAll("_", " "))}<br>${escape(fact.description)}</p>`).join("")}</details><button type="button" class="primary-button" data-investment-select="${escape(candidate.id)}">Investigate this property</button></article>`).join("")}</div><details><summary>Search coverage and exclusions</summary><p>${escape(results.rankingBasis)}</p><p>${Object.entries(results.excluded).map(([key, value]) => `${escape(key)}: ${value}`).join(" / ")}</p><p>${escape(results.coverage.limit)}</p><p>${results.coverage.sources.map(source => `${escape(source.name)}: ${escape(source.coverage || "Coverage not specified")}`).join("<br>")}</p></details>`;
     renderProperty();
+    milestones.render(current, status);
     renderFinance();
     files.render(current, status);
   }
@@ -108,17 +116,17 @@ export function createAssistant({ openTool, useProperty, notify, onContextSaved,
     const pane = $("#investmentProperty"), property = current?.selected;
     pane.hidden = !property || Boolean(current?.profileIntake);
     if (pane.hidden) return;
-    const tasks = current.tasks.filter(task => task.id.startsWith(current.stage + ":"));
-    const next = tasks.find(task => task.status !== "done");
+    const actions = pane.querySelector("#investmentActions");
     pane.innerHTML = `<header><p class="eyebrow">ONE PROPERTY / A CONTINUING INVESTIGATION</p><h2>${escape(property.projectName)}</h2><p>${escape(labels[current.stage])} / ${escape(property.area)}</p><button type="button" class="secondary-button" data-investment-action="numbers">Open the valuation tools</button></header>
       <p id="investmentSyncNotice" class="assistant-caption" role="status"></p><div id="investmentSyncActions" hidden><details><summary>Review the differences</summary><div id="investmentSyncDiff"></div></details><button type="button" data-investment-action="retry-sync">Retry saving</button><button type="button" data-investment-action="download-context">Export unsaved inputs</button><button type="button" data-investment-action="keep-context">Keep my tool edits</button><button type="button" data-investment-action="reload-context">Use the saved inputs</button></div>
       ${current.working ? `<details><summary>Working assumptions / saved ${current.working.updatedAt.slice(0, 10)}</summary><p>Tool edits are private user-declared inputs. They do not change the original listing snapshot or prove the claims.</p><p>Working price: ${escape(current.working.dealCard.askingPrice || "Not provided")} / Working rent: ${escape(current.working.dealCard.expectedRent || "Not provided")} / Income: ${escape(current.working.financialProfile.monthlyIncome || "Not provided")}</p></details>` : ""}
       ${current.sourceStatus && current.sourceStatus.status !== "current" ? `<p class="candidate-gap" role="status">${escape(current.sourceStatus.note)}</p>` : ""}
-      ${next ? `<section class="assistant-next"><small>NEXT USEFUL ACTION</small><h3>${escape(next.title)}</h3><p>${escape(next.prompt)}</p><form id="investmentTaskForm"><input type="hidden" name="taskId" value="${escape(next.id)}"><label>What did you check?<textarea name="note" required minlength="12" maxlength="1500" placeholder="Your observation, document or professional feedback"></textarea></label><div class="assistant-field-grid"><label>Date checked<input type="date" name="checkedAt" required max="${date()}" value="${date()}"></label><label>Source link (optional)<input type="url" name="sourceUrl" placeholder="https://..."></label></div><button type="submit" class="primary-button">Record this check</button><p class="assistant-caption">Recorded as your declaration, not independent verification.</p></form></section>` : '<p class="assistant-next">Your checks for this stage are recorded. Review unresolved risks before making a commitment.</p>'}
-      <details><summary>All checks and evidence</summary>${current.tasks.map(task => `<p><b>${escape(task.title)}</b> / ${escape(task.status)}<br>${escape(task.note || "Not yet recorded")}${task.status === "done" ? `<br><button type="button" data-reopen-task="${escape(task.id)}">Reopen check</button>` : ""}</p>`).join("")}<form id="investmentEvidenceForm"><label>Add a private observation<textarea name="note" required minlength="12" maxlength="2000"></textarea></label><label>Date<input type="date" name="checkedAt" required max="${date()}" value="${date()}"></label><label>Source (optional)<input type="url" name="sourceUrl" placeholder="https://..."></label><button type="submit">Keep this evidence</button></form>${current.evidence.map(item => `<p>${escape(item.note)}<br><small>${item.checkedAt.slice(0, 10)} / user declared</small></p>`).join("")}</details>
+      <div id="investmentActions"></div>
+      <details><summary>Private observations</summary><form id="investmentEvidenceForm"><label>Add a private observation<textarea name="note" required minlength="12" maxlength="2000"></textarea></label><label>Date<input type="date" name="checkedAt" required max="${date()}" value="${date()}"></label><label>Source (optional)<input type="url" name="sourceUrl" placeholder="https://..."></label><button type="submit">Keep this evidence</button></form>${current.evidence.map(item => `<p>${escape(item.note)}<br><small>${item.checkedAt.slice(0, 10)} / user declared</small></p>`).join("")}</details>
       <details><summary>Move to another ownership stage</summary><form id="investmentStageForm"><label>Current situation<select name="stage">${Object.entries(labels).slice(5).map(([key, value]) => `<option value="${key}" ${key === current.stage ? "selected" : ""}>${value}</option>`).join("")}</select></label><label>What changed, and what remains unresolved?<textarea name="note" required minlength="12" maxlength="1000"></textarea></label><button type="submit">Update my stage</button><p class="assistant-caption">This records your progress, not approval to transact. Apex does not sign, pay, book or contact anyone automatically.</p></form></details>
       <details><summary>Actual rental and holding outcomes</summary><form id="investmentOutcomeForm"><div class="assistant-field-grid"><label>Month<input name="month" type="month" required max="${date().slice(0, 7)}" value="${date().slice(0, 7)}"></label><label>Rent received (RM)<input name="rentReceived" type="number" step="0.01" min="0" required></label><label>All monthly outgoings (RM)<input name="totalCosts" type="number" step="0.01" min="0" required></label><label>Notes<input name="note" maxlength="1000" placeholder="Vacancy, repairs, loan and recurring charges"></label></div><button type="submit">Record actual outcome</button></form>${current.outcomes.map(outcome => `<p>${escape(outcome.month)} / ${cash(outcome.cashFlow)} cash flow<br>${escape(outcome.note)}</p>`).join("")}</details>
       <details><summary>Decision history</summary>${current.events.slice().reverse().map(event => `<p>${escape(event.description)}<br><small>${event.at.slice(0, 10)}</small></p>`).join("")}</details>`;
+    if (actions) pane.querySelector("#investmentActions").replaceWith(actions);
     renderSyncNotice();
   }
   function renderSyncNotice() {
@@ -176,7 +184,7 @@ export function createAssistant({ openTool, useProperty, notify, onContextSaved,
   $("#investmentComposer").addEventListener("submit", event => { event.preventDefault(); const input = $("#investmentInput"), value = input.value.trim(); if (!value) return; void safely(async () => { if (!current) await create(); await action("message", { message: value, allowAi: $("#investmentAi").checked, editBrief: editing }); input.value = ""; }); });
   host.addEventListener("submit", event => {
     const id = event.target.id;
-    const route = { investmentBriefForm: "confirm", investmentTaskForm: "task", investmentStageForm: "stage", investmentOutcomeForm: "outcome", investmentEvidenceForm: "evidence" }[id];
+    const route = { investmentBriefForm: "confirm", investmentStageForm: "stage", investmentOutcomeForm: "outcome", investmentEvidenceForm: "evidence" }[id];
     if (!route) return;
     event.preventDefault();
     const values = Object.fromEntries(new FormData(event.target));
@@ -202,7 +210,6 @@ export function createAssistant({ openTool, useProperty, notify, onContextSaved,
       if (button.dataset.confirm !== current.id) { button.dataset.confirm = current.id; button.textContent = "Confirm: replace local tool edits with saved inputs"; return; }
       void safely(async () => { await load(current.id); sync.accept(current); useProperty(current, { replace: true }); });
     }
-    if (button.dataset.reopenTask) void safely(() => action("task", { taskId: button.dataset.reopenTask, status: "open" }));
   });
   $("#investmentNew").addEventListener("click", () => void safely(create));
   $("#investmentProfileStart").addEventListener("click", () => void safely(async () => { if (!current) await create(); await action("profile", { action: "start" }); $("#investmentInput").focus(); }));

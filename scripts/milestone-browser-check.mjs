@@ -1,0 +1,131 @@
+import assert from "node:assert/strict";
+import { createRequire } from "node:module";
+import { spawn } from "node:child_process";
+import { once } from "node:events";
+import { mkdtemp, mkdir, rm } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import net from "node:net";
+
+const require = createRequire(import.meta.url);
+const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "C:/Users/user/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright");
+const output = path.resolve(process.env.ASSISTANT_QA_OUTPUT || "../../outputs/apex-assistant");
+const dir = await mkdtemp(path.join(os.tmpdir(), "apex-assistant-browser-"));
+const probe = net.createServer(); probe.listen(0, "127.0.0.1"); await once(probe, "listening"); const port = probe.address().port; await new Promise(resolve => probe.close(resolve));
+const base = `http://127.0.0.1:${port}`, owner = "local-assistant-browser-owner";
+const child = spawn(process.execPath, ["server.js"], { cwd: new URL("../", import.meta.url), env: { ...process.env, PORT: String(port), HOST: "127.0.0.1", ESTATELAB_DATA_DIR: dir, DATABASE_URL: "", VERCEL: "", OPENAI_API_KEY: "", OPENROUTER_API_KEY: "", LLM_API_KEY: "", ESTATELAB_OWNER_TOKEN: owner }, stdio: "pipe" });
+let browser, logs = "";
+child.stderr.on("data", data => logs += data);
+try {
+  let ready = false;
+  for (let i = 0; i < 100; i++) { try { if ((await fetch(base + "/api/health")).ok) { ready = true; break; } } catch {} await new Promise(resolve => setTimeout(resolve, 50)); }
+  assert.ok(ready, logs); await mkdir(output, { recursive: true });
+  browser = await chromium.launch({ channel: "chrome", headless: true });
+  const page = await browser.newPage({ viewport: { width: 390, height: 950 }, reducedMotion: "reduce" }), errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  page.on("response", response => { if (response.status() === 429) errors.push("Rate limit reached: " + response.url()); });
+  const now = new Date().toISOString().slice(0, 10);
+  const imported = await fetch(base + "/api/owner/discovery", { method: "POST", headers: { "content-type": "application/json", "x-estatelab-owner-token": owner }, body: JSON.stringify({ version: 1, source: { id: "plan-fixture", name: "SYNTHETIC LOCAL QA ONLY", permission: "owner_authorized", permissionReference: "Local browser fixture, not market data", publish: true, coverage: "Synthetic Penang records" }, listings: [{ id: "one", projectName: "Synthetic plan residence", area: "Bayan Lepas", state: "Penang", propertyType: "condo", askingPrice: 440000, sourceUrl: "https://example.com/qa-only/plan", observedAt: now, availability: "available", facts: [] }] }) });
+  assert.equal(imported.status, 200);
+  let record = (await (await page.request.post(base + "/api/assistant/cases", { data: {} })).json()).case;
+  const caseId = record.id;
+  async function action(route, data) {
+    const response = await page.request.post(`${base}/api/assistant/cases/${caseId}/${route}`, { data: { ...data, revision: record.revision } });
+    const body = await response.json(); assert.equal(response.status(), 200, JSON.stringify(body)); record = body.case;
+  }
+  await action("confirm", { brief: { area: "Penang", goal: "rental_income", budgetMax: 500000, propertyType: "condo" } });
+  for (let i = 0; i < 40 && record.job.status !== "completed"; i++) {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    record = (await (await page.request.get(`${base}/api/assistant/cases/${caseId}`)).json()).case;
+  }
+  assert.equal(record.job.status, "completed");
+  await action("select", { listingId: record.results.candidates[0].id });
+  await action("stage", { stage: "rental", note: "The owner reports completing purchase and handover separately." });
+  await page.goto(base, { waitUntil: "networkidle" });
+  await page.waitForSelector("#investmentTaskForm");
+  await page.locator("#investmentTaskPlan > summary").click();
+  const planForm = page.locator('[data-milestone-form="plan:rental:tenant"]');
+  const targetDate = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  await planForm.locator('[name="responsibility"]').selectOption("self");
+  await planForm.locator('[name="dueDate"]').fill(targetDate);
+  await planForm.locator('[name="dateKind"]').selectOption("confirmed");
+  await planForm.locator('[name="dateReference"]').fill("Synthetic written timetable supplied by the owner's professional.");
+  await planForm.locator('[name="confirmDate"]').check();
+  await planForm.locator('button[type="submit"]').click();
+  await page.waitForFunction(() => document.querySelector(".assistant-plan-attention")?.textContent.includes("overdue"));
+  let plannedCase = (await (await page.request.get(`${base}/api/assistant/cases/${caseId}`)).json()).case;
+  assert.equal(plannedCase.tasks.find(task => task.id === "rental:tenant").plan.dateKind, "confirmed");
+  await page.locator('#investmentActionList > summary').click();
+  await page.locator('[data-milestone-open="add"]').click();
+  const addAction = page.locator('[data-milestone-form="add"]');
+  await addAction.locator('[name="suggestion"]').selectOption("rental:0");
+  assert.equal(await addAction.locator('[name="title"]').inputValue(), "Review the tenancy before expiry");
+  assert.equal(await addAction.locator('[name="dueDate"]').inputValue(), "");
+  await addAction.locator('[name="title"]').fill("Confirm the first tenancy inventory");
+  await addAction.locator('[name="prompt"]').fill("Check the signed inventory after completing the tenant screening.");
+  await addAction.locator('details > summary').first().click();
+  await addAction.locator('[name="responsibility"]').selectOption("agent");
+  await addAction.locator('[name="dueDate"]').fill(targetDate);
+  await addAction.locator('details details > summary').click();
+  await addAction.locator('[name="dependsOn"][value="rental:tenant"]').check();
+  await addAction.locator('button[type="submit"]').click();
+  await page.waitForFunction(() => document.querySelector("#investmentActionList")?.textContent.includes("Confirm the first tenancy inventory"));
+  plannedCase = (await (await page.request.get(`${base}/api/assistant/cases/${caseId}`)).json()).case;
+  const customId = plannedCase.tasks.find(task => task.custom).id;
+  await page.locator(`#investmentActionList [data-milestone-open="${customId}"]`).click();
+  assert.deepEqual(plannedCase.tasks.find(task => task.id === customId).plan.dependsOn, ["rental:tenant"]);
+  assert.equal(await page.locator('#investmentTaskForm').getAttribute('data-task-id'), customId);
+  assert.equal(await page.locator('#investmentTaskForm option[value="done"]').evaluate(node => node.disabled), true);
+  assert.match(await page.locator("#investmentActions").innerText(), /Waiting for: Screen the proposed tenancy/);
+  await page.locator('#investmentActionList [data-milestone-open="rental:tenant"]').click();
+  await page.locator('#investmentTaskForm textarea[name="note"]').fill("I reviewed the original tenant screening records for this local test.");
+  await page.locator('#investmentTaskForm button[type="submit"]').click();
+  await page.waitForFunction(() => document.querySelector(".assistant-next h3")?.textContent.includes("Confirm the first tenancy inventory"));
+  assert.equal(await page.locator('#investmentTaskForm option[value="done"]').isDisabled(), false);
+  await page.locator('#investmentTaskForm textarea[name="note"]').fill("The signed inventory was checked against the original condition report.");
+  await page.locator('#investmentTaskForm button[type="submit"]').click();
+  await page.waitForFunction(() => document.querySelector(".assistant-next h3")?.textContent.includes("Review the tenancy and inventory"));
+  await page.locator('#investmentActionList [data-milestone-open="rental:tenant"]').click();
+  await page.locator('#investmentTaskForm textarea[name="note"]').fill("An earlier reference was withdrawn and the tenant checks need another review.");
+  await page.locator('#investmentTaskForm button[type="submit"]').click();
+  await page.waitForFunction(() => document.querySelector(".assistant-plan-attention")?.textContent.includes("waiting"));
+  plannedCase = (await (await page.request.get(`${base}/api/assistant/cases/${caseId}`)).json()).case;
+  assert.equal(plannedCase.tasks.find(task => task.id === customId).status, "blocked");
+  assert.equal(plannedCase.tasks.find(task => task.id === customId).history.at(-1).status, "done");
+  await page.locator('#investmentActionList [data-milestone-open="rental:tenant"]').click();
+  await page.locator("#investmentTaskPlan").evaluate(node => node.open = true);
+  await planForm.locator('[name="contactLabel"]').fill("My local planner draft");
+  const remotePlan = { ...plannedCase.tasks.find(task => task.id === "rental:tenant").plan, responsibility: "lawyer", contactLabel: "Remote saved contact", confirmDate: true };
+  const remoteResult = await page.request.post(`${base}/api/assistant/cases/${caseId}/milestone`, { data: { revision: plannedCase.revision, action: "plan", taskId: "rental:tenant", plan: remotePlan } });
+  assert.equal(remoteResult.status(), 200);
+  await planForm.locator('[name="confirmDate"]').check();
+  await planForm.locator('button[type="submit"]').click();
+  await page.waitForSelector('[data-milestone-resolve="local"]');
+  assert.equal(await planForm.locator('[name="contactLabel"]').inputValue(), "My local planner draft");
+  await page.locator('[data-milestone-resolve="local"]').click();
+  await page.locator('[data-milestone-resolve="local"]').click();
+  assert.equal(await planForm.locator('[name="confirmDate"]').isChecked(), false);
+  await planForm.locator('[name="confirmDate"]').check();
+  await planForm.locator('button[type="submit"]').click();
+  await page.waitForFunction(() => !document.querySelector('[data-milestone-resolve="local"]') && document.querySelector(".assistant-next")?.textContent.includes("My local planner draft"));
+  await page.reload({ waitUntil: "networkidle" });
+  await page.waitForSelector("#investmentTaskForm");
+  assert.match(await page.locator(".assistant-next").innerText(), /My local planner draft/);
+  await page.locator("#investmentInput").fill("Which deadline is next?");
+  await page.locator('#investmentComposer button[type="submit"]').click();
+  await page.waitForFunction(() => document.querySelector("#investmentMessages")?.textContent.includes("have not contacted anyone"));
+  for (const width of [320, 390, 768, 1440]) {
+    await page.setViewportSize({ width, height: 950 });
+    await page.locator("#investmentTaskPlan").evaluate(node => node.open = true);
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false, `Milestone editor overflow at ${width}`);
+    await page.screenshot({ path: path.join(output, `assistant-milestones-${width}.png`), fullPage: true });
+  }
+  assert.deepEqual(errors, []);
+  const ids = await page.locator("[id]").evaluateAll(nodes => nodes.map(node => node.id));
+  assert.equal(new Set(ids).size, ids.length);
+  console.log("PASS ownership action dates, roles, dependencies, transitive reopening, stale draft review, reload and deadline replies at 320/390/768/1440 widths");
+} finally {
+  await browser?.close();
+  if (child.exitCode === null) { const ended = once(child, "exit"); child.kill(); await ended; }
+  await rm(dir, { recursive: true, force: true });
+}

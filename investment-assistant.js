@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { malaysiaDate, planDate } from "./assistant-calendar.js";
 
 export const isoNow = () => new Date().toISOString();
 export const text = (value, max = 500) => typeof value === "string" ? value.trim().slice(0, max) : "";
@@ -216,12 +217,30 @@ export function addEvent(item, type, description) {
 export function message(item, role, content, mode = "framework") {
   item.messages = [...item.messages, { id: randomUUID(), role, content: text(content, 3500), mode, at: isoNow() }].slice(-40);
 }
-export function recordTask(item, taskId, input) {
+export function recordTask(item, taskId, input, now = Date.now()) {
   const task = item.tasks.find(task => task.id === taskId);
   if (!task) fail("Task not found.", 404);
-  if (!["open", "done"].includes(input.status)) fail("Task status must be open or done.");
-  const note = text(input.note, 1500), checkedAt = pastDate(input.checkedAt);
-  if (input.status === "done" && (note.length < 12 || !checkedAt)) fail("Record what was checked and a valid past date. Completion is your declaration, not independent verification.");
+  if (!["open", "blocked", "done", "cancelled"].includes(input.status)) fail("Choose open, blocked, done or cancelled.");
+  if (input.status === "cancelled" && !task.custom) fail("Framework checks cannot be cancelled. Record what is blocking the check instead.");
+  const note = text(input.note, 1500);
+  const checkedAt = typeof input.checkedAt === "string" && /^\d{4}-\d{2}-\d{2}$/.test(input.checkedAt) ? (planDate(input.checkedAt) <= malaysiaDate(now) ? input.checkedAt : "") : pastDate(input.checkedAt, now);
+  if (input.status !== "open" && (note.length < 12 || !checkedAt)) fail("Record what was checked or why progress stopped, and a valid past date. Completion is your declaration, not independent verification.");
+  if (input.status === "done" && (task.plan?.dependsOn || []).some(id => item.tasks.find(value => value.id === id)?.status !== "done")) fail("Complete or explicitly revise the prerequisite checks before recording this action as done.");
+  if (task.note || task.status !== "open") task.history = [...(task.history || []), { status: task.status, note: task.note, checkedAt: task.checkedAt, sourceUrl: task.sourceUrl, at: isoNow() }].slice(-20);
   Object.assign(task, { status: input.status, note, checkedAt, sourceUrl: publicUrl(input.sourceUrl) });
+  // Reopening a prerequisite invalidates dependent completion, transitively.
+  if (input.status !== "done") {
+    const invalid = new Set([task.id]); let changed = true;
+    while (changed) {
+      changed = false;
+      for (const dependent of item.tasks) if (!invalid.has(dependent.id) && (dependent.plan?.dependsOn || []).some(id => invalid.has(id))) {
+        invalid.add(dependent.id); changed = true;
+        if (dependent.status === "done") {
+          dependent.history = [...(dependent.history || []), { status: dependent.status, note: dependent.note, checkedAt: dependent.checkedAt, sourceUrl: dependent.sourceUrl, at: isoNow() }].slice(-20);
+          Object.assign(dependent, { status: "blocked", note: `Recheck required: prerequisite ${task.title} is no longer complete.`, checkedAt: "", sourceUrl: "" });
+        }
+      }
+    }
+  }
   addEvent(item, "task", `${task.title}: ${task.status}. ${note}`);
 }

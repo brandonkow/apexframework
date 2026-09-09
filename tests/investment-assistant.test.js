@@ -148,7 +148,12 @@ test("private discovery lifecycle persists, resumes and rejects cross-user edits
   assert.equal(item.toolContext.dealCard.askingPrice, "440000", "Selecting a property must seed its source inputs even when finances were confirmed first.");
   assert.equal(item.working.financialBasis.monthlyIncome, "net_declared");
   assert.equal((await action("task", { taskId: item.tasks[0].id, status: "done", note: "Observed the site and layout in person.", checkedAt: today })).status, 200);
+  assert.equal((await action("milestone", { action: "plan", taskId: item.tasks[1].id, plan: { responsibility: "management", dueDate: today, dateKind: "target", dependsOn: [], contactLabel: "Private building contact" } })).status, 200);
+  await stop(); await start();
+  item = (await request(`/api/assistant/cases/${id}`, null, { cookie: guest })).data.case;
+  assert.equal(item.tasks[1].plan.contactLabel, "Private building contact");
   await action("stage", { stage: "rental", note: "Owner reports that the purchase and handover were completed separately." });
+  assert.equal(item.tasks.find(task => task.id === "site_visit:management").plan.dueDate, today);
   assert.equal((await action("outcome", { month: today.slice(0, 7), rentReceived: true, totalCosts: 2200 })).status, 400);
   await action("outcome", { month: today.slice(0, 7), rentReceived: 2500, totalCosts: 2200, note: "Includes actual loan and monthly holding costs." });
   assert.equal(item.outcomes[0].cashFlow, 300);
@@ -163,6 +168,7 @@ test("private discovery lifecycle persists, resumes and rejects cross-user edits
   assert.equal(exported.data.investigations[0].id, id);
   assert.equal(exported.data.investigations[0].scope, undefined);
   assert.equal(exported.data.investigations[0].working.financialProfile.monthlyIncome, "8000");
+  assert.equal(exported.data.investigations[0].tasks.find(task => task.id === "site_visit:management").plan.contactLabel, "Private building contact");
   assert.equal((await request(`/api/assistant/cases/${id}`, null, { method: "DELETE", cookie: accountCookie })).status, 200);
   assert.equal((await request(`/api/assistant/cases/${id}`, null, { cookie: accountCookie })).status, 404);
 });

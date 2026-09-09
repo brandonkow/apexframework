@@ -5,6 +5,7 @@ import { socialReply, frameworkReply, conciseAssistantReply } from "./assistant-
 import { effectiveContext, updateWorkingContext, deleteInvestigation } from "./assistant-context.js";
 import { profileView, profileActive, requestsProfile, startProfile, profileAction, answerProfile } from "./assistant-profile.js";
 import { MAX_FILE_BYTES, uploadPrivateFile, reviewPrivateFile, removePrivateFile, readFileWithAi, readPrivateOriginal, cleanupPrivateFiles } from "./assistant-files.js";
+import { changeMilestone, ownershipPlan, RESPONSIBILITIES, ACTION_SUGGESTIONS } from "./assistant-milestones.js";
 
 const COOKIE = "apex_investment_guest";
 function guestScope(req, res, create = false) {
@@ -34,7 +35,7 @@ export async function assistantRoutes({ req, res, url, db, actor, send, readBody
   if (!allowRequest(req, "investment-assistant", 100, 10 * 60 * 1000)) fail("Please pause briefly before sending more requests.", 429);
   const data = assistantState(db);
   const respond = (status, body) => {
-    if (body.case) body.case = { ...body.case, sourceStatus: selectedSourceStatus(body.case, data), toolContext: effectiveContext(body.case), profileIntake: profileView(body.case) };
+    if (body.case) body.case = { ...body.case, sourceStatus: selectedSourceStatus(body.case, data), toolContext: effectiveContext(body.case), profileIntake: profileView(body.case), ownershipPlan: ownershipPlan(body.case) };
     send(res, status, body); return true;
   };
   if (owner) {
@@ -65,6 +66,8 @@ export async function assistantRoutes({ req, res, url, db, actor, send, readBody
     llm: llmEnabled(), authenticated: Boolean(actor.user), durable: storeKind === "postgres" || !ephemeral,
     storage: storeKind, coverage: catalogueCoverage(data), guestDraftAvailable: Boolean(actor.user && data.cases.some(item => item.scope === guestScope(req, res))),
     backgroundMode: defer ? "server" : "browser",
+    responsibilities: RESPONSIBILITIES,
+    actionSuggestions: ACTION_SUGGESTIONS,
     files: { enabled: fileStorageReady, maxBytes: MAX_FILE_BYTES, pendingDeletes: (data.fileCleanup || []).filter(job => job.scope === scope).length, notice: fileStorageReady ? "Files stay private to this investigation. Original files are downloaded separately from the JSON export." : "Private uploads need both persistent database storage and a private object store on this deployment." },
     background: defer ? "A confirmed search runs on the server even if you close the page. Server interruptions resume when you reopen the investigation. This is not continuous monitoring." : "Resumable steps run while this application is open. Closing it pauses work; return to resume.",
     storageNotice: ephemeral && storeKind !== "postgres" ? "This deployment has temporary storage. Export your work; it may disappear after a server restart." : actor.user ? "Saved to your private account." : "Private guest session. Sign in and explicitly import this draft to continue across devices."
@@ -126,7 +129,7 @@ export async function assistantRoutes({ req, res, url, db, actor, send, readBody
     } else return respond(400, { error: "Choose a file action." });
     return respond(200, { case: publicCase(item) });
   }
-  const match = url.pathname.match(/^\/api\/assistant\/cases\/([\w-]+)(?:\/(message|confirm|step|cancel|select|stage|task|outcome|evidence|export|context|profile))?$/);
+  const match = url.pathname.match(/^\/api\/assistant\/cases\/([\w-]+)(?:\/(message|confirm|step|cancel|select|stage|task|milestone|outcome|evidence|export|context|profile))?$/);
   if (!match) return respond(404, { error: "Assistant endpoint not found." });
   const item = owned().find(item => item.id === match[1]);
   if (!item) return respond(404, { error: "Investigation not found in this account or guest session." });
@@ -231,6 +234,7 @@ export async function assistantRoutes({ req, res, url, db, actor, send, readBody
       break;
     }
     case "task": recordTask(item, body.taskId, body); break;
+    case "milestone": changeMilestone(item, body); break;
     case "evidence": {
       const note = text(body.note, 2000), checkedAt = pastDate(body.checkedAt);
       if (note.length < 12 || !checkedAt) fail("Supply a meaningful observation and valid date.");

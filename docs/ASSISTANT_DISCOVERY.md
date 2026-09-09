@@ -79,7 +79,7 @@ The draft captures the working-context revision at its start. Concurrent tool ed
 
 - No permitted live feed was supplied. The owner requested prepared owner-managed imports. Coverage therefore starts empty, not fabricated.
 - Confirmed searches can finish after the page is closed, within the server execution window. Durable storage is required for reliable cross-instance/redeployment recovery. Continuous monitoring and notifications are not implemented.
-- The shared tools and assistant use one versioned working copy, including confirmed conversational financial intake. Private document/photo workflows are implemented with storage and consent gates; detailed ownership milestones and outcome-to-belief proposals remain requirements.
+- The shared tools and assistant use one versioned working copy, including confirmed conversational financial intake. Private document/photo workflows have storage and consent gates. Existing ownership checks now carry responsibilities, dates and dependencies; outcome-to-belief proposals remain a requirement.
 - Scenario tests cover greetings, affordability boundaries, gross-versus-net yield, actual cash flow, source changes, context isolation, AI consent and malformed/provider-failure fallbacks. Live configured-provider answer quality remains unverified while production has no key. Provider availability is not a quality guarantee.
 - Production needs an AI key, owner token and durable storage. Code deployment does not migrate Render data.
 
@@ -95,6 +95,8 @@ The browser test also edits income, rent and DCF assumptions through the actual 
 
 ## Completion gates from the accepted recommendation
 
+The ownership extension is documented in `OWNERSHIP_ACTION_PLAN.md`. `node scripts/milestone-browser-check.mjs` exercises the real editor, responsibility/date suggestions, prerequisite checks, transitive reopening and stale-plan recovery independently of the longer discovery browser suite, without disabling request limits.
+
 These gates reflect the assistant-first recommendation accepted in this task; they are not additional version releases.
 
 | Requirement | Current evidence / remaining gate |
@@ -107,7 +109,7 @@ These gates reflect the assistant-first recommendation accepted in this task; th
 | Recoverable background progress, cancellation and bounded AI use | Three persisted server search steps and bounded per-request tokens/rate limits; continuous monitoring not claimed |
 | Private, continuing property record with editable assumptions | Versioned working-context API and end-to-end sync tests; production database still required |
 | Collect private documents/photos with permission | Case-scoped originals, bounded local extraction, explicit optional AI reading and reviewed notes delivered; local API/browser tests; production storage and live-model quality still required |
-| Carry evidence, responsibilities and dates through transaction, handover and tenancy | Stage/check/outcome records delivered; detailed ownership milestones remain |
+| Carry evidence, responsibilities and dates through transaction, handover and tenancy | Existing checks extended with optional responsibilities, confirmed or target dates, custom actions, dependencies and transitive reopening; scoped API and desktop/mobile tests; durable production storage remains a gate |
 | Compare the thesis with actual outcomes and propose owner-approved lessons | Actual outcomes recorded; versioned proposal/approval connection remains |
 | Keep the 407 founder inputs unchanged and avoid external commitments without approval | Protected-file hashes and scoped APIs; no automatic payments, messages or bookings |
 | Direct-main delivery preserving Claude's commit, followed by production checks | Git ancestry, test results and deployed revision checked at each delivery |
