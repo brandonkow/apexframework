@@ -135,6 +135,8 @@ const ownerIntelExport = document.querySelector("#ownerIntelExport");
 const ownerIntelImport = document.querySelector("#ownerIntelImport");
 const ownerIntelRestoreHistory = document.querySelector("#ownerIntelRestoreHistory");
 const ownerIntelBackupReminder = document.querySelector("#ownerIntelBackupReminder");
+const ownerIntelBeliefReview = document.querySelector("#ownerIntelBeliefReview");
+const ownerIntelBeliefLog = document.querySelector("#ownerIntelBeliefLog");
 const ownerIntelImportFile = document.querySelector("#ownerIntelImportFile");
 const ownerIntelRestorePhrase = document.querySelector("#ownerIntelRestorePhrase");
 const ownerIntelRestoreConfirm = document.querySelector("#ownerIntelRestoreConfirm");
@@ -3512,6 +3514,82 @@ async function loadOwnerRestoreHistory() {
   setOwnerIntelMessage(`Restore log loaded: ${history.summary?.snapshots || 0} rollback snapshots, ${history.summary?.events || 0} restore events.`);
 }
 
+function beliefReviewStateLabel(belief = {}) {
+  if (belief.reviewState === "overdue") return `OVERDUE ${Math.abs(Number(belief.dueInDays) || 0)}d`;
+  if (belief.status === "contested") return "CONTESTED";
+  if (belief.unverifiedHighConfidence) return "UNVERIFIED";
+  if (belief.reviewState === "due") return `DUE ${Math.max(0, Number(belief.dueInDays) || 0)}d`;
+  return `IN ${Math.max(0, Number(belief.dueInDays) || 0)}d`;
+}
+
+function renderOwnerBeliefReview(payload = {}) {
+  const summary = payload.summary || {};
+  const queue = Array.isArray(payload.queue) ? payload.queue : [];
+  ownerIntelBeliefLog.hidden = false;
+  ownerIntelBeliefLog.innerHTML = `
+    <header>
+      <span>
+        <small>BELIEF REVIEW</small>
+        <b>${escapeHtml(summary.overdue || 0)} overdue / ${escapeHtml(summary.dueSoon || 0)} due soon</b>
+        <em>${escapeHtml(summary.neverReviewed || 0)} of ${escapeHtml(summary.active || 0)} never verified against a real case</em>
+      </span>
+      <em>${escapeHtml(summary.unverifiedHighConfidence || 0)} high-confidence unverified</em>
+    </header>
+    ${queue.length ? queue.map((belief) => `
+      <article>
+        <span>
+          <small>${escapeHtml(beliefReviewStateLabel(belief))} / ${escapeHtml(belief.confidence)}% / ${escapeHtml(belief.scope || "General")}</small>
+          <b>${escapeHtml(belief.claim)}</b>
+          <em>Falsifier: ${escapeHtml(belief.falsifier || "Not recorded")}</em>
+        </span>
+        <button type="button" data-belief-review="confirm" data-belief-id="${escapeHtml(belief.id)}">HELD UP</button>
+        <button type="button" data-belief-review="contest" data-belief-id="${escapeHtml(belief.id)}">COUNTEREXAMPLE</button>
+      </article>
+    `).join("") : '<p class="ownerIntelEmpty">No belief is due for review. Every active belief has a scheduled re-test date.</p>'}
+    ${summary.withSourceQuestion === 0 && summary.active ? '<p class="ownerIntelEmpty">No belief records the source question it came from yet.</p>' : ""}
+  `;
+}
+
+async function loadOwnerBeliefReview() {
+  if (!ownerIntelTokenValue()) return ownerIntelToken.focus();
+  setOwnerIntelMessage("Loading belief review queue...");
+  const payload = await ownerIntelRequest("/api/owner/beliefs/review?limit=25");
+  renderOwnerBeliefReview(payload);
+  const summary = payload.summary || {};
+  setOwnerIntelMessage(
+    `Belief review: ${summary.overdue || 0} overdue, ${summary.dueSoon || 0} due soon, ${summary.neverReviewed || 0} never verified.`,
+    summary.overdue || summary.contested ? "warning" : ""
+  );
+}
+
+async function submitBeliefReview(button) {
+  const id = button.getAttribute("data-belief-id");
+  const action = button.getAttribute("data-belief-review");
+  if (!id || !action) return;
+  const prompt = action === "confirm"
+    ? "What evidence or real case did you check that kept this belief standing?"
+    : "What counterexample or case challenges this belief?";
+  const note = window.prompt(prompt, "");
+  if (note === null) return;
+  if (note.trim().length < 8) {
+    return setOwnerIntelMessage("Record what you actually checked before closing a belief review.", "warning");
+  }
+  button.disabled = true;
+  try {
+    await ownerIntelRequest(`/api/brain/beliefs/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ action, note: note.trim() })
+    });
+    await loadOwnerBeliefReview();
+    setOwnerIntelMessage(
+      action === "confirm" ? "Belief confirmed and re-scheduled." : "Belief marked contested for a 90-day re-test.",
+      action === "confirm" ? "" : "warning"
+    );
+  } finally {
+    button.disabled = false;
+  }
+}
+
 async function rollbackOwnerKnowledgeSnapshot(snapshotId) {
   if (!snapshotId) return;
   const confirmRollback = ownerIntelRestorePhrase.value.trim();
@@ -6696,6 +6774,11 @@ ownerIntelExport.addEventListener("click", () => void exportOwnerKnowledgeBackup
 ownerIntelImport.addEventListener("click", () => ownerIntelImportFile.click());
 ownerIntelRestoreHistory.addEventListener("click", () => void loadOwnerRestoreHistory().catch((error) => setOwnerIntelMessage(error.message || "Restore log could not be loaded.", "danger")));
 ownerIntelBackupReminder.addEventListener("click", () => void sendOwnerBackupReminder().catch((error) => setOwnerIntelMessage(error.message || "Backup reminder could not be sent.", "danger")));
+ownerIntelBeliefReview.addEventListener("click", () => void loadOwnerBeliefReview().catch((error) => setOwnerIntelMessage(error.message || "Belief review queue could not be loaded.", "danger")));
+ownerIntelBeliefLog.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-belief-review]");
+  if (button) void submitBeliefReview(button).catch((error) => setOwnerIntelMessage(error.message || "Belief review could not be saved.", "danger"));
+});
 ownerIntelImportFile.addEventListener("change", () => void previewOwnerKnowledgeRestore(ownerIntelImportFile.files?.[0]).catch((error) => setOwnerIntelMessage(error.message || "Owner backup could not be validated.", "danger")));
 ownerIntelRestoreConfirm.addEventListener("click", () => void confirmOwnerKnowledgeRestore().catch((error) => setOwnerIntelMessage(error.message || "Owner backup could not be restored.", "danger")));
 ownerIntelRestoreLog.addEventListener("click", (event) => {

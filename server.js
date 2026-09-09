@@ -296,6 +296,18 @@ const thinkingQuestions = [
     category: "Track record",
     question: "Pick one past deal and give the full case file: entry price, all-in cost, achieved rent, vacancy record, current value, and what the framework would have scored it at purchase.",
     why: "Complete historical cases are the only way to back-test the seven-stage engine against reality."
+  },
+  {
+    id: "leasehold-financing-cliff",
+    category: "Tenure",
+    question: "For leasehold property, at what remaining tenure do Malaysian banks start cutting margin or loan tenure, at what point do you personally refuse to buy, and has a short remaining lease ever cost you a buyer?",
+    why: "The framework judges tenure as freehold-versus-leasehold, but it is the remaining years that close the next buyer's financing and shrink the exit pool."
+  },
+  {
+    id: "building-age-at-exit",
+    category: "Terminal value",
+    question: "You avoid buying high-rise older than 10 years, and you hold 7 to 8 years, which means selling a building that is 12 to 15 years old. Who buys it at that age, and what must be true at purchase for that exit to still work?",
+    why: "The age rule and the holding rule currently point in opposite directions, and only real exits can reconcile what the framework should require at entry."
   }
 ];
 const mimeTypes = {
@@ -1561,10 +1573,136 @@ function normalizeKnowledge(knowledge) {
   return { version: 4, documents, chunks, retrievalEvents, projects, observations, developmentCases, researchStudies, ownerRestoreEvents, ownerRollbackSnapshots, ownerBackupEvents, ownerBackupReminderEvents };
 }
 
+const BELIEF_STATUSES = new Set(["active", "contested", "retired"]);
+const BELIEF_REVIEW_OUTCOMES = new Set(["confirmed", "revised", "contested", "retired", "scheduled"]);
+const BELIEF_DUE_SOON_DAYS = 30;
+
+function beliefReviewIntervalDays(belief = {}) {
+  if (belief.status === "contested") return 90;
+  // A wrong high-confidence belief does the most damage, so it is re-tested soonest.
+  return Number(belief.confidence) >= 90 ? 180 : 365;
+}
+
+function addDays(isoDate, days) {
+  const base = Date.parse(isoDate);
+  const start = Number.isFinite(base) ? base : Date.now();
+  return new Date(start + days * 86400000).toISOString();
+}
+
+function normalizeBeliefReviewEntry(entry = {}) {
+  const outcome = BELIEF_REVIEW_OUTCOMES.has(entry.outcome) ? entry.outcome : "confirmed";
+  return {
+    reviewedAt: cleanMarketDate(entry.reviewedAt, new Date().toISOString()),
+    outcome,
+    note: cleanMarketText(entry.note, 600),
+    confidenceBefore: Math.max(0, Math.min(100, Math.round(Number(entry.confidenceBefore || 0)))),
+    confidenceAfter: Math.max(0, Math.min(100, Math.round(Number(entry.confidenceAfter || 0))))
+  };
+}
+
+function normalizeBelief(belief = {}) {
+  const claim = String(belief.claim || "").trim();
+  if (!claim) return null;
+  const status = BELIEF_STATUSES.has(belief.status) ? belief.status : "active";
+  const confidence = Math.max(0, Math.min(100, Math.round(Number(belief.confidence ?? 50)) || 0));
+  const createdAt = cleanMarketDate(belief.createdAt, new Date().toISOString());
+  const lastReviewedAt = cleanMarketDate(belief.lastReviewedAt, "");
+  const base = { status, confidence };
+  const reviewIntervalDays = Math.max(
+    7,
+    Math.min(1825, Math.round(Number(belief.reviewIntervalDays || 0)) || beliefReviewIntervalDays(base))
+  );
+  // Every belief carries a review date. Beliefs authored before scheduling existed
+  // derive one from their last review, or from authoring when never reviewed.
+  const nextReview = cleanMarketDate(belief.nextReview, "")
+    || addDays(lastReviewedAt || createdAt, reviewIntervalDays);
+  return {
+    id: String(belief.id || randomUUID()).slice(0, 100),
+    createdAt,
+    status,
+    claim: claim.slice(0, 2000),
+    scope: String(belief.scope || "General").trim().slice(0, 300),
+    confidence,
+    evidenceFor: String(belief.evidenceFor || "").trim().slice(0, 2000),
+    evidenceAgainst: String(belief.evidenceAgainst || "").trim().slice(0, 2000),
+    falsifier: String(belief.falsifier || "").trim().slice(0, 2000),
+    sourceQuestionId: String(belief.sourceQuestionId || "").trim().slice(0, 120),
+    lastReviewedAt,
+    reviewIntervalDays,
+    nextReview,
+    reviewHistory: Array.isArray(belief.reviewHistory)
+      ? belief.reviewHistory.map(normalizeBeliefReviewEntry).slice(-10)
+      : []
+  };
+}
+
+function beliefReviewState(belief, now = Date.now()) {
+  const normalized = normalizeBelief(belief);
+  if (!normalized) return null;
+  const dueAt = Date.parse(normalized.nextReview);
+  const dueInDays = Number.isFinite(dueAt) ? Math.round((dueAt - now) / 86400000) : null;
+  const neverReviewed = !normalized.lastReviewedAt;
+  let state = "scheduled";
+  if (normalized.status === "retired") state = "retired";
+  else if (dueInDays !== null && dueInDays < 0) state = "overdue";
+  else if (dueInDays !== null && dueInDays <= BELIEF_DUE_SOON_DAYS) state = "due";
+  // A never-verified belief the framework leans on hardest is worth surfacing
+  // before its calendar date arrives.
+  const unverifiedHighConfidence = neverReviewed && normalized.confidence >= 90 && normalized.status !== "retired";
+  return {
+    ...normalized,
+    reviewState: state,
+    dueInDays,
+    neverReviewed,
+    unverifiedHighConfidence,
+    priority: state === "overdue" ? 0 : normalized.status === "contested" ? 1 : unverifiedHighConfidence ? 2 : state === "due" ? 3 : 4
+  };
+}
+
+function beliefReviewQueue(brain, { limit = 25, now = Date.now() } = {}) {
+  const beliefs = normalizeBrain(brain).beliefs
+    .map((belief) => beliefReviewState(belief, now))
+    .filter(Boolean);
+  const active = beliefs.filter((belief) => belief.status !== "retired");
+  const queue = active
+    .filter((belief) => belief.priority <= 3)
+    .sort((a, b) => a.priority - b.priority || (a.dueInDays ?? 0) - (b.dueInDays ?? 0) || b.confidence - a.confidence);
+  return {
+    summary: {
+      total: beliefs.length,
+      active: active.length,
+      retired: beliefs.length - active.length,
+      overdue: active.filter((belief) => belief.reviewState === "overdue").length,
+      dueSoon: active.filter((belief) => belief.reviewState === "due").length,
+      contested: active.filter((belief) => belief.status === "contested").length,
+      neverReviewed: active.filter((belief) => belief.neverReviewed).length,
+      unverifiedHighConfidence: active.filter((belief) => belief.unverifiedHighConfidence).length,
+      withSourceQuestion: active.filter((belief) => belief.sourceQuestionId).length,
+      nextDueAt: active.map((belief) => belief.nextReview).sort()[0] || ""
+    },
+    queue: queue.slice(0, Math.max(1, Math.min(200, limit))).map((belief) => ({
+      id: belief.id,
+      claim: belief.claim,
+      scope: belief.scope,
+      status: belief.status,
+      confidence: belief.confidence,
+      falsifier: belief.falsifier,
+      sourceQuestionId: belief.sourceQuestionId,
+      reviewState: belief.reviewState,
+      dueInDays: belief.dueInDays,
+      nextReview: belief.nextReview,
+      lastReviewedAt: belief.lastReviewedAt,
+      neverReviewed: belief.neverReviewed,
+      unverifiedHighConfidence: belief.unverifiedHighConfidence,
+      reviewCount: belief.reviewHistory.length
+    }))
+  };
+}
+
 function normalizeBrain(brain) {
   return {
     answers: Array.isArray(brain?.answers) ? brain.answers : [],
-    beliefs: Array.isArray(brain?.beliefs) ? brain.beliefs : [],
+    beliefs: Array.isArray(brain?.beliefs) ? brain.beliefs.map(normalizeBelief).filter(Boolean) : [],
     decisions: Array.isArray(brain?.decisions) ? brain.decisions : []
   };
 }
@@ -11653,7 +11791,74 @@ async function router(req, res) {
       ...db.brain,
       summary: brainSummary(db.brain),
       nextQuestion: nextThinkingQuestion(db.brain),
+      beliefReview: beliefReviewQueue(db.brain).summary,
       decisions: db.brain.decisions.map((decision) => ({ ...decision, audit: auditDecision(decision) }))
+    });
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/owner/beliefs/review") {
+    const limit = Number(url.searchParams.get("limit") || 25);
+    return send(res, 200, beliefReviewQueue(db.brain, { limit }));
+  }
+
+  if (req.method === "PATCH" && url.pathname.startsWith("/api/brain/beliefs/")) {
+    const id = decodeURIComponent(url.pathname.split("/").pop());
+    const index = db.brain.beliefs.findIndex((item) => item.id === id);
+    if (index === -1) return send(res, 404, { error: "Belief not found." });
+    const body = await readBody(req);
+    const action = String(body.action || "").trim().toLowerCase();
+    if (!["confirm", "revise", "contest", "retire", "schedule"].includes(action)) {
+      return send(res, 400, { error: "Belief review action must be confirm, revise, contest, retire, or schedule." });
+    }
+    const belief = normalizeBelief(db.brain.beliefs[index]);
+    const confidenceBefore = belief.confidence;
+    const reviewedAt = new Date().toISOString();
+    const note = cleanMarketText(body.note, 600);
+    if (action === "confirm" || action === "revise" || action === "contest") {
+      if (note.length < 8) {
+        return send(res, 400, { error: "Record what evidence or case was checked before closing a belief review." });
+      }
+    }
+
+    if (action === "revise") {
+      if (body.claim !== undefined) belief.claim = String(body.claim).trim().slice(0, 2000);
+      if (body.evidenceFor !== undefined) belief.evidenceFor = String(body.evidenceFor).trim().slice(0, 2000);
+      if (body.evidenceAgainst !== undefined) belief.evidenceAgainst = String(body.evidenceAgainst).trim().slice(0, 2000);
+      if (body.falsifier !== undefined) belief.falsifier = String(body.falsifier).trim().slice(0, 2000);
+      if (body.scope !== undefined) belief.scope = String(body.scope).trim().slice(0, 300);
+      if (!belief.claim) return send(res, 400, { error: "A revised belief still needs a claim." });
+    }
+    if (action === "contest") belief.status = "contested";
+    if (action === "retire") belief.status = "retired";
+    if (action === "confirm" && belief.status === "contested") belief.status = "active";
+    if (body.confidence !== undefined) {
+      belief.confidence = Math.max(0, Math.min(100, Math.round(Number(body.confidence) || 0)));
+    }
+    if (body.sourceQuestionId !== undefined) {
+      belief.sourceQuestionId = String(body.sourceQuestionId).trim().slice(0, 120);
+    }
+    const requestedInterval = Math.round(Number(body.reviewIntervalDays || 0));
+    belief.reviewIntervalDays = requestedInterval > 0
+      ? Math.max(7, Math.min(1825, requestedInterval))
+      : beliefReviewIntervalDays(belief);
+    const requestedNextReview = cleanMarketDate(body.nextReview, "");
+    belief.nextReview = requestedNextReview || addDays(reviewedAt, belief.reviewIntervalDays);
+    if (action !== "schedule") {
+      belief.lastReviewedAt = reviewedAt;
+      belief.reviewHistory = [...belief.reviewHistory, normalizeBeliefReviewEntry({
+        reviewedAt,
+        outcome: action === "confirm" ? "confirmed" : action === "revise" ? "revised" : action === "contest" ? "contested" : "retired",
+        note,
+        confidenceBefore,
+        confidenceAfter: belief.confidence
+      })].slice(-10);
+    }
+
+    db.brain.beliefs[index] = normalizeBelief(belief);
+    await writeDb(db);
+    return send(res, 200, {
+      belief: beliefReviewState(db.brain.beliefs[index]),
+      review: beliefReviewQueue(db.brain).summary
     });
   }
 
