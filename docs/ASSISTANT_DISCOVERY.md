@@ -47,16 +47,26 @@ Guest access uses a random, HttpOnly, SameSite=Strict cookie with a hashed stora
 
 The additive PostgreSQL migration stores assistant state in `estatelab_core.assistant`. JSON remains a local fallback. Vercel's local JSON is explicitly temporary, not durable production storage. Configure `DATABASE_URL` before relying on production accounts. AI brief extraction requires explicit opt-in, is schema-validated and needs a configured provider key. Failure falls back transparently to basic extraction and editable confirmation.
 
+## Background execution and response controls
+
+Confirmed searches run three bounded server steps. The Vercel adapter registers the work with `@vercel/functions` `waitUntil`; Node deployments keep the promise on the running process. The browser polls status rather than driving the search. Work is still subject to the function lifetime: this is not a permanent worker, scheduled market monitoring or a notification service. An interrupted job resumes from its persisted checkpoint on the next authorized case read. Exporting a case does not trigger work. `APEX_ASSISTANT_BACKGROUND=false` explicitly selects the older browser-driven mode for testing or unsupported hosts.
+
+The worker rechecks current sources at completion. Optimistic storage conflicts retry from fresh state, and a concurrent cancellation, deletion or replacement cannot be overwritten by an old worker. Case writes merge only the changed investigation, preserving unrelated account and source updates. A same-case conflict is rejected with 409 rather than losing a user's work. Selected properties retain their original thesis snapshot, with a separate current-source notice when publication, price, evidence or freshness changes.
+
+The basic parser does not convert salary, cash reserves or monthly rent into a purchase-price ceiling. Ambiguous and negated preferences require review. Model-extracted briefs have explicit type/range validation, including nullable missing values. AI is opt-in for each request, and malformed output or provider failure falls back to framework mode. The active case's dated checks, private observations and actual outcomes are passed as untrusted context to the existing reasoning pipeline, not published as shared knowledge. Short answers retain the current view, principal reason, contrary case and next action. Greetings are handled without unnecessary model calls. These are response controls and tested fallbacks, not a guarantee that a configured model cannot make errors.
+
+Official execution reference: [Vercel Functions package: waitUntil](https://vercel.com/docs/functions/functions-api-reference/vercel-functions-package). Background promises have the same execution timeout as the function.
+
 ## Current delivery boundaries
 
 - No permitted live feed was supplied. The owner requested prepared owner-managed imports. Coverage therefore starts empty, not fabricated.
-- Search steps are checkpointed server-side and resume after reload/server restart with durable storage. The browser drives these bounded requests while the application is open, including while using other tools. An independent closed-browser worker and notifications are still outstanding; do not call this unattended monitoring.
+- Confirmed searches can finish after the page is closed, within the server execution window. Durable storage is required for reliable cross-instance/redeployment recovery. Continuous monitoring and notifications are not implemented.
 - The shared tool handoff creates or reuses a separate property slot. Full bidirectional syncing of subsequent tool edits, financial-profile discovery, private document extraction and outcome-to-belief proposals are follow-on requirements, not completed capabilities.
-- Existing model responses still need a broader scenario-based quality audit and a live configured-provider check. Provider availability is not a quality guarantee.
+- Scenario tests cover greetings, affordability boundaries, gross-versus-net yield, actual cash flow, source changes, context isolation, AI consent and malformed/provider-failure fallbacks. Live configured-provider answer quality remains unverified while production has no key. Provider availability is not a quality guarantee.
 - Production needs an AI key, owner token and durable storage. Code deployment does not migrate Render data.
 
 ## Verification
 
-`node --test --test-concurrency=1 tests/*.test.js` includes framework hashes, real decision-engine use, malformed input, stale/adverse/duplicate evidence, cookie/account isolation, explicit adoption, revision conflicts, durable case restart, outcome arithmetic and export/delete tests.
+`node --test --test-concurrency=1 tests/*.test.js` includes framework hashes, real decision-engine use, malformed input, stale/adverse/duplicate evidence, cookie/account isolation, explicit adoption, revision conflicts, durable case restart, background cancellation/deletion/replacement, unrelated-write preservation, response scenarios, outcome arithmetic and export/delete tests.
 
-`node scripts/assistant-browser-check.mjs` creates and tears down an isolated local server. Synthetic sources never go to production. It verifies the empty catalogue, natural brief, search, shortlist, site check, persistence, tool handoff, optional 3D, owner catalogue and rental workflow at 320/390/768/1440 widths. PostgreSQL contract tests cover the additive state column; a live production database remains a separate deployment gate.
+`node scripts/assistant-browser-check.mjs` creates and tears down an isolated local server. Synthetic sources never go to production. It verifies the empty catalogue, natural brief, server-driven search, shortlist, site check, persistence, tool handoff, optional 3D, owner catalogue and rental workflow at 320/390/768/1440 widths. PostgreSQL contract tests cover the additive state column; a live production database remains a separate deployment gate.

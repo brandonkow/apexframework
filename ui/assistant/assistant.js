@@ -69,6 +69,7 @@ export function createAssistant({ openTool, useProperty, notify }) {
     const tasks = current.tasks.filter(task => task.id.startsWith(current.stage + ":"));
     const next = tasks.find(task => task.status !== "done");
     pane.innerHTML = `<header><p class="eyebrow">ONE PROPERTY / A CONTINUING INVESTIGATION</p><h2>${escape(property.projectName)}</h2><p>${escape(labels[current.stage])} / ${escape(property.area)}</p><button type="button" class="secondary-button" data-investment-action="numbers">Open the valuation tools</button></header>
+      ${current.sourceStatus && current.sourceStatus.status !== "current" ? `<p class="candidate-gap" role="status">${escape(current.sourceStatus.note)}</p>` : ""}
       ${next ? `<section class="assistant-next"><small>NEXT USEFUL ACTION</small><h3>${escape(next.title)}</h3><p>${escape(next.prompt)}</p><form id="investmentTaskForm"><input type="hidden" name="taskId" value="${escape(next.id)}"><label>What did you check?<textarea name="note" required minlength="12" maxlength="1500" placeholder="Your observation, document or professional feedback"></textarea></label><div class="assistant-field-grid"><label>Date checked<input type="date" name="checkedAt" required max="${date()}" value="${date()}"></label><label>Source link (optional)<input type="url" name="sourceUrl" placeholder="https://..."></label></div><button type="submit" class="primary-button">Record this check</button><p class="assistant-caption">Recorded as your declaration, not independent verification.</p></form></section>` : '<p class="assistant-next">Your checks for this stage are recorded. Review unresolved risks before making a commitment.</p>'}
       <details><summary>All checks and evidence</summary>${current.tasks.map(task => `<p><b>${escape(task.title)}</b> / ${escape(task.status)}<br>${escape(task.note || "Not yet recorded")}${task.status === "done" ? `<br><button type="button" data-reopen-task="${escape(task.id)}">Reopen check</button>` : ""}</p>`).join("")}<form id="investmentEvidenceForm"><label>Add a private observation<textarea name="note" required minlength="12" maxlength="2000"></textarea></label><label>Date<input type="date" name="checkedAt" required max="${date()}" value="${date()}"></label><label>Source (optional)<input type="url" name="sourceUrl" placeholder="https://..."></label><button type="submit">Keep this evidence</button></form>${current.evidence.map(item => `<p>${escape(item.note)}<br><small>${item.checkedAt.slice(0, 10)} / user declared</small></p>`).join("")}</details>
       <details><summary>Move to another ownership stage</summary><form id="investmentStageForm"><label>Current situation<select name="stage">${Object.entries(labels).slice(5).map(([key, value]) => `<option value="${key}" ${key === current.stage ? "selected" : ""}>${value}</option>`).join("")}</select></label><label>What changed, and what remains unresolved?<textarea name="note" required minlength="12" maxlength="1000"></textarea></label><button type="submit">Update my stage</button><p class="assistant-caption">This records your progress, not approval to transact. Apex does not sign, pay, book or contact anyone automatically.</p></form></details>
@@ -95,8 +96,8 @@ export function createAssistant({ openTool, useProperty, notify }) {
     if (!current?.job || !["queued", "running"].includes(current.job.status)) return;
     timer = setTimeout(() => {
       if (busy) { schedule(); return; }
-      void safely(() => action("step", { jobId: current.job.id }));
-    }, 650);
+      void safely(() => status?.backgroundMode === "server" ? load(current.id) : action("step", { jobId: current.job.id }));
+    }, status?.backgroundMode === "server" ? 1800 : 650);
   }
   async function create() { const epoch = generation, result = await request("/api/assistant/cases", {}); if (epoch !== generation) return; current = result.case; editing = false; render(); }
   async function refresh() {
@@ -124,7 +125,7 @@ export function createAssistant({ openTool, useProperty, notify }) {
   host.addEventListener("click", event => {
     const button = event.target.closest("button"); if (!button) return;
     if (button.dataset.investmentSelect) void safely(async () => { await action("select", { listingId: button.dataset.investmentSelect }); useProperty(current); });
-    if (button.dataset.investmentAction === "cancel") void safely(() => action("cancel"));
+    if (button.dataset.investmentAction === "cancel") void safely(() => action("cancel", { jobId: current.job.id }));
     if (button.dataset.investmentAction === "numbers") { useProperty(current); void openTool("valuation"); }
     if (button.dataset.reopenTask) void safely(() => action("task", { taskId: button.dataset.reopenTask, status: "open" }));
   });

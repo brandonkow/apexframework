@@ -43,6 +43,8 @@ export function briefQuestion(brief) {
 }
 export function interpretBrief(message, previous = {}, pending = "") {
   const brief = cleanBrief(previous), lower = message.toLowerCase();
+  // Without a model, do not silently reinterpret negated preferences as positive ones.
+  if (/\b(?:not|don't|do not|avoid|except|excluding)\b/i.test(message)) return brief;
   const places = ["Bayan Lepas", "Bayan Baru", "Tanjung Tokong", "Tanjung Bungah", "George Town", "Georgetown", "Butterworth", "Bukit Mertajam", "Penang", "Kuala Lumpur", "Selangor", "Petaling Jaya", "Shah Alam", "Subang Jaya", "Cyberjaya", "Klang", "Puchong", "Cheras"];
   const place = places.find(place => lower.includes(place.toLowerCase()));
   if (place) brief.area = place;
@@ -51,8 +53,10 @@ export function interpretBrief(message, previous = {}, pending = "") {
   else if (/balanc|both rent.*appreciat/.test(lower)) brief.goal = "balanced";
   else if (/appreciat|capital growth/.test(lower)) brief.goal = "appreciation";
   else if (/rent|cash.?flow|income/.test(lower)) brief.goal = "rental_income";
-  const price = lower.match(/(?:rm\s*|budget\s*(?:is|of|:)?\s*|below\s*|under\s*|up to\s*)([\d,]+(?:\.\d+)?)\s*(k|m|million)?\b/) || (pending === "budgetMax" ? lower.match(/^\s*(?:rm\s*)?([\d,]+(?:\.\d+)?)\s*(k|m|million)?\b/) : null);
-  if (price) brief.budgetMax = amount(Number(price[1].replaceAll(",", "")) * (price[2] === "k" ? 1000 : ["m", "million"].includes(price[2]) ? 1e6 : 1));
+  const price = lower.match(/(?:budget\s*(?:is|of|:)?|purchase price\s*(?:is|of|:)?|below|under|up to|ceiling\s*(?:is|of|:)?)\s*(?:rm\s*)?([\d,]+(?:\.\d+)?)\s*(k|m|million)?\b/) || (pending === "budgetMax" ? lower.match(/^\s*(?:rm\s*)?([\d,]+(?:\.\d+)?)\s*(k|m|million)?\s*$/) : null);
+  const amountContext = price ? lower.slice(0, price.index) : "";
+  const nonPurchaseAmount = /(?:rent|rental|salary|income|cash reserve|savings|furnishing|renovation|repayment|instalment|installment)(?:\s+(?:is|of|a|my|monthly|total)){0,3}\s*$/.test(amountContext);
+  if (price && !nonPurchaseAmount) brief.budgetMax = amount(Number(price[1].replaceAll(",", "")) * (price[2] === "k" ? 1000 : ["m", "million"].includes(price[2]) ? 1e6 : 1));
   if (/serviced? apart|serviced? residen/.test(lower)) brief.propertyType = "serviced_apartment";
   else if (/condo/.test(lower)) brief.propertyType = "condo";
   else if (/landed|terrace|bungalow/.test(lower)) brief.propertyType = "landed";
@@ -67,6 +71,19 @@ export const BRIEF_SCHEMA = {
     propertyType: { type: "string", enum: TYPES }, bedroomsMin: { type: ["number", "null"] }, notes: { type: "string" }
   }
 };
+
+export function validBriefResponse(value) {
+  try {
+    const parsed = JSON.parse(value), keys = Object.keys(BRIEF_SCHEMA.properties);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      && Object.keys(parsed).length === keys.length && keys.every(k => Object.hasOwn(parsed, k))
+      && typeof parsed.area === "string" && parsed.area.length <= 120
+      && ["", ...GOALS].includes(parsed.goal) && TYPES.includes(parsed.propertyType)
+      && (parsed.budgetMax === null || (typeof parsed.budgetMax === "number" && parsed.budgetMax > 0 && parsed.budgetMax <= 1e9))
+      && (parsed.bedroomsMin === null || (Number.isInteger(parsed.bedroomsMin) && parsed.bedroomsMin >= 0 && parsed.bedroomsMin <= 20))
+      && typeof parsed.notes === "string" && parsed.notes.length <= 1000;
+  } catch { return false; }
+}
 
 export function validateImport(body, now = Date.now()) {
   if (body?.version !== 1 || !Array.isArray(body.listings) || body.listings.length > 2000) fail("Use a version 1 catalogue containing at most 2,000 listings.");
@@ -163,6 +180,33 @@ export function newCase(scope) {
 export function publicCase(item) {
   const { scope, ...result } = item;
   return result;
+}
+
+export function selectedSourceStatus(item, data, now = Date.now()) {
+  if (!item.selected) return null;
+  const selected = item.selected;
+  const current = data.listings.find(listing => listing.id === selected.id);
+  const source = data.sources.find(source => source.id === selected.sourceId && source.publish);
+  const allowed = new Set(data.sources.filter(source => source.publish).map(source => source.id));
+  const sameUnit = listing => selected.unitKey ? key(`${listing.projectName}|${listing.area}|${listing.unitKey}`) === key(`${selected.projectName}|${selected.area}|${selected.unitKey}`) : listing.sourceUrl === selected.sourceUrl;
+  const conflicting = data.listings.filter(listing => allowed.has(listing.sourceId) && sameUnit(listing)).some(listing =>
+    (listing.availability === "withdrawn" && listing.observedAt >= selected.observedAt)
+    || listing.facts.some(fact => fact.adverse && ["management", "title", "unit_position"].includes(fact.kind) && ageDays(fact.observedAt, now) <= 90));
+  let status = "current", note = "The listing remains current in the published catalogue. Availability and price still need confirmation; this is not purchase approval.";
+  if (!source || !current || current.availability !== "available") {
+    status = "unavailable";
+    note = "The selected listing is no longer available in the published catalogue. Your investigation is retained as history; recheck the source before proceeding.";
+  } else if (conflicting) {
+    status = "recheck";
+    note = "A published record for this unit reports a withdrawal or adverse title, management or unit-position evidence. Resolve that conflict before proceeding.";
+  } else if (ageDays(current.observedAt, now) > 30) {
+    status = "recheck";
+    note = "The selected listing has passed the 30-day discovery freshness window. Obtain a current source before relying on its price or availability.";
+  } else if (current.askingPrice !== selected.askingPrice || JSON.stringify(current.facts) !== JSON.stringify(selected.facts)) {
+    status = "recheck";
+    note = "The published price or evidence has changed since selection. Your original snapshot is preserved; review the current source before committing.";
+  }
+  return { status, note, checkedAt: new Date(now).toISOString() };
 }
 export function addEvent(item, type, description) {
   item.events = [...item.events, { id: randomUUID(), type, description: text(description, 1000), at: isoNow() }].slice(-150);

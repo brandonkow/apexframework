@@ -89,7 +89,7 @@ test("private discovery lifecycle persists, resumes and rejects cross-user edits
   const probe = net.createServer(); probe.listen(0, "127.0.0.1"); await once(probe, "listening"); const port = probe.address().port; await new Promise(resolve => probe.close(resolve));
   let child;
   const base = `http://127.0.0.1:${port}`;
-  const env = { ...process.env, PORT: String(port), HOST: "127.0.0.1", ESTATELAB_DATA_DIR: dir, DATABASE_URL: "", VERCEL: "", OPENROUTER_API_KEY: "", OPENAI_API_KEY: "", LLM_API_KEY: "", ESTATELAB_OWNER_TOKEN: "local-assistant-test-owner-only" };
+  const env = { ...process.env, PORT: String(port), HOST: "127.0.0.1", ESTATELAB_DATA_DIR: dir, DATABASE_URL: "", VERCEL: "", APEX_ASSISTANT_BACKGROUND: "false", OPENROUTER_API_KEY: "", OPENAI_API_KEY: "", LLM_API_KEY: "", ESTATELAB_OWNER_TOKEN: "local-assistant-test-owner-only" };
   async function start() {
     child = spawn(process.execPath, ["server.js"], { cwd: new URL("../", import.meta.url), env, stdio: "pipe" });
     let logs = ""; child.stderr.on("data", data => logs += data);

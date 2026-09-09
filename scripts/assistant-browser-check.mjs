@@ -23,7 +23,8 @@ try {
   await mkdir(output, { recursive: true });
   browser = await chromium.launch({ channel: "chrome", headless: true });
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: "reduce" });
-  const errors = [];
+  const errors = [], browserStepRequests = [];
+  page.on("request", request => { if (request.method() === "POST" && /\/assistant\/cases\/[^/]+\/step$/.test(request.url())) browserStepRequests.push(request.url()); });
   page.on("pageerror", error => errors.push(error.message));
   await page.goto(base, { waitUntil: "networkidle" });
   await page.waitForSelector('body[data-ready="true"]');
@@ -92,6 +93,7 @@ try {
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false);
   const duplicateIds = await page.evaluate(() => { const ids = Array.from(document.querySelectorAll("[id]"), node => node.id); return ids.filter((id, index) => ids.indexOf(id) !== index); });
   assert.deepEqual(duplicateIds, []); assert.deepEqual(errors, []);
+  assert.deepEqual(browserStepRequests, [], "The browser must poll server work, not drive search steps.");
   console.log(JSON.stringify({ passed: true, widths: [320, 390, 768, 1440], tested: ["empty catalogue", "natural brief", "current sources", "three candidate shortlist", "selection", "site check", "reload", "tool handoff", "optional 3D", "owner catalogue", "rental stage", "duplicate IDs", "browser errors"], screenshots: output }));
 } finally {
   await browser?.close();

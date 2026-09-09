@@ -1,4 +1,5 @@
 import { handler } from "../server.js";
+import { waitUntil } from "@vercel/functions";
 
 export default function vercelRouter(req, res) {
   const rawPath = req.query?.__apex_path;
@@ -8,5 +9,5 @@ export default function vercelRouter(req, res) {
   url.pathname = `/api/${apiPath}`;
   url.searchParams.delete("__apex_path");
   req.url = `${url.pathname}${url.search}`;
-  return handler(req, res);
+  return handler(req, res, { defer: waitUntil });
 }
