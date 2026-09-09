@@ -1,5 +1,6 @@
 import { validateJourneyCandidate } from "./journey-engine.js";
 import { addEvent, assistantState, fail, isoNow } from "./investment-assistant.js";
+import { enqueueFileCleanup, cleanupPrivateFiles } from "./assistant-files.js";
 
 const dcfKeys = new Set(["year1Occupancy", "stabilizedOccupancy", "annualRentGrowth", "holdingPeriodYears", "discountRate", "terminalCapRate", "loanToValue", "mortgageInterestRate", "loanTermYears", "otherMonthlyIncome", "marketRentEvidence", "operatingCostEvidence", "discountRateBasis", "terminalCapRateBasis"]);
 const compKeys = new Set(["projectName", "transactionDate", "salePrice", "floorArea", "totalAdjustment", "source", "verified", "armsLength", "evidenceType"]);
@@ -74,11 +75,13 @@ export async function updateWorkingContext(caseId, scope, version, raw, { readDb
   }
 }
 
-export async function deleteInvestigation(caseId, scope, { readDb, writeDb }) {
+export async function deleteInvestigation(caseId, scope, { readDb, writeDb, objectStore }) {
   for (let attempt = 0; attempt < 6; attempt++) {
     const db = await readDb(), data = assistantState(db);
+    const item = data.cases.find(item => item.id === caseId && item.scope === scope);
+    for (const file of item?.attachments || []) enqueueFileCleanup(data, scope, file);
     data.cases = data.cases.filter(item => item.id !== caseId || item.scope !== scope);
-    try { await writeDb(db); return; }
+    try { await writeDb(db); return objectStore ? await cleanupPrivateFiles(scope, { readDb, writeDb, objectStore }) : 0; }
     catch (error) { if (error.name !== "StorageConflictError" || attempt === 5) throw error; }
   }
 }

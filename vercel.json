@@ -31,7 +31,7 @@
   "functions": {
     "api/router.js": {
       "maxDuration": 60,
-      "includeFiles": "{data/**,rag/**,package.json,public/journey/fields.json,public/journey/levels.js}"
+      "includeFiles": "{data/**,rag/**,package.json,assistant-file-worker.js,public/journey/fields.json,public/journey/levels.js}"
     }
   }
 }

@@ -8535,7 +8535,7 @@ function llmResponseWasTruncated(payload, openRouter) {
   return payload?.status === "incomplete" && ["max_output_tokens", "length"].includes(reason);
 }
 
-async function requestLlmText({ instructions, input, maxOutputTokens = 1200, responseSchema = null, validateText = null }) {
+async function requestLlmText({ instructions, input, maxOutputTokens = 1200, responseSchema = null, validateText = null, inputImages = [], maxAttempts = 2, privateInput = false }) {
   if (!llmEnabled()) throw new Error("The LLM provider is not configured.");
   const openRouter = LLM_PROVIDER === "openrouter";
   const attempts = [
@@ -8546,7 +8546,7 @@ async function requestLlmText({ instructions, input, maxOutputTokens = 1200, res
     }
   ];
 
-  for (const attempt of attempts) {
+  for (const attempt of attempts.slice(0, maxAttempts === 1 ? 1 : 2)) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), OPENAI_TIMEOUT_MS);
     let payload;
@@ -8564,7 +8564,7 @@ async function requestLlmText({ instructions, input, maxOutputTokens = 1200, res
             model: LLM_MODEL,
             messages: [
               { role: "system", content: attempt.instructions },
-              { role: "user", content: input }
+              { role: "user", content: inputImages.length ? [{ type: "text", text: input }, ...inputImages.map(image => ({ type: "image_url", image_url: { url: `data:${image.mimeType};base64,${image.base64}` } }))] : input }
             ],
             max_tokens: attempt.maxOutputTokens,
             provider: {
@@ -8586,7 +8586,8 @@ async function requestLlmText({ instructions, input, maxOutputTokens = 1200, res
           : {
             model: LLM_MODEL,
             instructions: attempt.instructions,
-            input,
+            ...(privateInput ? { store: false } : {}),
+            input: inputImages.length ? [{ role: "user", content: [{ type: "input_text", text: input }, ...inputImages.map(image => ({ type: "input_image", image_url: `data:${image.mimeType};base64,${image.base64}` }))] }] : input,
             max_output_tokens: attempt.maxOutputTokens
           }),
         signal: controller.signal
@@ -10382,6 +10383,7 @@ async function router(req, res, context = {}) {
         releaseVersion: APP_RELEASE_VERSION,
         engineVersion: DECISION_ENGINE_VERSION,
         revision: BUILD_REVISION || "development",
+        nodeVersion: process.versions.node,
         storage: stateStore.kind,
         objectStorage: knowledgeService.objectStorageStatus().kind,
         time: new Date().toISOString()
@@ -10480,6 +10482,7 @@ async function router(req, res, context = {}) {
   }
 
   if (await assistantRoutes({ req, res, url, db, actor, send, readBody, readDb, writeDb, analyze: analyzeSevenStageDeal,
+    objectStore: knowledgeService.objectStore,
     defer: process.env.APEX_ASSISTANT_BACKGROUND === "false" ? undefined : context.defer || (!process.env.VERCEL ? work => { void work; } : undefined),
     llmEnabled, requestLlmText, storeKind: stateStore.kind, ephemeral: Boolean(globalThis.process?.env?.VERCEL), allowRequest,
     reply: (query, item, database, user) => retrieveJarvisAnswer(query, database.brain, { messages: item.messages }, {

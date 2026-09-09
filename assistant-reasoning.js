@@ -14,6 +14,10 @@ export function frameworkReply(query, item, data, analysis = null) {
   const property = item.selected, source = selectedSourceStatus(item, data);
   if (/\b(?:learn|train|memory|remember)\b/i.test(query)) return "I keep this investigation's conversation, checks and outcomes as private context. That does not retrain a model or change the founder framework. Storage availability still matters, so check the notice above before relying on long-term recall.";
   if (/\b(?:guarantee|guaranteed|certain|definitely|sure profit)\b/i.test(query)) return "I cannot guarantee appreciation, rental income or an exit. A useful test is whether the property still works if rent falls, costs rise and selling takes longer. Which of those would put the most pressure on you?";
+  if (/\b(?:file|document|photo|attachment|uploaded)\b/i.test(query) && item.attachments?.length) {
+    const reviewed = item.attachments.filter(file => file.review);
+    return reviewed.length ? `You have ${reviewed.length} reviewed file note(s). The latest says: ${reviewed.at(-1).review.note}\n\nThat is your reviewed observation, not independent proof. Check the original's date, subject and completeness before using it to clear a decision risk.` : "Your files are stored privately, but no file note has been confirmed yet. Open Private evidence, inspect the original and keep a dated review note. Extracted text and AI readings alone do not clear a framework check.";
+  }
   if (/\b(?:afford|affordability|salary|income|loan|financing|dsr)\b/i.test(query)) {
     const working = effectiveContext(item), profile = working.financialProfile;
     if (profile.monthlyIncome) {
@@ -54,6 +58,7 @@ export function assistantCaseContext(item, data) {
     nextCheck: item.tasks.find(task => task.id.startsWith(item.stage + ":") && task.status === "open") || null,
     recordedChecks: item.tasks.filter(task => task.status === "done").slice(-8),
     privateObservations: item.evidence.slice(-6),
+    privateFileNotes: (item.attachments || []).filter(file => file.review).slice(-6).map(file => ({ id: file.id, filename: file.filename, checksum: file.checksum, review: file.review, extractionCoverage: file.extraction.coverage, status: "User-reviewed note, not independent verification. Do not claim to have read the entire original or unreviewed extraction." })),
     actualOutcomes: item.outcomes.slice(-6),
     financialInputBasis: item.working?.financialBasis || { status: "Income and reserve basis not confirmed. Do not assume gross income is take-home income." },
     unconfirmedFinancialDraft: item.profileDraft ? "A private financial intake is in progress. Do not use draft figures in conversation history as confirmed finances or substitute them for saved working inputs." : null,

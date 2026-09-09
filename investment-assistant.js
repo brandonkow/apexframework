@@ -179,6 +179,7 @@ export function newCase(scope) {
 }
 export function publicCase(item) {
   const { scope, ...result } = item;
+  if (result.attachments) result.attachments = result.attachments.map(({ storageId, storageKey, ...file }) => file);
   return result;
 }
 

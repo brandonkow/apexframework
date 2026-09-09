@@ -20,8 +20,21 @@ test("local object storage sanitizes paths and removes document folders", async 
   const key = await store.store("document-1", "../../agent notes.md", Buffer.from("evidence"));
   assert.equal(key, "document-1/agent-notes.md");
   assert.equal(await readFile(path.join(root, key), "utf8"), "evidence");
+  assert.equal((await store.read(key)).toString(), "evidence");
+  await assert.rejects(store.read(key, 2), /read limit/);
+  await assert.rejects(store.read("../../outside"), /Invalid/);
   await store.remove("document-1", key);
   await assert.rejects(() => access(path.join(root, "document-1")));
+});
+
+test("private Supabase downloads are authenticated and bounded", async () => {
+  const captured = [];
+  const store = new SupabaseObjectStore({ url: "https://project.supabase.co", serviceRoleKey: "test-key", bucket: "private-evidence", fetchImpl: async (url, options) => { captured.push({ url, options }); return new Response(Buffer.from("private original")); } });
+  assert.equal((await store.read("private-123/site.txt")).toString(), "private original");
+  assert.match(captured[0].url, /object\/private-evidence\/private-123\/site.txt$/);
+  assert.equal(captured[0].options.headers.Authorization, "Bearer test-key");
+  await assert.rejects(store.read("private-123/site.txt", 2), /read limit/);
+  await assert.rejects(store.read("../other"), /Invalid/);
 });
 
 test("Supabase object storage verifies a private bucket and preserves upload metadata", async () => {

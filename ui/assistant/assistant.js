@@ -1,4 +1,5 @@
 import { createContextSync, contextOf } from "./context-sync.js";
+import { createPrivateFilesView } from "./files.js";
 
 const $ = selector => document.querySelector(selector);
 const escape = value => String(value ?? "").replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
@@ -31,6 +32,20 @@ export function createAssistant({ openTool, useProperty, notify, onContextSaved,
     <form id="investmentComposer" class="assistant-composer"><label class="sr-only" for="investmentInput">Talk to Apex</label><textarea id="investmentInput" rows="2" maxlength="2000" placeholder="Find a rental property in Penang that fits my situation..." required></textarea><button type="submit" class="primary-button">Send <span aria-hidden="true">&#8599;</span></button></form>
     <div class="assistant-composer-meta"><label><input id="investmentAi" type="checkbox"> Use AI reasoning</label><span id="investmentModel">Checking connection</span><button id="investmentProfileStart" type="button">Check my buying power</button><button id="investmentVoice" type="button">Speak</button></div>
     <details class="assistant-boundaries"><summary>What happens with my information?</summary><p>Your confirmed brief guides the search; it does not prove affordability. Turning on AI sends submitted messages and relevant case context to the configured provider. Your private observations never update the shared founder framework. Site visits, professional checks and external commitments still need people.</p><p id="investmentCoverage"></p></details>`;
+  host.querySelector(".assistant-more").insertAdjacentHTML("beforeend", '<button id="investmentCleanup" type="button" hidden>Retry private file cleanup</button><p id="investmentCleanupNotice" class="assistant-caption" role="status"></p>');
+  const files = createPrivateFilesView(host, { onResolve: () => { $("#investmentError").textContent = ""; }, run: (route, makeBody) => safely(async () => {
+    const id = current?.id, epoch = generation; if (!id) return;
+    const body = await makeBody();
+    const result = await request(`/api/assistant/cases/${id}/files${route ? "/" + route : ""}`, body);
+    if (epoch !== generation || current?.id !== id) return;
+    files.accept(route); current = result.case; render(); renderCleanup(result.pendingFileDeletes);
+  }) });
+  function renderCleanup(count) {
+    if (count === undefined) return;
+    host.classList.toggle("has-file-cleanup", Boolean(count));
+    $("#investmentCleanup").hidden = !count;
+    $("#investmentCleanupNotice").textContent = count ? `${count} original-file cleanup(s) still pending. Files are not accessible through deleted records. Retry after a few minutes; the server retains a cleanup record.` : "";
+  }
 
   async function request(path, body, method = body ? "POST" : "GET") {
     const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 60000);
@@ -59,6 +74,7 @@ export function createAssistant({ openTool, useProperty, notify, onContextSaved,
   }
   function render() {
     $("#investmentExport").hidden = !current;
+    $("#investmentDelete").hidden = !current;
     const log = $("#investmentMessages"), wasAtEnd = log.scrollHeight - log.scrollTop - log.clientHeight < 60;
     log.innerHTML = (current?.messages || []).map(item => `<article class="assistant-message ${item.role === "user" ? "from-user" : "from-apex"}"><small>${item.role === "user" ? "YOU" : `APEX / ${item.mode === "llm" ? "AI + FRAMEWORK" : "FRAMEWORK"}`}</small><p>${escape(item.content)}</p></article>`).join("");
     if (wasAtEnd) log.scrollTop = log.scrollHeight;
@@ -74,6 +90,7 @@ export function createAssistant({ openTool, useProperty, notify, onContextSaved,
     if (results) $("#investmentResults").innerHTML = `<header><p class="eyebrow">${results.coverage.current} CURRENT RECORDS / ${results.coverage.sources.length} PUBLISHED SOURCES</p><h2>${results.candidates.length ? "Worth a closer look" : "No supported match yet"}</h2><p>${escape(results.message)}</p></header><div class="assistant-shortlist">${results.candidates.map(candidate => `<article class="assistant-candidate"><span class="status-pill">INVESTIGATE</span><h3>${escape(candidate.projectName)}</h3><p>${escape(candidate.area)} / ${escape(candidate.propertyType.replaceAll("_", " "))}</p><strong>${cash(candidate.askingPrice)}</strong><small>Asking price / checked ${candidate.observedAt.slice(0, 10)}</small><p>${escape(candidate.reasons[0])}</p><p class="candidate-gap">${escape(candidate.gaps[0])}</p><details><summary>Evidence &amp; contrary case</summary><p>${escape(candidate.counterCase)}</p><ul>${candidate.gaps.map(gap => `<li>${escape(gap)}</li>`).join("")}</ul><a href="${escape(candidate.sourceUrl)}" target="_blank" rel="noopener noreferrer">Original listing</a>${candidate.facts.map(fact => `<p><a href="${escape(fact.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escape(fact.kind.replaceAll("_", " "))}</a> / ${fact.observedAt.slice(0, 10)} / ${escape(fact.verification.replaceAll("_", " "))}<br>${escape(fact.description)}</p>`).join("")}</details><button type="button" class="primary-button" data-investment-select="${escape(candidate.id)}">Investigate this property</button></article>`).join("")}</div><details><summary>Search coverage and exclusions</summary><p>${escape(results.rankingBasis)}</p><p>${Object.entries(results.excluded).map(([key, value]) => `${escape(key)}: ${value}`).join(" / ")}</p><p>${escape(results.coverage.limit)}</p><p>${results.coverage.sources.map(source => `${escape(source.name)}: ${escape(source.coverage || "Coverage not specified")}`).join("<br>")}</p></details>`;
     renderProperty();
     renderFinance();
+    files.render(current, status);
   }
   function renderFinance() {
     const pane = $("#investmentFinance"), intake = current?.profileIntake;
@@ -147,6 +164,7 @@ export function createAssistant({ openTool, useProperty, notify, onContextSaved,
     const epoch = generation, result = await request("/api/assistant/status");
     if (epoch !== generation) return;
     status = result;
+    renderCleanup(status.files?.pendingDeletes || 0);
     $("#investmentStorage").textContent = status.storageNotice;
     $("#investmentModel").textContent = status.llm ? "AI available / opt in to use" : "Framework mode / AI not configured";
     $("#investmentAi").checked = false; $("#investmentAi").disabled = !status.llm;
@@ -190,16 +208,18 @@ export function createAssistant({ openTool, useProperty, notify, onContextSaved,
   $("#investmentProfileStart").addEventListener("click", () => void safely(async () => { if (!current) await create(); await action("profile", { action: "start" }); $("#investmentInput").focus(); }));
   $("#investmentCaseSelect").addEventListener("change", event => void safely(() => load(event.target.value)));
   $("#investmentAccount").addEventListener("click", () => void openTool("account"));
+  $("#investmentCleanup").addEventListener("click", () => void safely(async () => { const result = await request("/api/assistant/cleanup", {}); renderCleanup(result.pendingFileDeletes); }));
   $("#investmentAdopt").addEventListener("click", () => void safely(async () => { await request("/api/assistant/adopt", {}); await refresh(); }));
   $("#investmentExport").addEventListener("click", () => {
     if (!current) return;
     const url = URL.createObjectURL(new Blob([JSON.stringify({ format: "apex-investigation.v1", exportedAt: new Date().toISOString(), case: current }, null, 2)], { type: "application/json" }));
     const link = document.createElement("a"); link.href = url; link.download = `apex-investigation-${date()}.json`; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+    if (current.attachments?.length) notify("JSON export includes file notes and extraction, not the original bytes. Download originals individually from Private evidence.");
   });
   $("#investmentDelete").addEventListener("click", event => {
     if (!current || busy) return;
     if (event.target.dataset.confirm !== current.id) { event.target.dataset.confirm = current.id; event.target.textContent = "Confirm delete: chat, evidence, outcomes and linked tool inputs"; return; }
-    void safely(async () => { const id = current.id; await request(`/api/assistant/cases/${id}`, null, "DELETE"); sync.forget(id); onInvestigationDeleted?.(id); current = null; render(); event.target.textContent = "Delete this investigation"; event.target.dataset.confirm = ""; });
+    void safely(async () => { const id = current.id; const result = await request(`/api/assistant/cases/${id}`, null, "DELETE"); sync.forget(id); onInvestigationDeleted?.(id); current = null; render(); renderCleanup(result.pendingFileDeletes); event.target.textContent = "Delete this investigation"; event.target.dataset.confirm = ""; });
   });
   let recognition;
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;

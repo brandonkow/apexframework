@@ -15,14 +15,16 @@
     "test": "node --test tests/*.test.js"
   },
   "engines": {
-    "node": ">=18"
+    "node": "24.x"
   },
   "dependencies": {
     "@vercel/functions": "2.2.13",
     "esbuild": "0.25.9",
+    "fast-xml-parser": "5.11.1",
     "fflate": "^0.8.3",
     "pg": "^8.0.0",
-    "three": "0.180.0"
+    "three": "0.180.0",
+    "unpdf": "1.8.1"
   },
   "keywords": [
     "real-estate",

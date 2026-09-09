@@ -4,6 +4,7 @@ import { advanceSearch, resumeSearch, saveCase } from "./assistant-jobs.js";
 import { socialReply, frameworkReply, conciseAssistantReply } from "./assistant-reasoning.js";
 import { effectiveContext, updateWorkingContext, deleteInvestigation } from "./assistant-context.js";
 import { profileView, profileActive, requestsProfile, startProfile, profileAction, answerProfile } from "./assistant-profile.js";
+import { MAX_FILE_BYTES, uploadPrivateFile, reviewPrivateFile, removePrivateFile, readFileWithAi, readPrivateOriginal, cleanupPrivateFiles } from "./assistant-files.js";
 
 const COOKIE = "apex_investment_guest";
 function guestScope(req, res, create = false) {
@@ -26,7 +27,7 @@ function mutationOrigin(req) {
   }
 }
 
-export async function assistantRoutes({ req, res, url, db, actor, send, readBody, readDb, writeDb, analyze, llmEnabled, requestLlmText, reply, storeKind, ephemeral, allowRequest, defer }) {
+export async function assistantRoutes({ req, res, url, db, actor, send, readBody, readDb, writeDb, analyze, llmEnabled, requestLlmText, reply, storeKind, ephemeral, allowRequest, defer, objectStore }) {
   const owner = url.pathname === "/api/owner/discovery";
   if (!owner && !url.pathname.startsWith("/api/assistant/")) return false;
   mutationOrigin(req);
@@ -58,18 +59,26 @@ export async function assistantRoutes({ req, res, url, db, actor, send, readBody
   }
   const scope = caseScope(req, res, actor, req.method === "POST");
   const owned = () => data.cases.filter(item => item.scope === scope);
+  const fileStorageReady = Boolean(objectStore && (!ephemeral || (storeKind === "postgres" && objectStore.durable)));
+  const fileDeps = { readDb, writeDb, objectStore, llmEnabled, requestLlmText };
   if (req.method === "GET" && url.pathname === "/api/assistant/status") return respond(200, {
     llm: llmEnabled(), authenticated: Boolean(actor.user), durable: storeKind === "postgres" || !ephemeral,
     storage: storeKind, coverage: catalogueCoverage(data), guestDraftAvailable: Boolean(actor.user && data.cases.some(item => item.scope === guestScope(req, res))),
     backgroundMode: defer ? "server" : "browser",
+    files: { enabled: fileStorageReady, maxBytes: MAX_FILE_BYTES, pendingDeletes: (data.fileCleanup || []).filter(job => job.scope === scope).length, notice: fileStorageReady ? "Files stay private to this investigation. Original files are downloaded separately from the JSON export." : "Private uploads need both persistent database storage and a private object store on this deployment." },
     background: defer ? "A confirmed search runs on the server even if you close the page. Server interruptions resume when you reopen the investigation. This is not continuous monitoring." : "Resumable steps run while this application is open. Closing it pauses work; return to resume.",
     storageNotice: ephemeral && storeKind !== "postgres" ? "This deployment has temporary storage. Export your work; it may disappear after a server restart." : actor.user ? "Saved to your private account." : "Private guest session. Sign in and explicitly import this draft to continue across devices."
   });
+  if (req.method === "POST" && url.pathname === "/api/assistant/cleanup") {
+    if (!objectStore) fail("File storage is unavailable.", 503);
+    return respond(200, { pendingFileDeletes: await cleanupPrivateFiles(scope, fileDeps) });
+  }
   if (req.method === "POST" && url.pathname === "/api/assistant/adopt") {
     if (!actor.user) fail("Sign in first.", 401);
     const guest = guestScope(req, res), drafts = data.cases.filter(item => item.scope === guest);
     if (owned().length + drafts.length > 20) fail("Your account can hold 20 active investigations. Export and delete an unused one first.");
     for (const item of drafts) { item.scope = scope; addEvent(item, "adopt", "Guest investigation explicitly imported into this account."); }
+    for (const job of data.fileCleanup || []) if (job.scope === guest) job.scope = scope;
     await writeDb(db);
     return respond(200, { imported: drafts.length });
   }
@@ -85,6 +94,38 @@ export async function assistantRoutes({ req, res, url, db, actor, send, readBody
       return respond(201, { case: publicCase(item) });
     }
   }
+  const fileMatch = url.pathname.match(/^\/api\/assistant\/cases\/([\w-]+)\/files(?:\/([\w-]+)(?:\/(review|read))?)?$/);
+  if (fileMatch) {
+    const item = owned().find(value => value.id === fileMatch[1]);
+    if (!item) return respond(404, { error: "Investigation not found in this account or guest session." });
+    const attachment = item.attachments?.find(value => value.id === fileMatch[2]);
+    if (fileMatch[2] && !attachment) return respond(404, { error: "Private file not found." });
+    if (req.method === "GET" && attachment && !fileMatch[3]) {
+      if (!objectStore) fail("File storage is unavailable.", 503);
+      let buffer;
+      try { buffer = await readPrivateOriginal(attachment, objectStore); }
+      catch { fail("The original file is unavailable. Its saved notes are not a replacement for the original.", 503); }
+      send(res, 200, buffer, { "Content-Type": attachment.mimeType, "Content-Disposition": `attachment; filename="${attachment.filename}"`, "Cache-Control": "private, no-store", "Content-Security-Policy": "sandbox; default-src 'none'", "X-Content-Type-Options": "nosniff" }); return true;
+    }
+    if (req.method !== "POST") return respond(405, { error: "Method not allowed." });
+    if (!allowRequest(req, "assistant-files", 12, 10 * 60 * 1000)) fail("File action limit reached. Please pause before retrying.", 429);
+    const body = await readBody(req, 3 * 1024 * 1024);
+    if (body.revision !== item.revision) fail("The investigation changed. Reload before changing its files.", 409);
+    if (!attachment) {
+      if (!fileStorageReady) fail("Private uploads are disabled until persistent database and private object storage are configured.", 503);
+      return respond(201, { case: publicCase(await uploadPrivateFile(item, body.revision, body, fileDeps)) });
+    }
+    if (fileMatch[3] === "review") {
+      reviewPrivateFile(item, attachment, body); await saveCase(item, body.revision, fileDeps);
+    } else if (fileMatch[3] === "read") {
+      if (!allowRequest(req, "assistant-file-ai", 3, 10 * 60 * 1000)) fail("AI file-reading limit reached. Review the original while waiting.", 429);
+      await readFileWithAi(item, body.revision, attachment, body, fileDeps);
+    } else if (body.action === "delete") {
+      const pendingFileDeletes = await removePrivateFile(item, body.revision, attachment, fileDeps);
+      return respond(200, { case: publicCase(item), pendingFileDeletes });
+    } else return respond(400, { error: "Choose a file action." });
+    return respond(200, { case: publicCase(item) });
+  }
   const match = url.pathname.match(/^\/api\/assistant\/cases\/([\w-]+)(?:\/(message|confirm|step|cancel|select|stage|task|outcome|evidence|export|context|profile))?$/);
   if (!match) return respond(404, { error: "Assistant endpoint not found." });
   const item = owned().find(item => item.id === match[1]);
@@ -94,8 +135,8 @@ export async function assistantRoutes({ req, res, url, db, actor, send, readBody
     return respond(200, { format: "apex-investigation.v1", exportedAt: isoNow(), case: publicCase(item) });
   }
   if (req.method === "DELETE" && !match[2]) {
-    await deleteInvestigation(item.id, scope, { readDb, writeDb });
-    return respond(200, { deleted: true });
+    const pendingFileDeletes = await deleteInvestigation(item.id, scope, { readDb, writeDb, objectStore });
+    return respond(200, { deleted: true, pendingFileDeletes });
   }
   if (req.method !== "POST") return respond(405, { error: "Method not allowed." });
   const body = await readBody(req);

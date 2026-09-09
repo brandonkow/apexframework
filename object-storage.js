@@ -1,9 +1,10 @@
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, rm, writeFile, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 
 function cleanSegment(value, fallback = "evidence") {
   const name = path.basename(String(value || fallback));
-  return name.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || fallback;
+  const clean = name.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
+  return !clean || clean === "." || clean === ".." ? fallback : clean;
 }
 
 function cleanStorageKey(value) {
@@ -47,6 +48,15 @@ export class LocalObjectStore {
 
   async remove(documentId) {
     await rm(path.join(this.rootDir, cleanSegment(documentId)), { recursive: true, force: true });
+  }
+
+  async read(storageKey, maxBytes = 2 * 1024 * 1024) {
+    const target = path.resolve(this.rootDir, cleanStorageKey(storageKey));
+    if (!target.startsWith(this.rootDir + path.sep)) throw new Error("Invalid evidence storage key.");
+    if ((await stat(target)).size > maxBytes) throw new Error("Evidence file exceeds the read limit.");
+    const buffer = await readFile(target);
+    if (buffer.length > maxBytes) throw new Error("Evidence file exceeds the read limit.");
+    return buffer;
   }
 }
 
@@ -108,6 +118,22 @@ export class SupabaseObjectStore {
       body: Buffer.from(buffer)
     });
     return key;
+  }
+
+  async read(storageKey, maxBytes = 2 * 1024 * 1024) {
+    const response = await this.request(`/storage/v1/object/${encodeURIComponent(this.bucket)}/${encodedStorageKey(storageKey)}`);
+    const reader = response.body.getReader(), chunks = []; let bytes = 0, expired = false;
+    const timeout = setTimeout(() => { expired = true; void reader.cancel(); }, this.timeoutMs);
+    try {
+      while (true) {
+        const { done, value } = await reader.read(); if (done) break;
+        bytes += value.length;
+        if (bytes > maxBytes) { await reader.cancel(); throw new Error("Evidence file exceeds the read limit."); }
+        chunks.push(value);
+      }
+      if (expired) throw new Error("Evidence download timed out.");
+      return Buffer.concat(chunks);
+    } finally { clearTimeout(timeout); reader.releaseLock(); }
   }
 
   async remove(documentId, storageKey = "") {
