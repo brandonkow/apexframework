@@ -23,13 +23,15 @@ try {
   await mkdir(output, { recursive: true });
   browser = await chromium.launch({ channel: "chrome", headless: true });
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: "reduce" });
-  const errors = [], browserStepRequests = [];
+  const errors = [], browserStepRequests = [], mutations = [];
+  page.on("request", request => { if (request.method() !== "GET") mutations.push(request.url()); });
   page.on("request", request => { if (request.method() === "POST" && /\/assistant\/cases\/[^/]+\/step$/.test(request.url())) browserStepRequests.push(request.url()); });
   page.on("pageerror", error => errors.push(error.message));
   await page.goto(base, { waitUntil: "networkidle" });
   await page.waitForSelector('body[data-ready="true"]');
   assert.equal(await page.locator("#investmentAssistant").isVisible(), true);
   assert.equal(await page.locator(".experience").isVisible(), false);
+  assert.deepEqual(mutations, [], "The unopened assistant homepage must not submit or evaluate a hidden property.");
   for (const width of [320, 390, 768, 1440]) {
     await page.setViewportSize({ width, height: 950 });
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1);

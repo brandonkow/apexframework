@@ -397,10 +397,12 @@ async function init() {
     if (state.userId === id) return;
     save(); restoreScope(id); workspace.setCandidate(current());
     renderCandidates(); renderPanel(); renderRail(); save();
-    void evaluate().then(renderPanel).catch(error => notify(error.message));
+    if (!document.body.classList.contains("assistant-active")) void evaluate().then(renderPanel).catch(error => notify(error.message));
   });
   renderCandidates(); renderPanel(); renderRail(); updateViewButtons(); bindEvents(); save();
-  try { await evaluate(); renderPanel(); } catch (error) { notify(error.message, true); }
+  if (location.hash && location.hash !== "#assistant") {
+    try { await evaluate(); renderPanel(); } catch (error) { notify(error.message, true); }
+  }
   document.body.dataset.ready = "true";
   if (!location.hash || location.hash === "#assistant") assistant.show();
   else if (location.hash === "#journey") { assistant.hide(); loadWorld(); }
