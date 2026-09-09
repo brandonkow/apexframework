@@ -94,6 +94,18 @@
 #investmentActions button { white-space: normal; overflow-wrap: anywhere; max-width: 100%; }
 #investmentActions form { display: grid; gap: 14px; margin: 16px 0; }
 #investmentActions h3:focus { outline: 2px solid var(--mint); outline-offset: 4px; }
+.learning-modes { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0; }
+.learning-modes [aria-pressed="true"] { border-color: var(--mint); color: var(--mint); }
+#investmentLearning, .learning-owner { min-width: 0; overflow-wrap: anywhere; }
+#investmentLearning button, .learning-owner button { white-space: normal; max-width: 100%; }
+#investmentLearning form, .learning-owner form { display: grid; gap: 14px; margin: 18px 0; }
+#investmentLearning article, .learning-owner details { border-top: 1px solid var(--line); padding: 14px 0; }
+.learning-comparison { border-left: 2px solid var(--mint); padding: 4px 12px; margin: 14px 0; }
+.learning-comparison dl > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; margin: 10px 0; }
+.learning-comparison dd { margin: 0; }
+.learning-owner label { display: grid; gap: 6px; }
+.learning-owner .assistant-consent { display: flex; align-items: flex-start; gap: 10px; }
+.learning-owner input[type="checkbox"] { width: auto; }
 @keyframes assistant-orbit { to { transform: rotate(360deg); } }
 @media (max-width: 800px) { .assistant-shortlist { grid-template-columns: 1fr; } .assistant-intro h1 { font-size: 38px; } }
 @media (max-width: 520px) {

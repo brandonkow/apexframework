@@ -6,6 +6,8 @@ import { effectiveContext, updateWorkingContext, deleteInvestigation } from "./a
 import { profileView, profileActive, requestsProfile, startProfile, profileAction, answerProfile } from "./assistant-profile.js";
 import { MAX_FILE_BYTES, uploadPrivateFile, reviewPrivateFile, removePrivateFile, readFileWithAi, readPrivateOriginal, cleanupPrivateFiles } from "./assistant-files.js";
 import { changeMilestone, ownershipPlan, RESPONSIBILITIES, ACTION_SUGGESTIONS } from "./assistant-milestones.js";
+import { learningView, learningState, compareThesis, saveLearning, publicProposal, decideProposal } from "./assistant-learning.js";
+import { malaysiaDate } from "./assistant-calendar.js";
 
 const COOKIE = "apex_investment_guest";
 function guestScope(req, res, create = false) {
@@ -28,16 +30,25 @@ function mutationOrigin(req) {
   }
 }
 
-export async function assistantRoutes({ req, res, url, db, actor, send, readBody, readDb, writeDb, analyze, llmEnabled, requestLlmText, reply, storeKind, ephemeral, allowRequest, defer, objectStore }) {
+export async function assistantRoutes({ req, res, url, db, actor, send, readBody, readDb, writeDb, analyze, llmEnabled, requestLlmText, reply, storeKind, ephemeral, allowRequest, defer, objectStore, ownerAuthorized, normalizeBelief }) {
   const owner = url.pathname === "/api/owner/discovery";
-  if (!owner && !url.pathname.startsWith("/api/assistant/")) return false;
+  const ownerLessons = url.pathname === "/api/owner/lessons";
+  if (!owner && !ownerLessons && !url.pathname.startsWith("/api/assistant/")) return false;
   mutationOrigin(req);
   if (!allowRequest(req, "investment-assistant", 100, 10 * 60 * 1000)) fail("Please pause briefly before sending more requests.", 429);
-  const data = assistantState(db);
+  let data = assistantState(db);
   const respond = (status, body) => {
-    if (body.case) body.case = { ...body.case, sourceStatus: selectedSourceStatus(body.case, data), toolContext: effectiveContext(body.case), profileIntake: profileView(body.case), ownershipPlan: ownershipPlan(body.case) };
+    if (body.case) body.case = { ...body.case, sourceStatus: selectedSourceStatus(body.case, data), toolContext: effectiveContext(body.case), profileIntake: profileView(body.case), ownershipPlan: ownershipPlan(body.case), learningView: learningView(body.case, data) };
     send(res, status, body); return true;
   };
+  if (ownerLessons) {
+    if (ownerAuthorized !== true) fail("Only the owner may review shared lesson proposals.", 403);
+    if (req.method === "GET") return respond(200, { proposals: (data.lessonProposals || []).filter(value => value.status !== "withdrawn").map(value => publicProposal(value, data)) });
+    if (req.method !== "POST") return respond(405, { error: "Method not allowed." });
+    const body = await readBody(req);
+    if (!body || typeof body !== "object" || Array.isArray(body)) fail("Provide a proposal decision.");
+    return respond(200, { proposal: await decideProposal(body, { readDb, writeDb, normalizeBelief }) });
+  }
   if (owner) {
     if (req.method === "GET") return respond(200, { sources: data.sources, listings: data.listings, coverage: catalogueCoverage(data) });
     if (req.method === "POST") {
@@ -68,6 +79,7 @@ export async function assistantRoutes({ req, res, url, db, actor, send, readBody
     backgroundMode: defer ? "server" : "browser",
     responsibilities: RESPONSIBILITIES,
     actionSuggestions: ACTION_SUGGESTIONS,
+    learning: { enabled: true, sharing: "explicit_account_consent", publication: "owner_reviewed_hypothesis", automaticTraining: false },
     files: { enabled: fileStorageReady, maxBytes: MAX_FILE_BYTES, pendingDeletes: (data.fileCleanup || []).filter(job => job.scope === scope).length, notice: fileStorageReady ? "Files stay private to this investigation. Original files are downloaded separately from the JSON export." : "Private uploads need both persistent database storage and a private object store on this deployment." },
     background: defer ? "A confirmed search runs on the server even if you close the page. Server interruptions resume when you reopen the investigation. This is not continuous monitoring." : "Resumable steps run while this application is open. Closing it pauses work; return to resume.",
     storageNotice: ephemeral && storeKind !== "postgres" ? "This deployment has temporary storage. Export your work; it may disappear after a server restart." : actor.user ? "Saved to your private account." : "Private guest session. Sign in and explicitly import this draft to continue across devices."
@@ -82,6 +94,7 @@ export async function assistantRoutes({ req, res, url, db, actor, send, readBody
     if (owned().length + drafts.length > 20) fail("Your account can hold 20 active investigations. Export and delete an unused one first.");
     for (const item of drafts) { item.scope = scope; addEvent(item, "adopt", "Guest investigation explicitly imported into this account."); }
     for (const job of data.fileCleanup || []) if (job.scope === guest) job.scope = scope;
+    for (const proposal of data.lessonProposals || []) if (proposal.scope === guest) proposal.scope = scope;
     await writeDb(db);
     return respond(200, { imported: drafts.length });
   }
@@ -129,7 +142,7 @@ export async function assistantRoutes({ req, res, url, db, actor, send, readBody
     } else return respond(400, { error: "Choose a file action." });
     return respond(200, { case: publicCase(item) });
   }
-  const match = url.pathname.match(/^\/api\/assistant\/cases\/([\w-]+)(?:\/(message|confirm|step|cancel|select|stage|task|milestone|outcome|evidence|export|context|profile))?$/);
+  const match = url.pathname.match(/^\/api\/assistant\/cases\/([\w-]+)(?:\/(message|confirm|step|cancel|select|stage|task|milestone|learning|outcome|evidence|export|context|profile))?$/);
   if (!match) return respond(404, { error: "Assistant endpoint not found." });
   const item = owned().find(item => item.id === match[1]);
   if (!item) return respond(404, { error: "Investigation not found in this account or guest session." });
@@ -143,12 +156,22 @@ export async function assistantRoutes({ req, res, url, db, actor, send, readBody
   }
   if (req.method !== "POST") return respond(405, { error: "Method not allowed." });
   const body = await readBody(req);
+  if (!body || typeof body !== "object" || Array.isArray(body)) fail("Provide an investigation action.");
   if (match[2] === "context") {
     const saved = await updateWorkingContext(item.id, scope, body.contextRevision, body.context, { readDb, writeDb });
     return respond(200, { case: publicCase(saved.item) });
   }
   if (!Number.isInteger(body.revision) || body.revision !== item.revision) fail("This investigation changed. Reload it before continuing.", 409);
   switch (match[2]) {
+    case "learning": {
+      if (body.action === "preview") {
+        const thesis = learningState(item).theses.find(value => value.id === body.thesisId);
+        if (!thesis) fail("Choose a locked thesis from this investigation.");
+        return respond(200, { case: publicCase(item), comparison: compareThesis(item, thesis, body.throughMonth), thesisId: thesis.id });
+      }
+      const saved = await saveLearning(item.id, scope, body.revision, body, Boolean(actor.user), { readDb, writeDb });
+      data = saved.data; return respond(200, { case: publicCase(saved.item) });
+    }
     case "profile": profileAction(item, body.action); break;
     case "message": {
       const content = text(body.message, 2000);
@@ -243,8 +266,8 @@ export async function assistantRoutes({ req, res, url, db, actor, send, readBody
       break;
     }
     case "outcome": {
-      const month = text(body.month, 7);
-      if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month) || month > isoNow().slice(0, 7) || month < "1990-01") fail("Use a valid current or past outcome month.");
+      const month = body.month;
+      if (typeof month !== "string" || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month) || month > malaysiaDate().slice(0, 7) || month < "1990-01") fail("Use a valid current or past outcome month.");
       const rent = Number(body.rentReceived), costs = Number(body.totalCosts);
       const numericInput = value => ["number", "string"].includes(typeof value) && String(value).trim() !== "";
       if (!numericInput(body.rentReceived) || !numericInput(body.totalCosts) || !Number.isFinite(rent) || !Number.isFinite(costs) || rent < 0 || costs < 0 || rent > 1e7 || costs > 1e7 || !item.selected) fail("Record actual rent received and total monthly outgoings for the selected property.");

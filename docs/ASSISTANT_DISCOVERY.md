@@ -79,7 +79,7 @@ The draft captures the working-context revision at its start. Concurrent tool ed
 
 - No permitted live feed was supplied. The owner requested prepared owner-managed imports. Coverage therefore starts empty, not fabricated.
 - Confirmed searches can finish after the page is closed, within the server execution window. Durable storage is required for reliable cross-instance/redeployment recovery. Continuous monitoring and notifications are not implemented.
-- The shared tools and assistant use one versioned working copy, including confirmed conversational financial intake. Private document/photo workflows have storage and consent gates. Existing ownership checks now carry responsibilities, dates and dependencies; outcome-to-belief proposals remain a requirement.
+- The shared tools and assistant use one versioned working copy, including confirmed conversational financial intake. Private document/photo workflows have storage and consent gates. Existing ownership checks carry responsibilities, dates and dependencies; private thesis/outcome reviews and consented owner-reviewed lesson proposals are documented in `INVESTIGATION_LEARNING.md`.
 - Scenario tests cover greetings, affordability boundaries, gross-versus-net yield, actual cash flow, source changes, context isolation, AI consent and malformed/provider-failure fallbacks. Live configured-provider answer quality remains unverified while production has no key. Provider availability is not a quality guarantee.
 - Production needs an AI key, owner token and durable storage. Code deployment does not migrate Render data.
 
@@ -110,6 +110,6 @@ These gates reflect the assistant-first recommendation accepted in this task; th
 | Private, continuing property record with editable assumptions | Versioned working-context API and end-to-end sync tests; production database still required |
 | Collect private documents/photos with permission | Case-scoped originals, bounded local extraction, explicit optional AI reading and reviewed notes delivered; local API/browser tests; production storage and live-model quality still required |
 | Carry evidence, responsibilities and dates through transaction, handover and tenancy | Existing checks extended with optional responsibilities, confirmed or target dates, custom actions, dependencies and transitive reopening; scoped API and desktop/mobile tests; durable production storage remains a gate |
-| Compare the thesis with actual outcomes and propose owner-approved lessons | Actual outcomes recorded; versioned proposal/approval connection remains |
+| Compare the thesis with actual outcomes and propose owner-approved lessons | Immutable thesis/review snapshots, missing-month arithmetic, stale-source warnings, optional redacted sharing and owner-only contested hypotheses delivered; unit and isolated browser/API/restart tests; real longitudinal evidence and durable production storage remain gates |
 | Keep the 407 founder inputs unchanged and avoid external commitments without approval | Protected-file hashes and scoped APIs; no automatic payments, messages or bookings |
 | Direct-main delivery preserving Claude's commit, followed by production checks | Git ancestry, test results and deployed revision checked at each delivery |

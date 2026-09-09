@@ -25,6 +25,7 @@ import { assistantRoutes, caseScope } from "./assistant-routes.js";
 import { assistantCaseContext } from "./assistant-reasoning.js";
 import { effectiveContext } from "./assistant-context.js";
 import { assistantState, publicCase } from "./investment-assistant.js";
+import { learningView, beliefEligibleForGuidance } from "./assistant-learning.js";
 
 loadLocalEnvironment();
 
@@ -1632,6 +1633,7 @@ function normalizeBelief(belief = {}) {
     evidenceAgainst: String(belief.evidenceAgainst || "").trim().slice(0, 2000),
     falsifier: String(belief.falsifier || "").trim().slice(0, 2000),
     sourceQuestionId: String(belief.sourceQuestionId || "").trim().slice(0, 120),
+    learningProposalId: String(belief.learningProposalId || "").trim().slice(0, 100),
     lastReviewedAt,
     reviewIntervalDays,
     nextReview,
@@ -9363,6 +9365,7 @@ async function retrieveGuidance(query, property, brain, knowledge = emptyKnowled
   const researchIntelligence = selectResearchIntelligence(`${query} ${property ? JSON.stringify(property) : ""}`, knowledge.researchStudies, 6);
 
   const beliefHits = brain.beliefs
+    .filter(beliefEligibleForGuidance)
     .map((belief) => ({ ...belief, score: termScore(queryTerms, `${belief.claim} ${belief.scope} ${belief.evidenceFor} ${belief.evidenceAgainst} ${belief.falsifier}`) }))
     .filter((belief) => belief.score > 0)
     .sort((a, b) => b.score - a.score)
@@ -9483,7 +9486,7 @@ async function retrieveJarvisAnswer(query, brain, session, context = {}, knowled
     .sort((a, b) => b.score - a.score)
     .slice(0, 3);
   const topBeliefs = brain.beliefs
-    .filter((belief) => belief.status !== "retired")
+    .filter(beliefEligibleForGuidance)
     .map((belief) => ({ ...belief, score: retrievalTermScore(queryTerms, `${belief.claim} ${belief.scope} ${belief.evidenceFor} ${belief.evidenceAgainst} ${belief.falsifier}`) }))
     .filter((belief) => belief.score >= 3)
     .sort((a, b) => b.score - a.score)
@@ -10482,6 +10485,7 @@ async function router(req, res, context = {}) {
   }
 
   if (await assistantRoutes({ req, res, url, db, actor, send, readBody, readDb, writeDb, analyze: analyzeSevenStageDeal,
+    ownerAuthorized: isOwnerRequest(req), normalizeBelief,
     objectStore: knowledgeService.objectStore,
     defer: process.env.APEX_ASSISTANT_BACKGROUND === "false" ? undefined : context.defer || (!process.env.VERCEL ? work => { void work; } : undefined),
     llmEnabled, requestLlmText, storeKind: stateStore.kind, ephemeral: Boolean(globalThis.process?.env?.VERCEL), allowRequest,
@@ -11012,7 +11016,7 @@ async function router(req, res, context = {}) {
       },
       reports: user.reports.items,
       journal: user.journal.items,
-      investigations: assistantState(db).cases.filter(item => item.scope === caseScope(req, res, actor)).map(publicCase),
+      investigations: assistantState(db).cases.filter(item => item.scope === caseScope(req, res, actor)).map(item => ({ ...publicCase(item), learningView: learningView(item, assistantState(db)) })),
       conversations: ownedSessions
     }, {
       ...jsonHeaders,
