@@ -1,7 +1,8 @@
 import { LEVELS, OPTIONAL_FIELDS, checkpointMissing, valueFor } from "../../public/journey/levels.js";
 import { createWorld } from "./world.js";
 import { createWorkspace } from "../workspace/workspace.js";
-let workspace;
+import { createAssistant } from "../assistant/assistant.js";
+let workspace, assistant, worldLoading = false;
 
 const $ = selector => document.querySelector(selector);
 const escape = value => String(value ?? "").replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
@@ -321,15 +322,20 @@ function restoreScope(userId) {
   state.level = 0; state.checkpoint = null; state.evaluation = null; state.revision++;
 }
 
-async function init() {
-  fields = await api("/journey/fields.json", null, 20000);
+function loadWorld() {
+  if (state.world || worldLoading) return;
+  worldLoading = true;
   createWorld({ selectLevel, notify, reducedMotion: state.paused }).then(world => {
-    state.world = world; world.pause(state.paused || document.body.classList.contains("workspace-active")); renderRail(); updateViewButtons();
+    state.world = world; world.pause(state.paused || document.body.classList.contains("workspace-active") || document.body.classList.contains("assistant-active")); renderRail(); updateViewButtons();
   }).catch(() => {
     document.body.classList.add("flat-view");
     $("#worldLoading").hidden = true;
     notify("The illustrated map is available while 3D is unavailable. Your checkpoint forms still work.");
   });
+}
+
+async function init() {
+  fields = await api("/journey/fields.json", null, 20000);
   let user;
   try { user = (await api("/api/auth/me", null, 12000)).user; }
   catch { notify("Account connection is unavailable. The journey will use this browser's guest space."); }
@@ -337,10 +343,25 @@ async function init() {
   workspace = createWorkspace({ getCandidate: current, notify, onVisibility(open) {
     state.world?.pause(open || state.paused);
     if (!open) {
+      loadWorld();
       renderPanel();
       void evaluate().then(() => { if (!canOpen(state.level)) { state.level = 0; state.checkpoint = null; } renderPanel(); }).catch(error => notify(error.message));
     }
   } });
+  assistant = createAssistant({ openTool: surface => workspace.open(surface), notify, useProperty(investigation) {
+    if (!investigation?.selected) return;
+    let candidate = state.candidates.find(candidate => candidate.investigationId === investigation.id);
+    if (!candidate) {
+      const empty = state.candidates.findIndex(candidate => !Object.keys(candidate.dealCard).length && !Object.keys(candidate.financialProfile).length && !candidate.messages?.length);
+      if (state.candidates.length >= 4 && empty < 0) { notify("Export and reset an unused tool property slot first. Your investigation remains saved.", true); return; }
+      candidate = { ...makeCandidate(), investigationId: investigation.id, dealCard: { ...investigation.selected.dealCard } };
+      if (empty >= 0) state.candidates[empty] = candidate; else state.candidates.push(candidate);
+    }
+    state.active = candidate.id; state.evaluation = null; state.level = 0; state.checkpoint = null; state.revision++;
+    workspace.setCandidate(current()); save(); renderCandidates(); renderPanel(); renderRail();
+  } });
+  document.addEventListener("apex:leave-assistant", () => assistant.hide());
+  document.querySelector('[data-area="assistant"]').addEventListener("click", () => { if (workspace.isBusy() || state.busy) { notify("Let the current tool request finish first."); return; } assistant.show(); state.world?.pause(true); });
   document.addEventListener("apex:context", event => {
     const input = event.detail;
     const candidate = current();
@@ -381,7 +402,9 @@ async function init() {
   renderCandidates(); renderPanel(); renderRail(); updateViewButtons(); bindEvents(); save();
   try { await evaluate(); renderPanel(); } catch (error) { notify(error.message, true); }
   document.body.dataset.ready = "true";
-  workspace.restoreRoute();
+  if (!location.hash || location.hash === "#assistant") assistant.show();
+  else if (location.hash === "#journey") { assistant.hide(); loadWorld(); }
+  else workspace.restoreRoute();
 }
 
 init().catch(error => {

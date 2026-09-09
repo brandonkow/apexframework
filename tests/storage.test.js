@@ -47,6 +47,7 @@ function sampleState(revision = 0) {
   return {
     properties: [{ id: "property-1" }],
     comps: [{ id: "comp-1" }],
+    assistant: { version: 1, sources: [{ id: "source" }], listings: [], cases: [{ id: "case", scope: "user:user-1", job: { status: "running", step: 1 } }] },
     brain: { answers: [], beliefs: [], decisions: [] },
     knowledge: {
       version: 1,
@@ -153,6 +154,7 @@ test("JSON store remains a working local fallback", async (t) => {
   await store.write(initial);
   const updated = await store.read();
   assert.equal(updated.properties.length, 2);
+  assert.equal(updated.assistant.cases[0].job.step, 1);
   assert.equal(await store.health(), true);
 });
 
@@ -260,7 +262,7 @@ test("PostgreSQL store reconstructs users, sessions, and ordered messages", asyn
   const client = new FakeClient((text) => {
     if (text === "SELECT revision FROM estatelab_meta WHERE singleton = TRUE") return { rows: [{ revision: "7" }] };
     if (text.startsWith("SELECT properties, comps, brain")) {
-      return { rows: [{ properties: [{ id: "p" }], comps: [], brain: { beliefs: [] }, knowledge: { documents: [{ id: "d" }] } }] };
+      return { rows: [{ properties: [{ id: "p" }], comps: [], brain: { beliefs: [] }, knowledge: { documents: [{ id: "d" }] }, assistant: { version: 1, sources: [], listings: [], cases: [{ id: "private-case", scope: "user:u" }] } }] };
     }
     if (text.startsWith("SELECT id, email, display_name")) {
       return { rows: [{
@@ -290,6 +292,7 @@ test("PostgreSQL store reconstructs users, sessions, and ordered messages", asyn
   const store = new PostgresStateStore(new FakePool(client));
   const state = await store.read();
   assert.equal(state._storageRevision, 7);
+  assert.equal(state.assistant.cases[0].id, "private-case");
   assert.equal(state.auth.users[0].displayName, "User");
   assert.equal(state.auth.users[0].memory.items[0].content, "Remember this");
   assert.equal(state.auth.users[0].billing.plan, "advisor");

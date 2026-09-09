@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "source": {
+    "id": "your-source-id",
+    "name": "Your permitted data source",
+    "permission": "owner_authorized",
+    "permissionReference": "Replace with the actual permission or licence reference",
+    "publish": false,
+    "coverage": "Describe the areas and property types covered"
+  },
+  "listings": []
+}

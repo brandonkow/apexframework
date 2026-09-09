@@ -21,6 +21,8 @@ import { generateResidentialDcfWorkbook } from "./dcf-workbook.js";
 import { loadLocalEnvironment } from "./environment.js";
 import { formatStructuredAnswer, parseStructuredAnswer, STRUCTURED_ANSWER_SCHEMA } from "./structured-response.js";
 import { evaluateJourney } from "./journey-engine.js";
+import { assistantRoutes, caseScope } from "./assistant-routes.js";
+import { assistantState, publicCase } from "./investment-assistant.js";
 
 loadLocalEnvironment();
 
@@ -347,6 +349,7 @@ function normalizedDbState(db) {
     knowledge: normalizeKnowledge(db?.knowledge),
     jarvis: normalizeJarvis(db?.jarvis),
     auth: normalizeAuth(db?.auth),
+    assistant: assistantState(db || {}),
     ...(db?._storageRevision === undefined ? {} : { _storageRevision: db._storageRevision })
   };
 }
@@ -10252,6 +10255,8 @@ function applyOwnerRestoredState(db, plan, { type = "restore", source = {}, rest
 
 function isPublicApiRoute(method, pathname) {
   return (
+    (["GET", "POST", "DELETE"].includes(method) && pathname.startsWith("/api/assistant/"))
+    ||
     (method === "GET" && pathname === "/api/health")
     || (method === "GET" && pathname === "/api/auth/me")
     || (method === "POST" && pathname === "/api/auth/register")
@@ -10464,6 +10469,14 @@ async function router(req, res) {
   if (REQUIRE_EMAIL_VERIFICATION && actor.user && !actor.user.emailVerifiedAt && !unverifiedRouteAllowed) {
     return send(res, 403, { error: "Verify your email before using private account features." });
   }
+
+  if (await assistantRoutes({ req, res, url, db, actor, send, readBody, writeDb, analyze: analyzeSevenStageDeal,
+    llmEnabled, requestLlmText, storeKind: stateStore.kind, ephemeral: Boolean(globalThis.process?.env?.VERCEL), allowRequest,
+    reply: (query, item, database, user) => retrieveJarvisAnswer(query, database.brain, { messages: item.messages }, {
+      dealCard: item.selected?.dealCard || { area: item.brief.area }, financialProfile: {},
+      responseFeedback: "Keep the answer short, calm and practical. This is an investigation, not investment approval. Never invent property names, available units, market prices, signed rents or a user's finances. Ask only the most material next question."
+    }, database.knowledge, approvedUserMemories(user), user?.journal?.items || [])
+  })) return;
 
   if (req.method === "GET" && url.pathname === "/api/auth/me") {
     return send(res, 200, {
@@ -10985,6 +10998,7 @@ async function router(req, res) {
       },
       reports: user.reports.items,
       journal: user.journal.items,
+      investigations: assistantState(db).cases.filter(item => item.scope === caseScope(req, res, actor)).map(publicCase),
       conversations: ownedSessions
     }, {
       ...jsonHeaders,

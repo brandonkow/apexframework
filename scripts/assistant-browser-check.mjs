@@ -1,0 +1,100 @@
+import assert from "node:assert/strict";
+import { createRequire } from "node:module";
+import { spawn } from "node:child_process";
+import { once } from "node:events";
+import { mkdtemp, mkdir, rm } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import net from "node:net";
+
+const require = createRequire(import.meta.url);
+const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "C:/Users/user/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright");
+const output = path.resolve(process.env.ASSISTANT_QA_OUTPUT || "../../outputs/apex-assistant");
+const dir = await mkdtemp(path.join(os.tmpdir(), "apex-assistant-browser-"));
+const probe = net.createServer(); probe.listen(0, "127.0.0.1"); await once(probe, "listening"); const port = probe.address().port; await new Promise(resolve => probe.close(resolve));
+const base = `http://127.0.0.1:${port}`, owner = "local-assistant-browser-owner";
+const child = spawn(process.execPath, ["server.js"], { cwd: new URL("../", import.meta.url), env: { ...process.env, PORT: String(port), HOST: "127.0.0.1", ESTATELAB_DATA_DIR: dir, DATABASE_URL: "", VERCEL: "", OPENAI_API_KEY: "", OPENROUTER_API_KEY: "", LLM_API_KEY: "", ESTATELAB_OWNER_TOKEN: owner }, stdio: "pipe" });
+let browser, logs = "";
+child.stderr.on("data", data => logs += data);
+try {
+  let ready = false;
+  for (let i = 0; i < 100; i++) { try { if ((await fetch(base + "/api/health")).ok) { ready = true; break; } } catch {} await new Promise(resolve => setTimeout(resolve, 50)); }
+  assert.ok(ready, logs);
+  await mkdir(output, { recursive: true });
+  browser = await chromium.launch({ channel: "chrome", headless: true });
+  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: "reduce" });
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await page.goto(base, { waitUntil: "networkidle" });
+  await page.waitForSelector('body[data-ready="true"]');
+  assert.equal(await page.locator("#investmentAssistant").isVisible(), true);
+  assert.equal(await page.locator(".experience").isVisible(), false);
+  for (const width of [320, 390, 768, 1440]) {
+    await page.setViewportSize({ width, height: 950 });
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1);
+    if (overflow) {
+      console.log(await page.evaluate(() => Array.from(document.querySelectorAll("body *")).filter(node => node.getBoundingClientRect().right > innerWidth + 1).slice(0, 15).map(node => ({ tag: node.tagName, id: node.id, class: node.className, right: node.getBoundingClientRect().right }))));
+      await page.screenshot({ path: path.join(output, "overflow.png"), fullPage: true });
+    }
+    assert.equal(overflow, false, `Home overflow at ${width}`);
+    await page.screenshot({ path: path.join(output, `assistant-home-${width}.png`), fullPage: true });
+  }
+  await page.locator("#investmentInput").fill("Find a rental condo in Penang under RM500k");
+  await page.locator('#investmentComposer button[type="submit"]').click();
+  await page.waitForSelector('#investmentBriefForm input[name="area"]');
+  await page.waitForFunction(() => document.querySelector('#investmentBriefForm input[name="area"]')?.value === "Penang");
+  await page.locator('#investmentBriefForm button[type="submit"]').click();
+  await page.waitForFunction(() => document.querySelector("#investmentRun")?.textContent.includes("Search complete"));
+  assert.match(await page.locator("#investmentResults").innerText(), /No supported match yet/);
+  assert.equal(await page.locator(".assistant-candidate").count(), 0);
+  const now = new Date().toISOString().slice(0, 10);
+  const imported = await fetch(base + "/api/owner/discovery", { method: "POST", headers: { "content-type": "application/json", "x-estatelab-owner-token": owner }, body: JSON.stringify({ version: 1, source: { id: "browser-fixture", name: "SYNTHETIC LOCAL QA ONLY", permission: "owner_authorized", permissionReference: "Local browser fixture, not market data", publish: true, coverage: "Synthetic Penang records" }, listings: [1, 2, 3].map(id => ({ id: String(id), projectName: `Synthetic QA Residence ${id}`, area: "Bayan Lepas", state: "Penang", propertyType: "condo", askingPrice: 420000 + id * 10000, sourceUrl: `https://example.com/qa-only/${id}`, observedAt: now, availability: "available", facts: [] })) }) });
+  assert.equal(imported.status, 200);
+  await page.locator("#investmentBrief summary").click();
+  await page.locator('#investmentBriefForm button[type="submit"]').click();
+  await page.waitForSelector(".assistant-candidate");
+  assert.equal(await page.locator(".assistant-candidate").count(), 3);
+  for (const width of [320, 390, 768, 1440]) {
+    await page.setViewportSize({ width, height: 950 });
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false, `Shortlist overflow at ${width}`);
+    await page.screenshot({ path: path.join(output, `assistant-results-${width}.png`), fullPage: true });
+  }
+  await page.locator("[data-investment-select]").first().click();
+  await page.waitForSelector("#investmentTaskForm");
+  await page.locator('#investmentTaskForm textarea[name="note"]').fill("I physically visited and checked the unit placement, layout and view.");
+  await page.locator('#investmentTaskForm button[type="submit"]').click();
+  await page.waitForFunction(() => document.querySelector(".assistant-next h3")?.textContent.includes("management"));
+  await page.reload({ waitUntil: "networkidle" });
+  await page.waitForSelector("#investmentTaskForm");
+  assert.match(await page.locator("#investmentProperty h2").innerText(), /Synthetic QA Residence/);
+  await page.locator('[data-investment-action="numbers"]').click();
+  await page.waitForSelector('[data-surface="valuation"]:visible');
+  assert.equal(await page.locator("#investmentAssistant").isVisible(), false);
+  await page.locator('[data-area="assistant"]').click();
+  assert.equal(await page.locator("#investmentAssistant").isVisible(), true);
+  await page.locator('[data-area="journey"]').click();
+  await page.waitForSelector(".experience:visible");
+  await page.locator('[data-area="owner"]').click();
+  await page.waitForSelector("#workbench[data-ready=true]");
+  await page.locator("#studioSectionSelect").selectOption("catalogue", { force: true });
+  await page.waitForSelector('[data-surface="catalogue"]:visible');
+  await page.locator("#catalogueToken").fill(owner);
+  await page.locator("#catalogueRefresh").click();
+  await page.waitForFunction(() => document.querySelector("#catalogueSources")?.textContent.includes("3 current listings"));
+  await page.locator('[data-area="assistant"]').click();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.locator("#investmentStageForm").evaluate(node => node.closest("details").open = true);
+  await page.locator('#investmentStageForm select[name="stage"]').selectOption("rental");
+  await page.locator('#investmentStageForm textarea[name="note"]').fill("The owner reports completing the purchase, handover and initial furnishing.");
+  await page.locator('#investmentStageForm button[type="submit"]').click();
+  await page.waitForFunction(() => document.querySelector(".assistant-next h3")?.textContent.includes("tenancy"));
+  await page.screenshot({ path: path.join(output, "assistant-ownership-mobile.png"), fullPage: true });
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false);
+  const duplicateIds = await page.evaluate(() => { const ids = Array.from(document.querySelectorAll("[id]"), node => node.id); return ids.filter((id, index) => ids.indexOf(id) !== index); });
+  assert.deepEqual(duplicateIds, []); assert.deepEqual(errors, []);
+  console.log(JSON.stringify({ passed: true, widths: [320, 390, 768, 1440], tested: ["empty catalogue", "natural brief", "current sources", "three candidate shortlist", "selection", "site check", "reload", "tool handoff", "optional 3D", "owner catalogue", "rental stage", "duplicate IDs", "browser errors"], screenshots: output }));
+} finally {
+  await browser?.close();
+  if (child.exitCode === null) { const ended = once(child, "exit"); child.kill(); await ended; }
+  await rm(dir, { recursive: true, force: true });
+}

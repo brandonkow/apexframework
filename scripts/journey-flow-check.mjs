@@ -27,7 +27,7 @@ try {
       return /^webgl/.test(type) ? null : original.call(this, type, ...args);
     };
   });
-  await page.goto(base, { waitUntil: "networkidle" });
+  await page.goto(base + "/#journey", { waitUntil: "networkidle" });
   await page.waitForSelector('body[data-ready="true"]');
   assert.equal(await page.locator("body").evaluate(node => node.classList.contains("flat-view")), true);
   const firstId = await page.locator("#candidateSelect").inputValue();

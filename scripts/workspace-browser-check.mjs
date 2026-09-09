@@ -158,7 +158,7 @@ try {
   }
   await page.setViewportSize({ width: 1440, height: 1000 });
   await view("owner");
-  await page.fill("#ownerIntelToken", "local-workspace-test-only-2026-09");
+  await page.fill("#ownerIntelToken", process.env.ESTATELAB_OWNER_TOKEN || "local-workspace-test-only-2026-09");
   await page.click("#ownerIntelSaveToken");
   await page.waitForTimeout(1500);
   assert.doesNotMatch(await page.locator("#ownerIntelMessage").innerText(), /unauthorized|invalid|failed/i);

@@ -24,6 +24,7 @@ const SCHEMA_SQL = `
   );
 
   ALTER TABLE estatelab_core ADD COLUMN IF NOT EXISTS knowledge JSONB NOT NULL DEFAULT '{}'::jsonb;
+  ALTER TABLE estatelab_core ADD COLUMN IF NOT EXISTS assistant JSONB NOT NULL DEFAULT '{}'::jsonb;
 
   CREATE TABLE IF NOT EXISTS estatelab_users (
     id TEXT PRIMARY KEY,
@@ -124,6 +125,7 @@ function serializableState(state) {
   return {
     properties: Array.isArray(state?.properties) ? state.properties : [],
     comps: Array.isArray(state?.comps) ? state.comps : [],
+    assistant: state?.assistant && typeof state.assistant === "object" ? state.assistant : { version: 1, sources: [], listings: [], cases: [] },
     brain: state?.brain && typeof state.brain === "object" ? state.brain : {},
     knowledge: state?.knowledge && typeof state.knowledge === "object" ? state.knowledge : { version: 4, documents: [], chunks: [], retrievalEvents: [], projects: [], observations: [], developmentCases: [], researchStudies: [] },
     jarvis: state?.jarvis && typeof state.jarvis === "object" ? state.jarvis : { sessions: [] },
@@ -215,7 +217,7 @@ export class PostgresStateStore {
     try {
       await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
       const revisionResult = await client.query("SELECT revision FROM estatelab_meta WHERE singleton = TRUE");
-      const coreResult = await client.query("SELECT properties, comps, brain, knowledge FROM estatelab_core WHERE singleton = TRUE");
+      const coreResult = await client.query("SELECT properties, comps, brain, knowledge, assistant FROM estatelab_core WHERE singleton = TRUE");
       const usersResult = await client.query("SELECT id, email, display_name, password_hash, role, memory, billing, reports, journal, email_verified_at, disabled_at, created_at FROM estatelab_users ORDER BY created_at");
       const authResult = await client.query("SELECT token_hash, user_id, created_at, expires_at FROM estatelab_auth_sessions WHERE expires_at > NOW() ORDER BY created_at DESC");
       const authTokenResult = await client.query("SELECT token_hash, user_id, purpose, created_at, expires_at FROM estatelab_auth_tokens WHERE expires_at > NOW() ORDER BY created_at DESC");
@@ -243,6 +245,7 @@ export class PostgresStateStore {
       return {
         properties: Array.isArray(core.properties) ? core.properties : [],
         comps: Array.isArray(core.comps) ? core.comps : [],
+        assistant: core.assistant && typeof core.assistant === "object" ? core.assistant : { version: 1, sources: [], listings: [], cases: [] },
         brain: core.brain && typeof core.brain === "object" ? core.brain : {},
         knowledge: core.knowledge && typeof core.knowledge === "object" ? core.knowledge : {},
         jarvis: {
@@ -335,15 +338,16 @@ export class PostgresStateStore {
     })));
 
     await client.query(`
-      INSERT INTO estatelab_core (singleton, properties, comps, brain, knowledge, updated_at)
-      VALUES (TRUE, $1::jsonb, $2::jsonb, $3::jsonb, $4::jsonb, NOW())
+      INSERT INTO estatelab_core (singleton, properties, comps, brain, knowledge, assistant, updated_at)
+      VALUES (TRUE, $1::jsonb, $2::jsonb, $3::jsonb, $4::jsonb, $5::jsonb, NOW())
       ON CONFLICT (singleton) DO UPDATE SET
         properties = EXCLUDED.properties,
         comps = EXCLUDED.comps,
         brain = EXCLUDED.brain,
         knowledge = EXCLUDED.knowledge,
+        assistant = EXCLUDED.assistant,
         updated_at = NOW()
-    `, [JSON.stringify(state.properties), JSON.stringify(state.comps), JSON.stringify(state.brain), JSON.stringify(state.knowledge)]);
+    `, [JSON.stringify(state.properties), JSON.stringify(state.comps), JSON.stringify(state.brain), JSON.stringify(state.knowledge), JSON.stringify(state.assistant)]);
 
     for (const user of users) {
       await client.query(`

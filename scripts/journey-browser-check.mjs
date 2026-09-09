@@ -13,7 +13,7 @@ try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 960 }, deviceScaleFactor: 1 });
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));
-  await page.goto(base, { waitUntil: "networkidle", timeout: 60000 });
+  await page.goto(base + "/#journey", { waitUntil: "networkidle", timeout: 60000 });
   await page.waitForSelector('body[data-ready="true"]', { timeout: 40000 });
   await page.waitForSelector("#worldWrap.world-ready", { timeout: 40000 });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
@@ -52,7 +52,7 @@ try {
   await page.close();
   const mobile = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, isMobile: true, hasTouch: true, reducedMotion: "reduce" });
   mobile.on("pageerror", error => { errors.push(error.message); console.log("mobile error", error.message); });
-  await mobile.goto(base, { waitUntil: "networkidle" });
+  await mobile.goto(base + "/#journey", { waitUntil: "networkidle" });
   await mobile.waitForSelector('body[data-ready="true"]', { timeout: 60000 });
   await mobile.screenshot({ path: path.join(out, "mobile.png"), fullPage: true });
   await mobile.locator('[data-action="enter"]').click();

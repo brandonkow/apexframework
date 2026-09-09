@@ -1,9 +1,10 @@
 import markup from "./panels.html";
+import { installCataloguePanel } from "../assistant/assistant.js";
 
 const AREAS = {
   desk: { title: "The decision desk", description: "Explore the question. Test the numbers. Keep your context together.", views: [["chat", "Ask Apex", "Your thinking partner"], ["deal", "Property inputs", "Shared with the journey"], ["profile", "Investor profile", "Capacity, goals and reserves"], ["valuation", "Valuation lab", "DCF, comparisons and Excel"], ["guidance", "Preferences", "Choose your guidance style"]] },
   library: { title: "Your private library", description: "Return to what you learned, decided and saved.", views: [["reports", "Decision reports", "Saved seven-stage assessments"], ["journal", "Decision journal", "Thesis, outcomes and lessons"], ["memory", "Long-term memory", "Review what Apex remembers"], ["history", "Conversations", "Resume or manage your history"], ["shortlist", "Saved shortlist", "Compare earlier assessments"]] },
-  owner: { title: "Owner Studio", description: "Curate the intelligence. Shared knowledge stays under your control.", views: [["owner", "Intelligence hub", "Coverage, research and operations"], ["market", "Market observatory", "Projects and dated observations"], ["cases", "Development cases", "Your project-level experience"], ["evidence", "Evidence vault", "Sources, documents and indexing"]] },
+  owner: { title: "Owner Studio", description: "Curate the intelligence. Shared knowledge stays under your control.", views: [["owner", "Intelligence hub", "Coverage, research and operations"], ["catalogue", "Discovery catalogue", "Permitted sources and current listings"], ["market", "Market observatory", "Projects and dated observations"], ["cases", "Development cases", "Your project-level experience"], ["evidence", "Evidence vault", "Sources, documents and indexing"]] },
   account: { title: "Your account", description: "Private access, plan details and the boundaries that protect your decisions.", views: [["account", "Account & plan", "Sign in, security and billing"], ["trust", "Decision boundaries", "What Apex can and cannot do"]] }
 };
 const allViews = Object.entries(AREAS).flatMap(([area, config]) => config.views.map(([id, label, description]) => ({ area, id, label, description })));
@@ -12,6 +13,7 @@ const $ = selector => document.querySelector(selector);
 export function createWorkspace({ getCandidate, notify, onVisibility }) {
   const host = $("#workbench");
   host.innerHTML = `<aside class="studio-sidebar"><p class="eyebrow">APEX / WORKSPACE</p><h2 id="studioAreaTitle"></h2><p id="studioAreaDescription"></p><label class="studio-search"><span class="sr-only">Find a feature</span><input id="studioSearch" type="search" placeholder="Find a tool..." autocomplete="off"></label><nav id="studioNav" aria-label="Workspace sections"></nav><label class="mobile-section"><span>Section</span><select id="studioSectionSelect"></select></label><p class="studio-private">Your property stays selected as you move between tools. Knowledge updates are owner-only.</p></aside><div class="studio-main"><header class="studio-breadcrumb"><span id="studioBreadcrumb"></span><button type="button" data-return-journey>Back to journey <span aria-hidden="true">&#8599;</span></button></header><div id="studioLoading" role="status" hidden>Connecting your workspace...</div>${markup}</div>`;
+  installCataloguePanel(host);
   let features, loading, active = "", area = "desk", navigating = false;
   $("#studioBreadcrumb").tabIndex = -1;
   let earlierDraft;
@@ -34,6 +36,7 @@ export function createWorkspace({ getCandidate, notify, onVisibility }) {
     const view = allViews.find(view => view.id === surface);
     if (!view) return;
     active = surface; area = view.area;
+    document.dispatchEvent(new CustomEvent("apex:leave-assistant"));
     host.hidden = false; document.body.classList.add("workspace-active"); onVisibility(true);
     $("#studioAreaTitle").textContent = AREAS[area].title;
     $("#studioAreaDescription").textContent = AREAS[area].description;
@@ -71,7 +74,7 @@ export function createWorkspace({ getCandidate, notify, onVisibility }) {
     show(surface); $("#studioSearch").value = "";
     try {
       const controller = await ready();
-      await controller.openWorkspaceFeature(surface, options);
+      if (surface !== "catalogue") await controller.openWorkspaceFeature(surface, options);
       show(active || surface);
       if (active === "account" && surface !== "account") notify("Sign in to open your private library. Guest chat and property tools remain available.");
       window.scrollTo({ top: 0, behavior: "instant" });
@@ -82,7 +85,8 @@ export function createWorkspace({ getCandidate, notify, onVisibility }) {
   function close() {
     if (navigating || features?.workspaceBusy()) { notify("Let Apex finish the current request before switching views."); return; }
     host.hidden = true; document.body.classList.remove("workspace-active");
-    history.replaceState(null, "", location.pathname); onVisibility(false);
+    document.dispatchEvent(new CustomEvent("apex:leave-assistant"));
+    history.replaceState(null, "", "#journey"); onVisibility(false);
     document.querySelectorAll("[data-area]").forEach(button => button.setAttribute("aria-current", button.dataset.area === "journey" ? "page" : "false"));
   }
   document.addEventListener("apex:surface", event => show(event.detail));
@@ -100,7 +104,11 @@ export function createWorkspace({ getCandidate, notify, onVisibility }) {
   $("#studioSearch").addEventListener("input", event => renderNavigation(event.target.value));
   $("#studioSectionSelect").addEventListener("change", event => void open(event.target.value));
   document.addEventListener("keydown", event => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") { event.preventDefault(); void open(active || "chat").then(() => $("#studioSearch").focus()); } });
-  document.querySelectorAll("[data-area]").forEach(button => button.addEventListener("click", () => button.dataset.area === "journey" ? close() : void open(AREAS[button.dataset.area].views[0][0])));
+  document.querySelectorAll("[data-area]").forEach(button => button.addEventListener("click", () => {
+    if (button.dataset.area === "assistant") return;
+    if (button.dataset.area === "journey") close();
+    else void open(AREAS[button.dataset.area].views[0][0]);
+  }));
   $("#studioAccount").addEventListener("click", () => void open("account"));
   return {
     open, close, isBusy: () => navigating || Boolean(features?.workspaceBusy()),
