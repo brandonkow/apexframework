@@ -10,10 +10,11 @@ const AREAS = {
 const allViews = Object.entries(AREAS).flatMap(([area, config]) => config.views.map(([id, label, description]) => ({ area, id, label, description })));
 const $ = selector => document.querySelector(selector);
 
-export function createWorkspace({ getCandidate, notify, onVisibility }) {
+export function createWorkspace({ getCandidate, notify, onVisibility, beforeOpen }) {
   const host = $("#workbench");
   host.innerHTML = `<aside class="studio-sidebar"><p class="eyebrow">APEX / WORKSPACE</p><h2 id="studioAreaTitle"></h2><p id="studioAreaDescription"></p><label class="studio-search"><span class="sr-only">Find a feature</span><input id="studioSearch" type="search" placeholder="Find a tool..." autocomplete="off"></label><nav id="studioNav" aria-label="Workspace sections"></nav><label class="mobile-section"><span>Section</span><select id="studioSectionSelect"></select></label><p class="studio-private">Your property stays selected as you move between tools. Knowledge updates are owner-only.</p></aside><div class="studio-main"><header class="studio-breadcrumb"><span id="studioBreadcrumb"></span><button type="button" data-return-journey>Back to journey <span aria-hidden="true">&#8599;</span></button></header><div id="studioLoading" role="status" hidden>Connecting your workspace...</div>${markup}</div>`;
   installCataloguePanel(host);
+  host.querySelector(".studio-breadcrumb").insertAdjacentHTML("afterend", '<p id="studioSyncStatus" class="assistant-caption" role="status" hidden></p>');
   let features, loading, active = "", area = "desk", navigating = false;
   $("#studioBreadcrumb").tabIndex = -1;
   let earlierDraft;
@@ -73,6 +74,7 @@ export function createWorkspace({ getCandidate, notify, onVisibility }) {
     navigating = true;
     show(surface); $("#studioSearch").value = "";
     try {
+      await beforeOpen?.(surface);
       const controller = await ready();
       if (surface !== "catalogue") await controller.openWorkspaceFeature(surface, options);
       show(active || surface);

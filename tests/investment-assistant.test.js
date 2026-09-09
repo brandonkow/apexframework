@@ -34,6 +34,14 @@ test("discovery distinguishes evidence from claims and uses the existing engine"
   assert.equal(discover(brief, data, analyzeSevenStageDeal).candidates[0].dealCard.expectedRent, "");
 });
 
+test("imported maintenance and sinking fund map to the engine's combined monthly charge", () => {
+  const data = catalogue();
+  for (const [kind, value] of [["maintenance", 300], ["sinking_fund", 30]]) data.listings[0].facts.push({ kind, value, verification: "owner_checked", observedAt: today, sourceUrl: "https://example.com/qa-only/cost", description: "Synthetic monthly charge for testing" });
+  assert.equal(discover(brief, data, analyzeSevenStageDeal).candidates[0].dealCard.maintenance, "330");
+  data.listings[0].facts.pop();
+  assert.equal(discover(brief, data, analyzeSevenStageDeal).candidates[0].dealCard.maintenance, "", "Missing sinking fund must not be silently treated as zero.");
+});
+
 test("empty, stale, withdrawn and unpermitted coverage never manufactures matches", () => {
   assert.equal(discover(brief, { sources: [], listings: [] }, analyzeSevenStageDeal).candidates.length, 0);
   for (const mutate of [data => data.sources[0].publish = false, data => data.listings[0].observedAt = ago(31), data => data.listings[0].availability = "withdrawn", data => data.listings[0].askingPrice = 700000]) {

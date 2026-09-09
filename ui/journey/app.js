@@ -2,6 +2,7 @@ import { LEVELS, OPTIONAL_FIELDS, checkpointMissing, valueFor } from "../../publ
 import { createWorld } from "./world.js";
 import { createWorkspace } from "../workspace/workspace.js";
 import { createAssistant } from "../assistant/assistant.js";
+import { contextOf } from "../assistant/context-sync.js";
 let workspace, assistant, worldLoading = false;
 
 const $ = selector => document.querySelector(selector);
@@ -49,6 +50,16 @@ function invalidate() {
   save();
   renderCandidates();
   renderRail();
+  assistant?.queueContext(current());
+}
+
+function renderSyncStatus() {
+  const node = $("#studioSyncStatus"), candidate = current();
+  if (!node) return;
+  node.hidden = !candidate?.investigationId;
+  if (node.hidden) return;
+  const status = candidate.assistantSyncStatus;
+  node.textContent = status === "conflict" ? "These inputs changed elsewhere. Return to Assistant to review the saved version; local edits are retained." : status === "unsaved" ? `Tool edits are only saved in this browser. ${candidate.assistantSyncError || "Reconnect or correct the inputs to save them to the investigation."}` : ["pending", "saving"].includes(status) ? "Saving working inputs to the linked investigation..." : "Working inputs are linked to your investigation. The original source record is unchanged.";
 }
 
 async function api(url, body, timeout = 35000) {
@@ -340,7 +351,10 @@ async function init() {
   try { user = (await api("/api/auth/me", null, 12000)).user; }
   catch { notify("Account connection is unavailable. The journey will use this browser's guest space."); }
   restoreScope(user?.id);
-  workspace = createWorkspace({ getCandidate: current, notify, onVisibility(open) {
+  workspace = createWorkspace({ getCandidate: current, notify, beforeOpen: async surface => {
+    if (["chat", "deal", "profile", "valuation", "guidance"].includes(surface)) await assistant?.prepareTools(current());
+    renderSyncStatus();
+  }, onVisibility(open) {
     state.world?.pause(open || state.paused);
     if (!open) {
       loadWorld();
@@ -348,25 +362,54 @@ async function init() {
       void evaluate().then(() => { if (!canOpen(state.level)) { state.level = 0; state.checkpoint = null; } renderPanel(); }).catch(error => notify(error.message));
     }
   } });
-  assistant = createAssistant({ openTool: surface => workspace.open(surface), notify, useProperty(investigation) {
-    if (!investigation?.selected) return;
+  assistant = createAssistant({ openTool: surface => workspace.open(surface), notify, onInvestigationDeleted(id) {
+    state.candidates = state.candidates.filter(candidate => candidate.investigationId !== id);
+    if (!state.candidates.length) state.candidates.push(makeCandidate());
+    if (!current()) state.active = state.candidates[0].id;
+    state.evaluation = null; state.revision++; state.level = 0; state.checkpoint = null;
+    workspace.setCandidate(current()); save(); renderCandidates(); renderPanel(); renderRail(); renderSyncStatus();
+  }, onContextSaved(id, investigation) {
+    const candidate = state.candidates.find(candidate => candidate.investigationId === id);
+    if (!candidate) return;
+    candidate.assistantRevision = investigation.working?.revision || 0;
+    candidate.assistantSynced = contextOf(investigation.toolContext || investigation.working || {});
+    save();
+  }, onContextState(id, value, error) {
+    const candidate = state.candidates.find(candidate => candidate.investigationId === id);
+    if (!candidate) return;
+    candidate.assistantSyncStatus = value; candidate.assistantPending = value !== "saved"; candidate.assistantSyncError = error?.message || "";
+    renderSyncStatus(); save();
+  }, useProperty(investigation, options = {}) {
+    if (!investigation?.selected) return false;
     let candidate = state.candidates.find(candidate => candidate.investigationId === investigation.id);
+    if (candidate && !candidate.assistantSynced && !options.replace && JSON.stringify(contextOf(candidate)) !== JSON.stringify(contextOf(investigation.toolContext || { dealCard: investigation.selected.dealCard }))) {
+      candidate.assistantPending = true;
+      assistant?.holdContext(candidate, investigation);
+    }
     if (!candidate) {
-      const empty = state.candidates.findIndex(candidate => !Object.keys(candidate.dealCard).length && !Object.keys(candidate.financialProfile).length && !candidate.messages?.length);
-      if (state.candidates.length >= 4 && empty < 0) { notify("Export and reset an unused tool property slot first. Your investigation remains saved.", true); return; }
-      candidate = { ...makeCandidate(), investigationId: investigation.id, dealCard: { ...investigation.selected.dealCard } };
+      const empty = state.candidates.findIndex(candidate => !Object.keys(candidate.dealCard).length && !Object.keys(candidate.financialProfile).length && !Object.keys(candidate.evidence).length && !candidate.messages?.length && !candidate.chat?.length);
+      if (state.candidates.length >= 4 && empty < 0) { notify("Export and reset an unused tool property slot first. Your investigation remains saved.", true); return false; }
+      candidate = { ...makeCandidate(), investigationId: investigation.id };
       if (empty >= 0) state.candidates[empty] = candidate; else state.candidates.push(candidate);
+    }
+    if (!candidate.assistantPending || options.replace) {
+      const context = contextOf(investigation.toolContext || investigation.working || { dealCard: investigation.selected.dealCard });
+      if (JSON.stringify(contextOf(candidate)) !== JSON.stringify(context)) candidate.report = null;
+      Object.assign(candidate, context, { assistantRevision: investigation.working?.revision || 0, assistantSynced: structuredClone(context), assistantPending: false, assistantSyncStatus: "saved", assistantSyncError: "" });
     }
     state.active = candidate.id; state.evaluation = null; state.level = 0; state.checkpoint = null; state.revision++;
     workspace.setCandidate(current()); save(); renderCandidates(); renderPanel(); renderRail();
+    renderSyncStatus();
+    return true;
   } });
+  for (const candidate of state.candidates) if (candidate.assistantPending) assistant.queueContext(candidate);
   document.addEventListener("apex:leave-assistant", () => assistant.hide());
-  document.querySelector('[data-area="assistant"]').addEventListener("click", () => { if (workspace.isBusy() || state.busy) { notify("Let the current tool request finish first."); return; } assistant.show(); state.world?.pause(true); });
+  document.querySelector('[data-area="assistant"]').addEventListener("click", () => { if (workspace.isBusy() || state.busy) { notify("Let the current tool request finish first."); return; } void assistant.resume(current()?.investigationId); state.world?.pause(true); });
   document.addEventListener("apex:context", event => {
     const input = event.detail;
     const candidate = current();
     if (input.candidateId !== candidate.id) return;
-    const changed = JSON.stringify(candidate.dealCard) !== JSON.stringify(input.dealCard) || JSON.stringify(candidate.financialProfile) !== JSON.stringify(input.financialProfile);
+    const changed = JSON.stringify(candidate.dealCard) !== JSON.stringify(input.dealCard) || JSON.stringify(candidate.financialProfile) !== JSON.stringify(input.financialProfile) || JSON.stringify(candidate.dcfContext || {}) !== JSON.stringify(input.dcfContext || {});
     candidate.dealCard = input.dealCard; candidate.financialProfile = input.financialProfile; candidate.dcfContext = input.dcfContext;
     if (input.sessionId !== undefined) { if (candidate.sessionId !== input.sessionId) candidate.report = null; candidate.sessionId = input.sessionId; }
     if (input.messages) candidate.messages = input.messages.slice(-40);
@@ -396,6 +439,7 @@ async function init() {
     const id = event.detail?.id || null;
     if (state.userId === id) return;
     save(); restoreScope(id); workspace.setCandidate(current());
+    for (const candidate of state.candidates) if (candidate.assistantPending) assistant.queueContext(candidate);
     renderCandidates(); renderPanel(); renderRail(); save();
     if (!document.body.classList.contains("assistant-active")) void evaluate().then(renderPanel).catch(error => notify(error.message));
   });

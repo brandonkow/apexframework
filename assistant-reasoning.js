@@ -1,4 +1,5 @@
 import { briefQuestion, selectedSourceStatus, text } from "./investment-assistant.js";
+import { effectiveContext } from "./assistant-context.js";
 
 export function socialReply(query) {
   const clean = query.toLowerCase().replace(/[^a-z\s]/g, "").trim();
@@ -7,17 +8,29 @@ export function socialReply(query) {
   return "";
 }
 
-export function frameworkReply(query, item, data) {
+export function frameworkReply(query, item, data, analysis = null) {
   const social = socialReply(query);
   if (social) return social;
   const property = item.selected, source = selectedSourceStatus(item, data);
   if (/\b(?:learn|train|memory|remember)\b/i.test(query)) return "I keep this investigation's conversation, checks and outcomes as private context. That does not retrain a model or change the founder framework. Storage availability still matters, so check the notice above before relying on long-term recall.";
   if (/\b(?:guarantee|guaranteed|certain|definitely|sure profit)\b/i.test(query)) return "I cannot guarantee appreciation, rental income or an exit. A useful test is whether the property still works if rent falls, costs rise and selling takes longer. Which of those would put the most pressure on you?";
-  if (/\b(?:afford|affordability|salary|income|loan|financing|dsr)\b/i.test(query)) return "A search ceiling is not proof of buying power. We still need your verified income, existing repayments, cash available after purchase and full holding costs. Bank approval alone is not enough; the plan must survive vacancy and higher costs.";
+  if (/\b(?:afford|affordability|salary|income|loan|financing|dsr)\b/i.test(query)) {
+    const working = effectiveContext(item), profile = working.financialProfile;
+    if (profile.monthlyIncome) {
+      const missing = [[profile.currentDebt, "existing monthly repayments"], [profile.cashAvailable, "cash available for the purchase"], [profile.cashReserveMonths, "emergency reserve"], [working.dealCard.estimatedInstallment, "the proposed loan instalment"]].filter(([value]) => !value).map(([, label]) => label);
+      const dsr = profile.currentDebt && working.dealCard.estimatedInstallment ? analysis?.metrics?.find(metric => metric.label === "Post-deal DSR")?.value : null;
+      return `Your saved monthly income is ${profile.monthlyIncome}${profile.currentDebt ? ` and existing monthly repayments are ${profile.currentDebt}` : ""}. These are your declared inputs, not verified borrowing capacity. ${dsr ? `The framework calculates a post-deal DSR of ${dsr}. ` : ""}${missing.length ? `Still needed: ${missing.join(", ")}. ` : ""}Bank approval alone is not enough; we must also test reserves, full costs and a weaker rental period.`;
+    }
+    return "A search ceiling is not proof of buying power. We still need your verified income, existing repayments, cash available after purchase and full holding costs. Bank approval alone is not enough; the plan must survive vacancy and higher costs.";
+  }
   if (/\b(?:rent|rental|yield|return|cash flow|cashflow)\b/i.test(query)) {
     if (!property) return "I would separate achieved rent, gross yield and actual cash flow. Advertised rent is only a claim, and gross yield leaves out vacancy, costs and financing. Select a sourced candidate first so we can test its numbers.";
     const actual = item.outcomes.at(-1);
     if (actual) return `Your recorded ${actual.month} cash flow is RM${actual.cashFlow}: RM${actual.rentReceived} received less RM${actual.totalCosts} in declared outgoings. That is one month's outcome, not proof of annual net return. Have you included vacancy, repairs and every recurring charge?`;
+    if (item.working) {
+      const working = effectiveContext(item), yieldMetric = analysis?.metrics?.find(metric => metric.label === "Gross yield");
+      return working.dealCard.expectedRent && working.dealCard.askingPrice ? `Your current working rent is ${working.dealCard.expectedRent} per month against a working purchase price of ${working.dealCard.askingPrice}.${yieldMetric ? ` The framework calculates ${yieldMetric.value} gross yield.` : ""} This is a scenario using your assumptions, not verified achieved rent, net return or cash flow. Confirm vacancy and all holding costs before relying on it.` : "The working rent or purchase price is missing. I will not silently restore a value you cleared from the original listing. Add the assumption in the tools, then verify it against achieved rent.";
+    }
     return `${property.grossYield == null ? "There is no current, checked unit-specific rent in this record, so I cannot establish its yield." : `The selected snapshot shows ${property.grossYield}% gross yield from owner-checked rent and the asking price. That is not net return or cash flow.`} ${source?.status !== "current" ? source.note : "Next, verify rent sustainability and total costs, including vacancy and repairs."}`;
   }
   if (source && source.status !== "current") return source.note;
@@ -40,7 +53,8 @@ export function assistantCaseContext(item, data) {
     nextCheck: item.tasks.find(task => task.id.startsWith(item.stage + ":") && task.status === "open") || null,
     recordedChecks: item.tasks.filter(task => task.status === "done").slice(-8),
     privateObservations: item.evidence.slice(-6),
-    actualOutcomes: item.outcomes.slice(-6)
+    actualOutcomes: item.outcomes.slice(-6),
+    workingAssumptions: { ...effectiveContext(item), status: "User-declared working inputs. Not the original source record or independent verification." }
   };
 }
 

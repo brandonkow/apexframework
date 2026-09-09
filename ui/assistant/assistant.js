@@ -1,12 +1,23 @@
+import { createContextSync, contextOf } from "./context-sync.js";
+
 const $ = selector => document.querySelector(selector);
 const escape = value => String(value ?? "").replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
 const cash = value => new Intl.NumberFormat("en-MY", { style: "currency", currency: "MYR", maximumFractionDigits: 0 }).format(value);
 const labels = { rental_income: "Rental income", appreciation: "Capital appreciation", own_stay: "My own home", balanced: "A balance", discovery: "Discovery", site_visit: "Site visit", transaction: "Transaction", handover: "Handover", rental: "Rental", review: "Holding review" };
 const date = () => new Date().toISOString().slice(0, 10);
 
-export function createAssistant({ openTool, useProperty, notify }) {
+export function createAssistant({ openTool, useProperty, notify, onContextSaved, onContextState, onInvestigationDeleted }) {
   const host = $("#investmentAssistant");
-  let current = null, status = null, busy = false, generation = 0, timer, cases = [], editing = false, requestController;
+  let current = null, status = null, busy = false, generation = 0, timer, cases = [], editing = false;
+  const requestControllers = new Set(), syncStates = new Map();
+  const sync = createContextSync({ request, onSaved(id, item) {
+    onContextSaved?.(id, item);
+    if (current?.id === id) current = item;
+  }, onState(id, value, error) {
+    syncStates.set(id, { value, error: error?.message || "" });
+    onContextState?.(id, value, error);
+    if (current?.id === id) renderSyncNotice();
+  } });
   host.innerHTML = `<header class="assistant-intro"><div class="assistant-orb" aria-hidden="true"><span>A</span></div><p class="eyebrow">YOUR PROPERTY THINKING PARTNER</p><h1>A clearer way forward.</h1><p>Tell me what you want property investment to do for you.</p></header>
     <div class="assistant-casebar"><label><span class="sr-only">Your investigations</span><select id="investmentCaseSelect" aria-label="Your investigations"><option>No saved investigation</option></select></label><button id="investmentNew" type="button">New investigation</button><button id="investmentExport" type="button" hidden>Export</button><details class="assistant-more"><summary>More</summary><button id="investmentDelete" type="button">Delete this investigation</button><button id="investmentAccount" type="button">Account &amp; private memory</button></details></div>
     <p id="investmentStorage" class="assistant-storage"></p><button id="investmentAdopt" class="secondary-button" hidden>Import my guest investigations</button>
@@ -22,14 +33,14 @@ export function createAssistant({ openTool, useProperty, notify }) {
 
   async function request(path, body, method = body ? "POST" : "GET") {
     const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 60000);
-    requestController = controller;
+    requestControllers.add(controller);
     try {
       const response = await fetch(path, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined, signal: controller.signal });
       const payload = await response.json();
       if (!response.ok) throw Object.assign(new Error(payload.error || "The request could not be completed."), { status: response.status });
       return payload;
     } catch (error) { if (error.name === "AbortError") throw new Error("Request interrupted. Reload the investigation to check what was saved before retrying."); throw error; }
-    finally { clearTimeout(timeout); if (requestController === controller) requestController = null; }
+    finally { clearTimeout(timeout); requestControllers.delete(controller); }
   }
   function lock(value) {
     busy = value;
@@ -69,16 +80,31 @@ export function createAssistant({ openTool, useProperty, notify }) {
     const tasks = current.tasks.filter(task => task.id.startsWith(current.stage + ":"));
     const next = tasks.find(task => task.status !== "done");
     pane.innerHTML = `<header><p class="eyebrow">ONE PROPERTY / A CONTINUING INVESTIGATION</p><h2>${escape(property.projectName)}</h2><p>${escape(labels[current.stage])} / ${escape(property.area)}</p><button type="button" class="secondary-button" data-investment-action="numbers">Open the valuation tools</button></header>
+      <p id="investmentSyncNotice" class="assistant-caption" role="status"></p><div id="investmentSyncActions" hidden><details><summary>Review the differences</summary><div id="investmentSyncDiff"></div></details><button type="button" data-investment-action="retry-sync">Retry saving</button><button type="button" data-investment-action="download-context">Export unsaved inputs</button><button type="button" data-investment-action="keep-context">Keep my tool edits</button><button type="button" data-investment-action="reload-context">Use the saved inputs</button></div>
+      ${current.working ? `<details><summary>Working assumptions / saved ${current.working.updatedAt.slice(0, 10)}</summary><p>Tool edits are private user-declared inputs. They do not change the original listing snapshot or prove the claims.</p><p>Working price: ${escape(current.working.dealCard.askingPrice || "Not provided")} / Working rent: ${escape(current.working.dealCard.expectedRent || "Not provided")} / Income: ${escape(current.working.financialProfile.monthlyIncome || "Not provided")}</p></details>` : ""}
       ${current.sourceStatus && current.sourceStatus.status !== "current" ? `<p class="candidate-gap" role="status">${escape(current.sourceStatus.note)}</p>` : ""}
       ${next ? `<section class="assistant-next"><small>NEXT USEFUL ACTION</small><h3>${escape(next.title)}</h3><p>${escape(next.prompt)}</p><form id="investmentTaskForm"><input type="hidden" name="taskId" value="${escape(next.id)}"><label>What did you check?<textarea name="note" required minlength="12" maxlength="1500" placeholder="Your observation, document or professional feedback"></textarea></label><div class="assistant-field-grid"><label>Date checked<input type="date" name="checkedAt" required max="${date()}" value="${date()}"></label><label>Source link (optional)<input type="url" name="sourceUrl" placeholder="https://..."></label></div><button type="submit" class="primary-button">Record this check</button><p class="assistant-caption">Recorded as your declaration, not independent verification.</p></form></section>` : '<p class="assistant-next">Your checks for this stage are recorded. Review unresolved risks before making a commitment.</p>'}
       <details><summary>All checks and evidence</summary>${current.tasks.map(task => `<p><b>${escape(task.title)}</b> / ${escape(task.status)}<br>${escape(task.note || "Not yet recorded")}${task.status === "done" ? `<br><button type="button" data-reopen-task="${escape(task.id)}">Reopen check</button>` : ""}</p>`).join("")}<form id="investmentEvidenceForm"><label>Add a private observation<textarea name="note" required minlength="12" maxlength="2000"></textarea></label><label>Date<input type="date" name="checkedAt" required max="${date()}" value="${date()}"></label><label>Source (optional)<input type="url" name="sourceUrl" placeholder="https://..."></label><button type="submit">Keep this evidence</button></form>${current.evidence.map(item => `<p>${escape(item.note)}<br><small>${item.checkedAt.slice(0, 10)} / user declared</small></p>`).join("")}</details>
       <details><summary>Move to another ownership stage</summary><form id="investmentStageForm"><label>Current situation<select name="stage">${Object.entries(labels).slice(5).map(([key, value]) => `<option value="${key}" ${key === current.stage ? "selected" : ""}>${value}</option>`).join("")}</select></label><label>What changed, and what remains unresolved?<textarea name="note" required minlength="12" maxlength="1000"></textarea></label><button type="submit">Update my stage</button><p class="assistant-caption">This records your progress, not approval to transact. Apex does not sign, pay, book or contact anyone automatically.</p></form></details>
       <details><summary>Actual rental and holding outcomes</summary><form id="investmentOutcomeForm"><div class="assistant-field-grid"><label>Month<input name="month" type="month" required max="${date().slice(0, 7)}" value="${date().slice(0, 7)}"></label><label>Rent received (RM)<input name="rentReceived" type="number" step="0.01" min="0" required></label><label>All monthly outgoings (RM)<input name="totalCosts" type="number" step="0.01" min="0" required></label><label>Notes<input name="note" maxlength="1000" placeholder="Vacancy, repairs, loan and recurring charges"></label></div><button type="submit">Record actual outcome</button></form>${current.outcomes.map(outcome => `<p>${escape(outcome.month)} / ${cash(outcome.cashFlow)} cash flow<br>${escape(outcome.note)}</p>`).join("")}</details>
       <details><summary>Decision history</summary>${current.events.slice().reverse().map(event => `<p>${escape(event.description)}<br><small>${event.at.slice(0, 10)}</small></p>`).join("")}</details>`;
+    renderSyncNotice();
+  }
+  function renderSyncNotice() {
+    const node = $("#investmentSyncNotice"); if (!node) return;
+    const state = syncStates.get(current?.id);
+    const issue = state && ["conflict", "unsaved"].includes(state.value);
+    node.textContent = issue ? `${state.value === "conflict" ? "Working inputs changed elsewhere." : "Tool edits are not saved to the investigation."} ${state.error} Your local copy remains in the tools; export it before choosing the saved version.` : state && ["pending", "saving"].includes(state.value) ? "Saving working inputs to this investigation..." : current?.working ? "The assistant and tools use the same saved working inputs." : "The original source snapshot is preserved when you edit assumptions in the tools.";
+    $("#investmentSyncActions").hidden = !issue;
+    if (issue) {
+      const local = sync.pending(current.id), saved = current.toolContext || {};
+      $("#investmentSyncDiff").innerHTML = local ? Object.keys(local).flatMap(scope => Array.from(new Set([...Object.keys(local[scope] || {}), ...Object.keys(saved[scope] || {})])).filter(key => JSON.stringify(local[scope]?.[key]) !== JSON.stringify(saved[scope]?.[key])).map(key => `<p><b>${escape(key.replace(/([A-Z])/g, " $1"))}</b><br>Your tool edit: ${escape(typeof local[scope]?.[key] === "object" ? JSON.stringify(local[scope][key]) : local[scope]?.[key] ?? "Not provided")}<br>Saved: ${escape(typeof saved[scope]?.[key] === "object" ? JSON.stringify(saved[scope][key]) : saved[scope]?.[key] ?? "Not provided")}</p>`)).join("") : "No pending tool copy is available.";
+    }
   }
   async function load(id) { const epoch = generation, result = await request(`/api/assistant/cases/${id}`); if (epoch !== generation) return; current = result.case; editing = false; render(); }
   async function action(name, body = {}) {
     if (!current) return;
+    if (sync.hasPending(current.id)) { await sync.flush(current.id); await load(current.id); }
     const epoch = generation, id = current.id;
     const response = await request(`/api/assistant/cases/${id}/${name}`, { ...body, revision: current.revision });
     if (epoch !== generation || current?.id !== id) return;
@@ -101,7 +127,7 @@ export function createAssistant({ openTool, useProperty, notify }) {
   }
   async function create() { const epoch = generation, result = await request("/api/assistant/cases", {}); if (epoch !== generation) return; current = result.case; editing = false; render(); }
   async function refresh() {
-    generation++; clearTimeout(timer); requestController?.abort(); current = null; render();
+    generation++; clearTimeout(timer); sync.reset(); syncStates.clear(); for (const controller of requestControllers) controller.abort(); current = null; render();
     const epoch = generation, result = await request("/api/assistant/status");
     if (epoch !== generation) return;
     status = result;
@@ -126,7 +152,21 @@ export function createAssistant({ openTool, useProperty, notify }) {
     const button = event.target.closest("button"); if (!button) return;
     if (button.dataset.investmentSelect) void safely(async () => { await action("select", { listingId: button.dataset.investmentSelect }); useProperty(current); });
     if (button.dataset.investmentAction === "cancel") void safely(() => action("cancel", { jobId: current.job.id }));
-    if (button.dataset.investmentAction === "numbers") { useProperty(current); void openTool("valuation"); }
+    if (button.dataset.investmentAction === "numbers") { if (useProperty(current) !== false) void openTool("valuation"); }
+    if (button.dataset.investmentAction === "retry-sync") void safely(async () => { await sync.flush(current.id); await load(current.id); });
+    if (button.dataset.investmentAction === "keep-context") {
+      if (button.dataset.confirm !== current.id) { button.dataset.confirm = current.id; button.textContent = "Confirm: replace saved assumptions with my tool edits"; return; }
+      void safely(async () => { await sync.keepLocal(current); await load(current.id); useProperty(current, { replace: true }); });
+    }
+    if (button.dataset.investmentAction === "download-context") {
+      const pending = sync.pending(current.id); if (!pending) return;
+      const url = URL.createObjectURL(new Blob([JSON.stringify({ format: "apex-unsaved-context.v1", investigationId: current.id, context: pending }, null, 2)], { type: "application/json" }));
+      const link = document.createElement("a"); link.href = url; link.download = `apex-unsaved-inputs-${date()}.json`; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+    if (button.dataset.investmentAction === "reload-context") {
+      if (button.dataset.confirm !== current.id) { button.dataset.confirm = current.id; button.textContent = "Confirm: replace local tool edits with saved inputs"; return; }
+      void safely(async () => { await load(current.id); sync.accept(current); useProperty(current, { replace: true }); });
+    }
     if (button.dataset.reopenTask) void safely(() => action("task", { taskId: button.dataset.reopenTask, status: "open" }));
   });
   $("#investmentNew").addEventListener("click", () => void safely(create));
@@ -140,8 +180,8 @@ export function createAssistant({ openTool, useProperty, notify }) {
   });
   $("#investmentDelete").addEventListener("click", event => {
     if (!current || busy) return;
-    if (event.target.dataset.confirm !== current.id) { event.target.dataset.confirm = current.id; event.target.textContent = "Confirm delete: chat, evidence and outcomes"; return; }
-    void safely(async () => { await request(`/api/assistant/cases/${current.id}`, null, "DELETE"); current = null; render(); event.target.textContent = "Delete this investigation"; event.target.dataset.confirm = ""; });
+    if (event.target.dataset.confirm !== current.id) { event.target.dataset.confirm = current.id; event.target.textContent = "Confirm delete: chat, evidence, outcomes and linked tool inputs"; return; }
+    void safely(async () => { const id = current.id; await request(`/api/assistant/cases/${id}`, null, "DELETE"); sync.forget(id); onInvestigationDeleted?.(id); current = null; render(); event.target.textContent = "Delete this investigation"; event.target.dataset.confirm = ""; });
   });
   let recognition;
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -156,7 +196,38 @@ export function createAssistant({ openTool, useProperty, notify }) {
   });
   document.addEventListener("apex:auth", () => { recognition?.stop(); void refresh().catch(showError); });
   void refresh().catch(showError);
-  return { show() { host.hidden = false; document.body.classList.add("assistant-active"); document.body.classList.remove("workspace-active"); $("#workbench").hidden = true; document.querySelectorAll("[data-area]").forEach(button => button.setAttribute("aria-current", button.dataset.area === "assistant" ? "page" : "false")); history.replaceState(null, "", "#assistant"); }, hide() { host.hidden = true; document.body.classList.remove("assistant-active"); recognition?.stop(); } };
+  return {
+    holdContext(candidate, investigation) { sync.hold(candidate.investigationId, investigation.working?.revision || 0, candidate); },
+    queueContext(candidate) {
+      if (!candidate?.investigationId) return;
+      sync.register(candidate.investigationId, candidate.assistantRevision || 0, candidate.assistantSynced || {});
+      sync.queue(candidate.investigationId, candidate.assistantRevision || 0, contextOf(candidate));
+    },
+    async prepareTools(candidate) {
+      if (!candidate?.investigationId) return;
+      const epoch = generation;
+      sync.register(candidate.investigationId, candidate.assistantRevision || 0, candidate.assistantSynced || {});
+      if (candidate.assistantPending || sync.hasPending(candidate.investigationId)) {
+        sync.queue(candidate.investigationId, candidate.assistantRevision || 0, contextOf(candidate));
+        try { await sync.flush(candidate.investigationId); } catch { return; }
+      }
+      try {
+        const result = await request(`/api/assistant/cases/${candidate.investigationId}`);
+        if (epoch !== generation) return;
+        if (!candidate.assistantSynced && JSON.stringify(contextOf(candidate)) !== JSON.stringify(contextOf(result.case.toolContext))) { sync.hold(candidate.investigationId, result.case.working?.revision || 0, candidate); return; }
+        if (!sync.hasPending(candidate.investigationId)) { sync.accept(result.case); useProperty(result.case, { replace: true }); }
+      } catch (error) { if (epoch === generation) { onContextState?.(candidate.investigationId, "unsaved", error); notify("Could not refresh this investigation. The tools retain this browser's copy; do not treat it as the latest saved version."); } }
+    },
+    async resume(id) {
+      if (id) {
+        try { await sync.flush(id); } catch (error) { showError(error); }
+        try { await load(id); } catch (error) { showError(error); }
+      } else if (current) await load(current.id).catch(showError);
+      this.show(); schedule();
+    },
+    show() { host.hidden = false; document.body.classList.add("assistant-active"); document.body.classList.remove("workspace-active"); $("#workbench").hidden = true; document.querySelectorAll("[data-area]").forEach(button => button.setAttribute("aria-current", button.dataset.area === "assistant" ? "page" : "false")); history.replaceState(null, "", "#assistant"); },
+    hide() { host.hidden = true; document.body.classList.remove("assistant-active"); recognition?.stop(); }
+  };
 }
 
 export function installCataloguePanel(host) {

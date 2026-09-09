@@ -23,6 +23,7 @@ import { formatStructuredAnswer, parseStructuredAnswer, STRUCTURED_ANSWER_SCHEMA
 import { evaluateJourney } from "./journey-engine.js";
 import { assistantRoutes, caseScope } from "./assistant-routes.js";
 import { assistantCaseContext } from "./assistant-reasoning.js";
+import { effectiveContext } from "./assistant-context.js";
 import { assistantState, publicCase } from "./investment-assistant.js";
 
 loadLocalEnvironment();
@@ -10482,7 +10483,7 @@ async function router(req, res, context = {}) {
     defer: process.env.APEX_ASSISTANT_BACKGROUND === "false" ? undefined : context.defer || (!process.env.VERCEL ? work => { void work; } : undefined),
     llmEnabled, requestLlmText, storeKind: stateStore.kind, ephemeral: Boolean(globalThis.process?.env?.VERCEL), allowRequest,
     reply: (query, item, database, user) => retrieveJarvisAnswer(query, database.brain, { messages: item.messages }, {
-      dealCard: item.selected?.dealCard || { area: item.brief.area }, financialProfile: {},
+      dealCard: effectiveContext(item).dealCard, financialProfile: effectiveContext(item).financialProfile,
       assistantCase: assistantCaseContext(item, database.assistant),
       responseFeedback: "Keep the answer short, calm and practical. This is an investigation, not investment approval. Never invent property names, available units, market prices, signed rents or a user's finances. Ask only the most material next question."
     }, database.knowledge, approvedUserMemories(user), user?.journal?.items || [])

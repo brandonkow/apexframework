@@ -55,13 +55,21 @@ The worker rechecks current sources at completion. Optimistic storage conflicts 
 
 The basic parser does not convert salary, cash reserves or monthly rent into a purchase-price ceiling. Ambiguous and negated preferences require review. Model-extracted briefs have explicit type/range validation, including nullable missing values. AI is opt-in for each request, and malformed output or provider failure falls back to framework mode. The active case's dated checks, private observations and actual outcomes are passed as untrusted context to the existing reasoning pipeline, not published as shared knowledge. Short answers retain the current view, principal reason, contrary case and next action. Greetings are handled without unnecessary model calls. These are response controls and tested fallbacks, not a guarantee that a configured model cannot make errors.
 
+## One continuing working copy
+
+`POST /api/assistant/cases/:id/context` accepts the complete working `dealCard`, `financialProfile`, checkpoint `evidence` and `dcfContext`, with `contextRevision`. This revision is separate from conversation/search progress. Writes validate through the existing journey field contract, preserve unrelated concurrent changes and reject stale working revisions. Unrecognised DCF fields and invalid shapes are rejected. User-entered comparable verification remains a user declaration, not an independent check.
+
+The selected listing is an immutable source snapshot. A separate, editable working copy drives the tools and assistant reasoning. Clearing an input leaves it unknown; it does not fall back to the original number. Imported maintenance plus sinking fund map to the existing engine's single combined monthly-charge field. Missing sinking fund is not treated as zero.
+
+Linked tool edits are debounced, saved to the private investigation and restored on reload. Explicit sync status distinguishes saved, pending, unsaved and conflicting copies. Local pending drafts survive browser reload; authentication changes invalidate in-flight UI callbacks. Conflicts offer a difference review, an export of unsaved inputs and explicit choices to retain local edits or load saved inputs. Neither choice modifies the source snapshot. Earlier browser copies without sync history require review before replacement. Deleting the investigation also removes its linked tool copy on this device; previously downloaded exports are not erased.
+
 Official execution reference: [Vercel Functions package: waitUntil](https://vercel.com/docs/functions/functions-api-reference/vercel-functions-package). Background promises have the same execution timeout as the function.
 
 ## Current delivery boundaries
 
 - No permitted live feed was supplied. The owner requested prepared owner-managed imports. Coverage therefore starts empty, not fabricated.
 - Confirmed searches can finish after the page is closed, within the server execution window. Durable storage is required for reliable cross-instance/redeployment recovery. Continuous monitoring and notifications are not implemented.
-- The shared tool handoff creates or reuses a separate property slot. Full bidirectional syncing of subsequent tool edits, financial-profile discovery, private document extraction and outcome-to-belief proposals are follow-on requirements, not completed capabilities.
+- The shared tools and assistant now use one versioned working copy. Conversational financial-profile discovery, private document/photo extraction, detailed ownership milestones and outcome-to-belief proposals remain requirements, not completed capabilities.
 - Scenario tests cover greetings, affordability boundaries, gross-versus-net yield, actual cash flow, source changes, context isolation, AI consent and malformed/provider-failure fallbacks. Live configured-provider answer quality remains unverified while production has no key. Provider availability is not a quality guarantee.
 - Production needs an AI key, owner token and durable storage. Code deployment does not migrate Render data.
 
@@ -70,3 +78,24 @@ Official execution reference: [Vercel Functions package: waitUntil](https://verc
 `node --test --test-concurrency=1 tests/*.test.js` includes framework hashes, real decision-engine use, malformed input, stale/adverse/duplicate evidence, cookie/account isolation, explicit adoption, revision conflicts, durable case restart, background cancellation/deletion/replacement, unrelated-write preservation, response scenarios, outcome arithmetic and export/delete tests.
 
 `node scripts/assistant-browser-check.mjs` creates and tears down an isolated local server. Synthetic sources never go to production. It verifies the empty catalogue, natural brief, server-driven search, shortlist, site check, persistence, tool handoff, optional 3D, owner catalogue and rental workflow at 320/390/768/1440 widths. PostgreSQL contract tests cover the additive state column; a live production database remains a separate deployment gate.
+
+The browser test also edits income, rent and DCF assumptions through the actual tools, reloads them, verifies their use in the assistant's reply, introduces a conflicting remote edit and checks explicit recovery without overwriting the original source. `tests/assistant-context.test.js` covers working-copy validation, reset semantics, unrelated storage conflicts, coalesced edits and authentication invalidation.
+
+## Completion gates from the accepted recommendation
+
+These gates reflect the assistant-first recommendation accepted in this task; they are not additional version releases.
+
+| Requirement | Current evidence / remaining gate |
+| --- | --- |
+| One assistant-first entry; optional 3D; no compulsory framework questionnaire | Delivered; desktop/mobile browser checks |
+| Establish objective, location and financial comfort through conversation | Search brief delivered; conversational financial comfort remains |
+| Permitted discovery in a well-covered micro-market | Owner-managed imports delivered; real pilot coverage unavailable until permitted records are supplied |
+| Identity, duplicate, freshness and asking-versus-achieved evidence checks | Domain tests and local synthetic discovery workflow; real source sample still required |
+| Framework calculations, contrary case and a small explained shortlist | Existing engine reused; scenario and browser tests; live configured-model quality remains unverified |
+| Recoverable background progress, cancellation and bounded AI use | Three persisted server search steps and bounded per-request tokens/rate limits; continuous monitoring not claimed |
+| Private, continuing property record with editable assumptions | Versioned working-context API and end-to-end sync tests; production database still required |
+| Collect private documents/photos with permission | Not implemented in the investigation flow |
+| Carry evidence, responsibilities and dates through transaction, handover and tenancy | Stage/check/outcome records delivered; detailed ownership milestones remain |
+| Compare the thesis with actual outcomes and propose owner-approved lessons | Actual outcomes recorded; versioned proposal/approval connection remains |
+| Keep the 407 founder inputs unchanged and avoid external commitments without approval | Protected-file hashes and scoped APIs; no automatic payments, messages or bookings |
+| Direct-main delivery preserving Claude's commit, followed by production checks | Git ancestry, test results and deployed revision checked at each delivery |

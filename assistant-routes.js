@@ -2,6 +2,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { assistantState, cleanBrief, briefQuestion, interpretBrief, BRIEF_SCHEMA, validBriefResponse, validateImport, catalogueCoverage, discover, newCase, publicCase, selectedSourceStatus, addEvent, message, stageTasks, STAGES, recordTask, pastDate, publicUrl, text, fail, isoNow } from "./investment-assistant.js";
 import { advanceSearch, resumeSearch, saveCase } from "./assistant-jobs.js";
 import { socialReply, frameworkReply, conciseAssistantReply } from "./assistant-reasoning.js";
+import { effectiveContext, updateWorkingContext, deleteInvestigation } from "./assistant-context.js";
 
 const COOKIE = "apex_investment_guest";
 function guestScope(req, res, create = false) {
@@ -31,7 +32,7 @@ export async function assistantRoutes({ req, res, url, db, actor, send, readBody
   if (!allowRequest(req, "investment-assistant", 100, 10 * 60 * 1000)) fail("Please pause briefly before sending more requests.", 429);
   const data = assistantState(db);
   const respond = (status, body) => {
-    if (body.case) body.case = { ...body.case, sourceStatus: selectedSourceStatus(body.case, data) };
+    if (body.case) body.case = { ...body.case, sourceStatus: selectedSourceStatus(body.case, data), toolContext: effectiveContext(body.case) };
     send(res, status, body); return true;
   };
   if (owner) {
@@ -83,7 +84,7 @@ export async function assistantRoutes({ req, res, url, db, actor, send, readBody
       return respond(201, { case: publicCase(item) });
     }
   }
-  const match = url.pathname.match(/^\/api\/assistant\/cases\/([\w-]+)(?:\/(message|confirm|step|cancel|select|stage|task|outcome|evidence|export))?$/);
+  const match = url.pathname.match(/^\/api\/assistant\/cases\/([\w-]+)(?:\/(message|confirm|step|cancel|select|stage|task|outcome|evidence|export|context))?$/);
   if (!match) return respond(404, { error: "Assistant endpoint not found." });
   const item = owned().find(item => item.id === match[1]);
   if (!item) return respond(404, { error: "Investigation not found in this account or guest session." });
@@ -92,12 +93,15 @@ export async function assistantRoutes({ req, res, url, db, actor, send, readBody
     return respond(200, { format: "apex-investigation.v1", exportedAt: isoNow(), case: publicCase(item) });
   }
   if (req.method === "DELETE" && !match[2]) {
-    data.cases = data.cases.filter(value => value.id !== item.id);
-    await writeDb(db);
+    await deleteInvestigation(item.id, scope, { readDb, writeDb });
     return respond(200, { deleted: true });
   }
   if (req.method !== "POST") return respond(405, { error: "Method not allowed." });
   const body = await readBody(req);
+  if (match[2] === "context") {
+    const saved = await updateWorkingContext(item.id, scope, body.contextRevision, body.context, { readDb, writeDb });
+    return respond(200, { case: publicCase(saved.item) });
+  }
   if (!Number.isInteger(body.revision) || body.revision !== item.revision) fail("This investigation changed. Reload it before continuing.", 409);
   switch (match[2]) {
     case "message": {
@@ -108,7 +112,9 @@ export async function assistantRoutes({ req, res, url, db, actor, send, readBody
       const requestedBriefEdit = !item.selected && /\b(my budget is|change (?:my |the )?budget|search instead|look in|instead of)\b/i.test(content);
       const inquiry = /^(what|why|how|is|are|should|can|does|do)\b/i.test(content) && !/\b(find|look for|search for|budget)\b/i.test(content);
       if (socialReply(content) || inquiry || (item.confirmedAt && body.editBrief !== true && !requestedBriefEdit)) {
-        const fallback = frameworkReply(content, item, data);
+        const working = effectiveContext(item);
+        const assessment = item.working && analyze ? analyze(working.dealCard, working.financialProfile) : null;
+        const fallback = frameworkReply(content, item, data, assessment);
         let response = { answer: fallback, mode: "framework" };
         if (body.allowAi === true && llmEnabled() && !socialReply(content)) {
           try { response = await reply(content, item, db, actor.user); }
