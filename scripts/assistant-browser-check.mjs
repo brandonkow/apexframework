@@ -42,6 +42,31 @@ try {
     assert.equal(overflow, false, `Home overflow at ${width}`);
     await page.screenshot({ path: path.join(output, `assistant-home-${width}.png`), fullPage: true });
   }
+  await page.locator("#investmentProfileStart").click();
+  await page.waitForSelector("#investmentFinance:visible");
+  assert.equal(await page.locator("#investmentBrief").isVisible(), false, "An empty search form must not interrupt financial intake.");
+  await page.locator("#investmentInput").fill("8000");
+  await page.locator('#investmentComposer button[type="submit"]').click();
+  await page.waitForFunction(() => document.querySelector("#investmentFinance header")?.textContent.includes("1 / 4"));
+  await page.reload({ waitUntil: "networkidle" });
+  await page.waitForSelector("#investmentFinance:visible");
+  assert.match(await page.locator("#investmentFinance header").innerText(), /1 \/ 4/);
+  const financeId = await page.locator("#investmentCaseSelect").inputValue();
+  assert.equal((await (await page.request.get(`${base}/api/assistant/cases/${financeId}`)).json()).case.working, undefined);
+  await page.locator("#investmentInput").fill("debt repayments 1500; purchase cash 60k; reserve 6 months");
+  await page.locator('#investmentComposer button[type="submit"]').click();
+  await page.waitForSelector('[data-profile-action="confirm"]');
+  for (const width of [320, 390, 768, 1440]) {
+    await page.setViewportSize({ width, height: 950 });
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false, `Financial review overflow at ${width}`);
+    await page.screenshot({ path: path.join(output, `assistant-financial-review-${width}.png`), fullPage: true });
+  }
+  await page.locator('[data-profile-action="confirm"]').click();
+  await page.waitForSelector("#investmentFinance", { state: "hidden" });
+  assert.equal(await page.locator("#investmentBrief").isVisible(), false, "Confirmed finances alone must not open an empty property questionnaire.");
+  const confirmedFinance = (await (await page.request.get(`${base}/api/assistant/cases/${financeId}`)).json()).case;
+  assert.equal(confirmedFinance.toolContext.financialProfile.monthlyIncome, "8000");
+  assert.equal(confirmedFinance.brief.budgetMax, null);
   await page.locator("#investmentInput").fill("Find a rental condo in Penang under RM500k");
   await page.locator('#investmentComposer button[type="submit"]').click();
   await page.waitForSelector('#investmentBriefForm input[name="area"]');
@@ -64,6 +89,9 @@ try {
   }
   await page.locator("[data-investment-select]").first().click();
   await page.waitForSelector("#investmentTaskForm");
+  const selectedWithProfile = (await (await page.request.get(`${base}/api/assistant/cases/${financeId}`)).json()).case;
+  assert.equal(selectedWithProfile.toolContext.financialProfile.monthlyIncome, "8000");
+  assert.equal(selectedWithProfile.toolContext.dealCard.askingPrice, selectedWithProfile.selected.dealCard.askingPrice);
   await page.locator('#investmentTaskForm textarea[name="note"]').fill("I physically visited and checked the unit placement, layout and view.");
   await page.locator('#investmentTaskForm button[type="submit"]').click();
   await page.waitForFunction(() => document.querySelector(".assistant-next h3")?.textContent.includes("management"));
@@ -116,6 +144,21 @@ try {
   await page.waitForSelector('[data-surface="valuation"]:visible');
   await page.locator("#studioSectionSelect").selectOption("profile", { force: true });
   assert.equal(await page.locator('[data-profile-field="monthlyIncome"]').inputValue(), "9500");
+  await page.locator('[data-area="assistant"]').click();
+  await page.waitForSelector("#investmentAssistant:visible");
+  await page.locator("#investmentProfileStart").click();
+  await page.waitForSelector("#investmentFinance:visible");
+  await page.locator("#investmentInput").fill("net income 9200; debt repayments 1700; purchase cash 70k; reserve 8 months");
+  await page.locator('#investmentComposer button[type="submit"]').click();
+  await page.waitForSelector('[data-profile-action="confirm"]');
+  await page.locator('[data-profile-action="confirm"]').click();
+  await page.waitForSelector("#investmentFinance", { state: "hidden" });
+  await page.locator('[data-investment-action="numbers"]').click();
+  await page.waitForSelector('[data-surface="valuation"]:visible');
+  assert.equal(await page.locator('[data-dcf-field="discountRate"]').inputValue(), "8%", "Conversational finance must preserve DCF assumptions.");
+  await page.locator("#studioSectionSelect").selectOption("profile", { force: true });
+  assert.equal(await page.locator('[data-profile-field="monthlyIncome"]').inputValue(), "9200");
+  assert.equal(await page.locator('[data-profile-field="currentDebt"]').inputValue(), "1700");
   await page.locator('[data-area="assistant"]').click();
   await page.waitForSelector("#investmentAssistant:visible");
   await page.locator('[data-area="journey"]').click();

@@ -19,7 +19,8 @@ export function frameworkReply(query, item, data, analysis = null) {
     if (profile.monthlyIncome) {
       const missing = [[profile.currentDebt, "existing monthly repayments"], [profile.cashAvailable, "cash available for the purchase"], [profile.cashReserveMonths, "emergency reserve"], [working.dealCard.estimatedInstallment, "the proposed loan instalment"]].filter(([value]) => !value).map(([, label]) => label);
       const dsr = profile.currentDebt && working.dealCard.estimatedInstallment ? analysis?.metrics?.find(metric => metric.label === "Post-deal DSR")?.value : null;
-      return `Your saved monthly income is ${profile.monthlyIncome}${profile.currentDebt ? ` and existing monthly repayments are ${profile.currentDebt}` : ""}. These are your declared inputs, not verified borrowing capacity. ${dsr ? `The framework calculates a post-deal DSR of ${dsr}. ` : ""}${missing.length ? `Still needed: ${missing.join(", ")}. ` : ""}Bank approval alone is not enough; we must also test reserves, full costs and a weaker rental period.`;
+      const basis = item.working?.financialBasis?.monthlyIncome === "net_declared" ? "Income was confirmed as take-home, after deductions." : "Confirm whether that income is gross or take-home before relying on an affordability ratio.";
+      return `Your saved monthly income is ${profile.monthlyIncome}${profile.currentDebt ? ` and existing monthly repayments are ${profile.currentDebt}` : ""}. These are your declared inputs, not verified borrowing capacity. ${basis} ${dsr ? `The framework calculates a post-deal DSR of ${dsr} using those inputs, not a bank's approval calculation. ` : ""}${missing.length ? `Still needed: ${missing.join(", ")}. ` : ""}Bank approval alone is not enough; we must also test reserves, full costs and a weaker rental period.`;
     }
     return "A search ceiling is not proof of buying power. We still need your verified income, existing repayments, cash available after purchase and full holding costs. Bank approval alone is not enough; the plan must survive vacancy and higher costs.";
   }
@@ -54,6 +55,8 @@ export function assistantCaseContext(item, data) {
     recordedChecks: item.tasks.filter(task => task.status === "done").slice(-8),
     privateObservations: item.evidence.slice(-6),
     actualOutcomes: item.outcomes.slice(-6),
+    financialInputBasis: item.working?.financialBasis || { status: "Income and reserve basis not confirmed. Do not assume gross income is take-home income." },
+    unconfirmedFinancialDraft: item.profileDraft ? "A private financial intake is in progress. Do not use draft figures in conversation history as confirmed finances or substitute them for saved working inputs." : null,
     workingAssumptions: { ...effectiveContext(item), status: "User-declared working inputs. Not the original source record or independent verification." }
   };
 }

@@ -128,6 +128,10 @@ test("private discovery lifecycle persists, resumes and rejects cross-user edits
   }
   assert.equal((await action("message", { message: "Find a rental condo in Penang under RM500k" })).status, 200);
   assert.equal(item.brief.budgetMax, 500000);
+  assert.equal((await action("profile", { action: "start" })).status, 200);
+  await action("message", { message: "net income 8000; debt repayments 1500; purchase cash 60k; reserve 6 months" });
+  assert.equal(item.working, undefined);
+  assert.equal((await action("profile", { action: "confirm" })).status, 200);
   assert.equal((await action("confirm", { brief })).status, 200);
   const id = item.id;
   assert.equal((await request(`/api/assistant/cases/${id}`)).status, 404);
@@ -140,6 +144,9 @@ test("private discovery lifecycle persists, resumes and rejects cross-user edits
   assert.equal(item.job.status, "completed"); assert.equal(item.results.candidates.length, 1);
   await action("select", { listingId: item.results.candidates[0].id });
   assert.equal(item.stage, "site_visit");
+  assert.equal(item.toolContext.financialProfile.monthlyIncome, "8000");
+  assert.equal(item.toolContext.dealCard.askingPrice, "440000", "Selecting a property must seed its source inputs even when finances were confirmed first.");
+  assert.equal(item.working.financialBasis.monthlyIncome, "net_declared");
   assert.equal((await action("task", { taskId: item.tasks[0].id, status: "done", note: "Observed the site and layout in person.", checkedAt: today })).status, 200);
   await action("stage", { stage: "rental", note: "Owner reports that the purchase and handover were completed separately." });
   assert.equal((await action("outcome", { month: today.slice(0, 7), rentReceived: true, totalCosts: 2200 })).status, 400);
@@ -155,6 +162,7 @@ test("private discovery lifecycle persists, resumes and rejects cross-user edits
   const exported = await request("/api/me/export", null, { cookie: accountCookie });
   assert.equal(exported.data.investigations[0].id, id);
   assert.equal(exported.data.investigations[0].scope, undefined);
+  assert.equal(exported.data.investigations[0].working.financialProfile.monthlyIncome, "8000");
   assert.equal((await request(`/api/assistant/cases/${id}`, null, { method: "DELETE", cookie: accountCookie })).status, 200);
   assert.equal((await request(`/api/assistant/cases/${id}`, null, { cookie: accountCookie })).status, 404);
 });

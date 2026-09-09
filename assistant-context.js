@@ -64,7 +64,10 @@ export async function updateWorkingContext(caseId, scope, version, raw, { readDb
     const previous = effectiveContext(item);
     if (JSON.stringify(previous) === JSON.stringify(values)) return { item, data };
     const changes = Object.keys(values).filter(key => JSON.stringify(previous[key]) !== JSON.stringify(values[key]));
+    const financialBasis = { ...item.working?.financialBasis };
+    for (const key of ["monthlyIncome", "cashReserveMonths"]) if (previous.financialProfile[key] !== values.financialProfile[key]) delete financialBasis[key];
     item.working = { ...values, revision: version + 1, updatedAt: isoNow(), status: "user_declared" };
+    if (financialBasis.monthlyIncome || financialBasis.cashReserveMonths) item.working.financialBasis = financialBasis;
     addEvent(item, "assumptions", `Working ${changes.join(", ")} updated. The original source snapshot is unchanged; new inputs are user declarations, not independently verified facts.`);
     try { await writeDb(db); return { item, data }; }
     catch (error) { if (error.name !== "StorageConflictError" || attempt === 5) throw error; }

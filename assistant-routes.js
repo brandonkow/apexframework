@@ -3,6 +3,7 @@ import { assistantState, cleanBrief, briefQuestion, interpretBrief, BRIEF_SCHEMA
 import { advanceSearch, resumeSearch, saveCase } from "./assistant-jobs.js";
 import { socialReply, frameworkReply, conciseAssistantReply } from "./assistant-reasoning.js";
 import { effectiveContext, updateWorkingContext, deleteInvestigation } from "./assistant-context.js";
+import { profileView, profileActive, requestsProfile, startProfile, profileAction, answerProfile } from "./assistant-profile.js";
 
 const COOKIE = "apex_investment_guest";
 function guestScope(req, res, create = false) {
@@ -32,7 +33,7 @@ export async function assistantRoutes({ req, res, url, db, actor, send, readBody
   if (!allowRequest(req, "investment-assistant", 100, 10 * 60 * 1000)) fail("Please pause briefly before sending more requests.", 429);
   const data = assistantState(db);
   const respond = (status, body) => {
-    if (body.case) body.case = { ...body.case, sourceStatus: selectedSourceStatus(body.case, data), toolContext: effectiveContext(body.case) };
+    if (body.case) body.case = { ...body.case, sourceStatus: selectedSourceStatus(body.case, data), toolContext: effectiveContext(body.case), profileIntake: profileView(body.case) };
     send(res, status, body); return true;
   };
   if (owner) {
@@ -84,7 +85,7 @@ export async function assistantRoutes({ req, res, url, db, actor, send, readBody
       return respond(201, { case: publicCase(item) });
     }
   }
-  const match = url.pathname.match(/^\/api\/assistant\/cases\/([\w-]+)(?:\/(message|confirm|step|cancel|select|stage|task|outcome|evidence|export|context))?$/);
+  const match = url.pathname.match(/^\/api\/assistant\/cases\/([\w-]+)(?:\/(message|confirm|step|cancel|select|stage|task|outcome|evidence|export|context|profile))?$/);
   if (!match) return respond(404, { error: "Assistant endpoint not found." });
   const item = owned().find(item => item.id === match[1]);
   if (!item) return respond(404, { error: "Investigation not found in this account or guest session." });
@@ -104,11 +105,14 @@ export async function assistantRoutes({ req, res, url, db, actor, send, readBody
   }
   if (!Number.isInteger(body.revision) || body.revision !== item.revision) fail("This investigation changed. Reload it before continuing.", 409);
   switch (match[2]) {
+    case "profile": profileAction(item, body.action); break;
     case "message": {
       const content = text(body.message, 2000);
       if (!content) fail("Write a message first.");
       if (!allowRequest(req, "assistant-conversation", 20, 10 * 60 * 1000)) fail("Conversation limit reached. Your draft is saved; try again shortly.", 429);
       message(item, "user", content);
+      if (profileActive(item)) { answerProfile(item, content); break; }
+      if (requestsProfile(content)) { startProfile(item); break; }
       const requestedBriefEdit = !item.selected && /\b(my budget is|change (?:my |the )?budget|search instead|look in|instead of)\b/i.test(content);
       const inquiry = /^(what|why|how|is|are|should|can|does|do)\b/i.test(content) && !/\b(find|look for|search for|budget)\b/i.test(content);
       if (socialReply(content) || inquiry || (item.confirmedAt && body.editBrief !== true && !requestedBriefEdit)) {
@@ -167,6 +171,11 @@ export async function assistantRoutes({ req, res, url, db, actor, send, readBody
       const latest = discover(item.brief, data, analyze).candidates.find(value => value.id === body.listingId);
       if (!latest) fail("This candidate no longer clears the current source checks. Run a new search.", 409);
       item.selected = { ...latest, selectedAt: isoNow() }; item.stage = "site_visit"; item.tasks = stageTasks(item.stage);
+      if (item.working) {
+        item.working.dealCard = effectiveContext({ selected: item.selected }).dealCard;
+        item.working.evidence = {}; item.working.dcfContext = {};
+        item.working.revision++; item.working.updatedAt = isoNow();
+      }
       message(item, "assistant", `Let's investigate ${latest.projectName}. Start with ${latest.gaps[0].toLowerCase()}. The visit checklist is specific to the risks that the numbers cannot settle.`);
       addEvent(item, "selection", `${latest.projectName} selected for investigation, not approved for purchase.`);
       break;

@@ -26,9 +26,10 @@ export function createAssistant({ openTool, useProperty, notify, onContextSaved,
     <section id="investmentRun" class="assistant-run" aria-label="Search progress" hidden></section>
     <section id="investmentResults" class="assistant-results" aria-label="Property shortlist" hidden></section>
     <section id="investmentProperty" class="assistant-property" aria-label="Your continuing property investigation" hidden></section>
+    <section id="investmentFinance" class="assistant-finance" aria-label="Financial conversation" hidden></section>
     <p id="investmentError" class="error-note" role="alert"></p>
     <form id="investmentComposer" class="assistant-composer"><label class="sr-only" for="investmentInput">Talk to Apex</label><textarea id="investmentInput" rows="2" maxlength="2000" placeholder="Find a rental property in Penang that fits my situation..." required></textarea><button type="submit" class="primary-button">Send <span aria-hidden="true">&#8599;</span></button></form>
-    <div class="assistant-composer-meta"><label><input id="investmentAi" type="checkbox"> Use AI reasoning</label><span id="investmentModel">Checking connection</span><button id="investmentVoice" type="button">Speak</button></div>
+    <div class="assistant-composer-meta"><label><input id="investmentAi" type="checkbox"> Use AI reasoning</label><span id="investmentModel">Checking connection</span><button id="investmentProfileStart" type="button">Check my buying power</button><button id="investmentVoice" type="button">Speak</button></div>
     <details class="assistant-boundaries"><summary>What happens with my information?</summary><p>Your confirmed brief guides the search; it does not prove affordability. Turning on AI sends submitted messages and relevant case context to the configured provider. Your private observations never update the shared founder framework. Site visits, professional checks and external commitments still need people.</p><p id="investmentCoverage"></p></details>`;
 
   async function request(path, body, method = body ? "POST" : "GET") {
@@ -63,20 +64,33 @@ export function createAssistant({ openTool, useProperty, notify, onContextSaved,
     if (wasAtEnd) log.scrollTop = log.scrollHeight;
     host.classList.toggle("has-conversation", Boolean(current?.messages.length));
     const briefHost = $("#investmentBrief"), brief = current?.brief;
-    briefHost.hidden = !current || current.messages.length < 2 || Boolean(current.selected);
+    briefHost.hidden = !current || Boolean(current.selected || current.profileIntake) || !Boolean(brief?.area || brief?.goal || brief?.budgetMax);
     if (brief && !briefHost.hidden) briefHost.innerHTML = `<details ${!current.confirmedAt || editing ? "open" : ""}><summary>Your search brief <span>${current.confirmedAt && !editing ? "Confirmed" : "Please review"}</span></summary><form id="investmentBriefForm"><div class="assistant-field-grid"><label>Location<input name="area" required maxlength="120" value="${escape(brief.area)}" placeholder="Town, neighbourhood or state"></label><label>Purpose<select name="goal" required><option value="">Choose your objective</option>${Object.entries(labels).slice(0, 4).map(([key, label]) => `<option value="${key}" ${brief.goal === key ? "selected" : ""}>${label}</option>`).join("")}</select></label><label>Search ceiling (RM)<input name="budgetMax" type="number" min="1" max="1000000000" required value="${brief.budgetMax ?? ""}" inputmode="decimal"></label><label>Property type<select name="propertyType">${[["any", "Open to residential options"], ["condo", "Condominium"], ["serviced_apartment", "Serviced apartment"], ["landed", "Landed"]].map(([key, label]) => `<option value="${key}" ${brief.propertyType === key ? "selected" : ""}>${label}</option>`).join("")}</select></label></div><p class="assistant-caption">Confirm what I understood. This is a search range, not loan approval or a recommendation to spend it.</p><button type="submit" class="primary-button">${current.confirmedAt ? "Search again with this brief" : "Confirm & find candidates"}</button></form></details>`;
     const run = current?.job;
     $("#investmentRun").hidden = !run;
     if (run) $("#investmentRun").innerHTML = `<div><span class="live-dot"></span><b>${escape(run.status === "completed" ? "Search complete" : run.status === "cancelled" ? "Search stopped" : run.status === "failed" ? "Search needs attention" : run.labels[Math.min(run.step, 2)])}</b><small>${Math.min(run.step, 3)} / 3</small></div>${["queued", "running"].includes(run.status) ? '<button type="button" data-investment-action="cancel">Stop search</button>' : ""}<p>${escape(run.error || "Uses the published catalogue only. You can use other tools while this runs; return here to see the result.")}</p>`;
     const results = current?.results;
-    $("#investmentResults").hidden = !results || Boolean(current?.selected) || run?.status !== "completed";
+    $("#investmentResults").hidden = !results || Boolean(current?.selected || current?.profileIntake) || run?.status !== "completed";
     if (results) $("#investmentResults").innerHTML = `<header><p class="eyebrow">${results.coverage.current} CURRENT RECORDS / ${results.coverage.sources.length} PUBLISHED SOURCES</p><h2>${results.candidates.length ? "Worth a closer look" : "No supported match yet"}</h2><p>${escape(results.message)}</p></header><div class="assistant-shortlist">${results.candidates.map(candidate => `<article class="assistant-candidate"><span class="status-pill">INVESTIGATE</span><h3>${escape(candidate.projectName)}</h3><p>${escape(candidate.area)} / ${escape(candidate.propertyType.replaceAll("_", " "))}</p><strong>${cash(candidate.askingPrice)}</strong><small>Asking price / checked ${candidate.observedAt.slice(0, 10)}</small><p>${escape(candidate.reasons[0])}</p><p class="candidate-gap">${escape(candidate.gaps[0])}</p><details><summary>Evidence &amp; contrary case</summary><p>${escape(candidate.counterCase)}</p><ul>${candidate.gaps.map(gap => `<li>${escape(gap)}</li>`).join("")}</ul><a href="${escape(candidate.sourceUrl)}" target="_blank" rel="noopener noreferrer">Original listing</a>${candidate.facts.map(fact => `<p><a href="${escape(fact.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escape(fact.kind.replaceAll("_", " "))}</a> / ${fact.observedAt.slice(0, 10)} / ${escape(fact.verification.replaceAll("_", " "))}<br>${escape(fact.description)}</p>`).join("")}</details><button type="button" class="primary-button" data-investment-select="${escape(candidate.id)}">Investigate this property</button></article>`).join("")}</div><details><summary>Search coverage and exclusions</summary><p>${escape(results.rankingBasis)}</p><p>${Object.entries(results.excluded).map(([key, value]) => `${escape(key)}: ${value}`).join(" / ")}</p><p>${escape(results.coverage.limit)}</p><p>${results.coverage.sources.map(source => `${escape(source.name)}: ${escape(source.coverage || "Coverage not specified")}`).join("<br>")}</p></details>`;
     renderProperty();
+    renderFinance();
+  }
+  function renderFinance() {
+    const pane = $("#investmentFinance"), intake = current?.profileIntake;
+    pane.hidden = !intake;
+    $("#investmentProfileStart").hidden = Boolean(intake);
+    $("#investmentProfileStart").textContent = current?.working?.financialProfile && Object.keys(current.working.financialProfile).length ? "Review my buying power" : "Check my buying power";
+    $("#investmentInput").placeholder = intake ? "Your answer, or skip..." : "Find a rental property in Penang that fits my situation...";
+    if (!intake) return;
+    pane.innerHTML = `<header><b>Your financial draft</b><small>${intake.answered} / 4 answered</small></header><p class="assistant-caption">Saved figures stay unchanged until you confirm. Skipped fields replace earlier figures with unknowns. This intake uses no AI provider.</p>
+      <details ${intake.pending ? "" : "open"}><summary>Review figures</summary><dl>${intake.rows.map(row => `<div><dt>${escape(row.label)}</dt><dd>${row.state === "pending" ? "Not answered" : row.state === "skipped" ? "Unknown / skipped" : row.key === "cashReserveMonths" ? `${escape(row.value)} months` : cash(Number(row.value))}</dd></div>`).join("")}</dl></details>
+      ${intake.stale ? '<p class="error-note" role="status">Saved inputs changed while this draft was open. Restart the conversation to review the current version. Nothing has been overwritten.</p>' : ""}
+      <div class="assistant-finance-actions">${intake.pending ? '<button type="button" data-profile-action="skip">Skip this question</button>' : `<button type="button" class="primary-button" data-profile-action="confirm" ${!intake.canConfirm || intake.stale ? "disabled" : ""}>Confirm &amp; save profile</button>`}<button type="button" data-profile-action="restart">Start these questions again</button><button type="button" data-profile-action="cancel">Cancel intake</button></div><details><summary>How to correct a figure</summary><p class="assistant-caption">Use the chat with labels, for example: net income 8000; debt repayments 1500; purchase cash 60k; reserve 6 months. Reserve means essential expenses after the purchase, not salary. To remove a draft answer, restart and skip that question.</p></details>`;
   }
   function renderProperty() {
     const pane = $("#investmentProperty"), property = current?.selected;
-    pane.hidden = !property;
-    if (!property) return;
+    pane.hidden = !property || Boolean(current?.profileIntake);
+    if (pane.hidden) return;
     const tasks = current.tasks.filter(task => task.id.startsWith(current.stage + ":"));
     const next = tasks.find(task => task.status !== "done");
     pane.innerHTML = `<header><p class="eyebrow">ONE PROPERTY / A CONTINUING INVESTIGATION</p><h2>${escape(property.projectName)}</h2><p>${escape(labels[current.stage])} / ${escape(property.area)}</p><button type="button" class="secondary-button" data-investment-action="numbers">Open the valuation tools</button></header>
@@ -109,6 +123,8 @@ export function createAssistant({ openTool, useProperty, notify, onContextSaved,
     const response = await request(`/api/assistant/cases/${id}/${name}`, { ...body, revision: current.revision });
     if (epoch !== generation || current?.id !== id) return;
     current = response.case; render();
+    if (name === "message" || name === "profile") $("#investmentMessages").scrollTop = $("#investmentMessages").scrollHeight;
+    if (name === "profile" && body.action === "confirm") { sync.accept(current); if (current.selected) useProperty(current, { replace: true }); }
   }
   async function safely(work) {
     if (busy) return;
@@ -150,6 +166,7 @@ export function createAssistant({ openTool, useProperty, notify, onContextSaved,
   });
   host.addEventListener("click", event => {
     const button = event.target.closest("button"); if (!button) return;
+    if (button.dataset.profileAction) void safely(async () => { await action("profile", { action: button.dataset.profileAction }); if (current.profileIntake?.pending) $("#investmentInput").focus(); });
     if (button.dataset.investmentSelect) void safely(async () => { await action("select", { listingId: button.dataset.investmentSelect }); useProperty(current); });
     if (button.dataset.investmentAction === "cancel") void safely(() => action("cancel", { jobId: current.job.id }));
     if (button.dataset.investmentAction === "numbers") { if (useProperty(current) !== false) void openTool("valuation"); }
@@ -170,6 +187,7 @@ export function createAssistant({ openTool, useProperty, notify, onContextSaved,
     if (button.dataset.reopenTask) void safely(() => action("task", { taskId: button.dataset.reopenTask, status: "open" }));
   });
   $("#investmentNew").addEventListener("click", () => void safely(create));
+  $("#investmentProfileStart").addEventListener("click", () => void safely(async () => { if (!current) await create(); await action("profile", { action: "start" }); $("#investmentInput").focus(); }));
   $("#investmentCaseSelect").addEventListener("change", event => void safely(() => load(event.target.value)));
   $("#investmentAccount").addEventListener("click", () => void openTool("account"));
   $("#investmentAdopt").addEventListener("click", () => void safely(async () => { await request("/api/assistant/adopt", {}); await refresh(); }));

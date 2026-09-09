@@ -65,11 +65,21 @@ Linked tool edits are debounced, saved to the private investigation and restored
 
 Official execution reference: [Vercel Functions package: waitUntil](https://vercel.com/docs/functions/functions-api-reference/vercel-functions-package). Background promises have the same execution timeout as the function.
 
+## Conversational financial intake
+
+`Check my buying power` (or that phrase in chat) starts four private questions: reliable take-home monthly income, existing monthly debt repayments, purchase cash separate from the emergency fund, and emergency reserve measured in months of essential expenses. Users can answer one at a time, supply labelled figures together, ask for an explanation, skip, cancel or restart. No model provider is called during intake. Generic monthly-income values entered through older tools are not silently reclassified as take-home income.
+
+The versioned case holds an unconfirmed `profileDraft`, separate from saved working inputs. `POST /api/assistant/cases/:id/profile` accepts `start`, `skip`, `cancel`, `restart` or `confirm`; chat supplies draft answers. Confirmation is an explicit UI action, not inferred from a vague "yes". It requires an answer or skip for all four questions and at least one supplied figure. Skipped fields become unknown, not zero or a silently reused prior amount. Other financial preferences, property inputs, checkpoint evidence and DCF assumptions remain unchanged. Search ceiling is never inferred from income or changed by this process.
+
+Inputs use deterministic, bounded extraction. Gross salary, annual totals, loan balances, unlabelled mixed figures, ranges, duplicate labels and unclear statements do not become committed values. Drafts survive reload in the configured store and are included in private export/delete. Cancellation removes the draft but does not erase previously submitted conversation messages; this is stated in the UI response. The existing AI opt-in can share relevant conversation history on later reasoning requests; a context marker forbids treating unconfirmed draft figures as confirmed finances.
+
+The draft captures the working-context revision at its start. Concurrent tool edits or selection of a property invalidate confirmation; the draft remains available for review/restart rather than overwriting newer inputs. Confirmed values populate the same linked tools. Selecting a property after financial intake seeds the property inputs from its original source without losing the profile. Income and reserve basis metadata remain user-declared and are invalidated when the corresponding field is edited through generic tools. None of this is income verification, lender approval or a recommendation to spend the maximum search budget.
+
 ## Current delivery boundaries
 
 - No permitted live feed was supplied. The owner requested prepared owner-managed imports. Coverage therefore starts empty, not fabricated.
 - Confirmed searches can finish after the page is closed, within the server execution window. Durable storage is required for reliable cross-instance/redeployment recovery. Continuous monitoring and notifications are not implemented.
-- The shared tools and assistant now use one versioned working copy. Conversational financial-profile discovery, private document/photo extraction, detailed ownership milestones and outcome-to-belief proposals remain requirements, not completed capabilities.
+- The shared tools and assistant use one versioned working copy, including confirmed conversational financial intake. Private document/photo extraction, detailed ownership milestones and outcome-to-belief proposals remain requirements, not completed capabilities.
 - Scenario tests cover greetings, affordability boundaries, gross-versus-net yield, actual cash flow, source changes, context isolation, AI consent and malformed/provider-failure fallbacks. Live configured-provider answer quality remains unverified while production has no key. Provider availability is not a quality guarantee.
 - Production needs an AI key, owner token and durable storage. Code deployment does not migrate Render data.
 
@@ -81,6 +91,8 @@ Official execution reference: [Vercel Functions package: waitUntil](https://verc
 
 The browser test also edits income, rent and DCF assumptions through the actual tools, reloads them, verifies their use in the assistant's reply, introduces a conflicting remote edit and checks explicit recovery without overwriting the original source. `tests/assistant-context.test.js` covers working-copy validation, reset semantics, unrelated storage conflicts, coalesced edits and authentication invalidation.
 
+`tests/assistant-profile.test.js` covers staged and multi-field intake, gross-versus-net ambiguity, unknown-versus-zero, cancellation, explicit confirmation, stale drafts, account scoping, forged body fields, provider-call prevention and income-basis invalidation. The assistant browser test completes intake before discovery, reloads an unconfirmed draft, selects a sourced property with the confirmed profile, then updates finances conversationally after editing tools. It verifies those changes reach the actual profile controls while preserving DCF assumptions, with no empty search form interrupting intake.
+
 ## Completion gates from the accepted recommendation
 
 These gates reflect the assistant-first recommendation accepted in this task; they are not additional version releases.
@@ -88,7 +100,7 @@ These gates reflect the assistant-first recommendation accepted in this task; th
 | Requirement | Current evidence / remaining gate |
 | --- | --- |
 | One assistant-first entry; optional 3D; no compulsory framework questionnaire | Delivered; desktop/mobile browser checks |
-| Establish objective, location and financial comfort through conversation | Search brief delivered; conversational financial comfort remains |
+| Establish objective, location and financial comfort through conversation | Search brief and four-step confirmed financial intake delivered; private API and desktop/mobile workflow tests |
 | Permitted discovery in a well-covered micro-market | Owner-managed imports delivered; real pilot coverage unavailable until permitted records are supplied |
 | Identity, duplicate, freshness and asking-versus-achieved evidence checks | Domain tests and local synthetic discovery workflow; real source sample still required |
 | Framework calculations, contrary case and a small explained shortlist | Existing engine reused; scenario and browser tests; live configured-model quality remains unverified |

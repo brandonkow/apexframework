@@ -65,6 +65,15 @@
 .assistant-composer-meta button { margin-left: auto; font-size: 12px; }
 .assistant-boundaries { color: var(--muted); font-size: 12px; line-height: 1.7; }
 .assistant-boundaries p { max-width: 760px; }
+.assistant-finance { margin: 20px 0; padding: 20px; border: 1px solid var(--line); border-radius: 18px; }
+.assistant-finance header { display: flex; gap: 12px; flex-wrap: wrap; justify-content: space-between; }
+.assistant-finance header small { color: var(--muted); }
+.assistant-finance dl { margin: 0; }
+.assistant-finance dl > div { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px 16px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.assistant-finance dt { color: var(--muted); font-size: 13px; }
+.assistant-finance dd { margin: 0; overflow-wrap: anywhere; }
+.assistant-finance-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.assistant-finance-actions button { max-width: 100%; white-space: normal; }
 @keyframes assistant-orbit { to { transform: rotate(360deg); } }
 @media (max-width: 800px) { .assistant-shortlist { grid-template-columns: 1fr; } .assistant-intro h1 { font-size: 38px; } }
 @media (max-width: 520px) {
