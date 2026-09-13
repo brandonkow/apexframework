@@ -7,6 +7,45 @@ export function postgresTlsConfig(rawCa = globalThis.process?.env?.ESTATELAB_PG_
   return ca ? { ssl: { ca, rejectUnauthorized: true } } : {};
 }
 
+export const POSTGRES_PRIVATE_TABLES = Object.freeze([
+  "estatelab_meta", "estatelab_core", "estatelab_users", "estatelab_auth_sessions",
+  "estatelab_auth_tokens", "estatelab_jarvis_sessions", "estatelab_jarvis_messages"
+]);
+
+// These server-owned tables must not be reachable through a managed host's public Data API.
+// Scope changes to this allowlist; never alter grants or policies on another application's tables.
+const PRIVATE_ACCESS_SQL = `
+  DO $apex_private_access$
+  DECLARE
+    table_name TEXT;
+    relation REGCLASS;
+    web_role RECORD;
+  BEGIN
+    IF current_user IN ('anon', 'authenticated', 'authenticator') THEN
+      RAISE EXCEPTION 'Apex requires a private server database owner, not a Data API role';
+    END IF;
+    FOREACH table_name IN ARRAY ARRAY[${POSTGRES_PRIVATE_TABLES.map(name => `'${name}'`).join(", ")}]
+    LOOP
+      relation := to_regclass(table_name);
+      EXECUTE format('ALTER TABLE %s ENABLE ROW LEVEL SECURITY', relation);
+      EXECUTE format('DROP POLICY IF EXISTS apex_backend_only ON %s', relation);
+      EXECUTE format('CREATE POLICY apex_backend_only ON %s AS RESTRICTIVE FOR ALL TO PUBLIC USING (false) WITH CHECK (false)', relation);
+      EXECUTE format('REVOKE ALL PRIVILEGES ON TABLE %s FROM PUBLIC', relation);
+      FOR web_role IN SELECT oid, rolname, rolsuper, rolbypassrls FROM pg_roles WHERE rolname IN ('anon', 'authenticated', 'authenticator')
+      LOOP
+        IF web_role.rolsuper OR web_role.rolbypassrls OR pg_has_role(web_role.oid, (SELECT relowner FROM pg_class WHERE oid = relation), 'MEMBER') THEN
+          RAISE EXCEPTION 'A Data API role has privileged access to an Apex table; remove that role inheritance before starting Apex';
+        END IF;
+        EXECUTE format('REVOKE ALL PRIVILEGES ON TABLE %s FROM %I', relation, web_role.rolname);
+        IF has_table_privilege(web_role.oid, relation, 'TRUNCATE') THEN
+          RAISE EXCEPTION 'A Data API role inherits TRUNCATE on an Apex table; revoke the inherited grant before starting Apex';
+        END IF;
+      END LOOP;
+    END LOOP;
+  END
+  $apex_private_access$;
+`;
+
 const SCHEMA_SQL = `
   CREATE TABLE IF NOT EXISTS estatelab_meta (
     singleton BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (singleton),
@@ -198,6 +237,7 @@ export class PostgresStateStore {
     try {
       await client.query("BEGIN");
       await client.query(SCHEMA_SQL);
+      await client.query(PRIVATE_ACCESS_SQL);
       const existing = await client.query("SELECT singleton FROM estatelab_core WHERE singleton = TRUE");
       if (!existing.rows.length) {
         await this.syncState(client, serializableState(seedState));

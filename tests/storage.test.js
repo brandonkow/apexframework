@@ -242,9 +242,25 @@ test("PostgreSQL store creates schema and imports the seed once", async () => {
   assert.ok(client.calls.some((call) => call.text.includes("ADD COLUMN IF NOT EXISTS reports")));
   assert.ok(client.calls.some((call) => call.text.includes("ADD COLUMN IF NOT EXISTS journal")));
   assert.ok(client.calls.some((call) => call.text.includes("ADD COLUMN IF NOT EXISTS mode")));
+  const protectionIndex = client.calls.findIndex((call) => call.text.startsWith("DO $apex_private_access$"));
+  const seedIndex = client.calls.findIndex((call) => call.text.includes("INSERT INTO estatelab_core"));
+  assert.ok(protectionIndex > 0 && protectionIndex < seedIndex, "Protect tables before importing private state.");
   assert.ok(client.calls.some((call) => call.text.includes("INSERT INTO estatelab_core")));
   assert.ok(client.calls.some((call) => call.text.includes("UPDATE estatelab_meta SET revision = 1")));
   assert.equal(client.calls.at(-1).text, "COMMIT");
+});
+
+test("PostgreSQL initialization rolls back without importing private state when access protection fails", async () => {
+  const client = new FakeClient((text) => {
+    if (text.startsWith("DO $apex_private_access$")) throw new Error("Unsafe API role inheritance");
+    return { rows: [] };
+  });
+  const store = new PostgresStateStore(new FakePool(client));
+  await assert.rejects(store.init(sampleState()), /Unsafe API role inheritance/);
+  assert.equal(client.calls.at(-1).text, "ROLLBACK");
+  assert.ok(!client.calls.some((call) => call.text.includes("INSERT INTO estatelab_core")));
+  assert.ok(!client.calls.some((call) => call.text === "COMMIT"));
+  assert.equal(client.released, true);
 });
 
 test("PostgreSQL store rolls back stale writes", async () => {
