@@ -10,9 +10,25 @@ export function socialReply(query) {
   return "";
 }
 
+export function activeDecisionBoundary(item, data, analysis = null) {
+  if (!item.selected) return "";
+  const stops = (analysis?.hardStops || []).filter(value => typeof value === "string" && value.trim());
+  const source = selectedSourceStatus(item, data);
+  const sourceWarning = source && !["current", "unverified"].includes(source.status) ? source.note : "";
+  const holding = ["handover", "rental", "review"].includes(item.stage);
+  const stance = holding ? "review the holding plan before adding debt or capital" : analysis?.verdict === "REJECT" ? "reject this purchase as currently described" : "pause this decision";
+  return [stops.length ? `Framework boundary: ${stance}. ${stops.slice(0, 2).join(" ")}${stops.length > 2 ? ` There are ${stops.length} stops in total; review all of them in the tools.` : ""} These are rule triggers from your saved inputs, not independently verified facts. ${holding ? "This is not an automatic instruction to sell; verify the current risk and alternatives." : "Resolve or correct them before committing further capital."}` : "", sourceWarning].filter(Boolean).join("\n\n");
+}
+
 export function frameworkReply(query, item, data, analysis = null) {
   const social = socialReply(query);
   if (social) return social;
+  const boundary = activeDecisionBoundary(item, data, analysis);
+  const answer = frameworkAnswer(query, item, data, analysis);
+  return boundary && !boundary.includes(answer) ? `${boundary}\n\n${answer}` : boundary || answer;
+}
+
+function frameworkAnswer(query, item, data, analysis) {
   const property = item.selected, source = selectedSourceStatus(item, data);
   if (property && /\b(?:deadline|due|overdue|schedule|milestone|responsible|blocked|waiting|what(?:'s| is) next)\b/i.test(query)) {
     const plan = ownershipPlan(item), row = plan.attention[0] || plan.rows.find(row => row.id === plan.nextId);
@@ -41,7 +57,7 @@ export function frameworkReply(query, item, data, analysis = null) {
     return "A search ceiling is not proof of buying power. We still need your verified income, existing repayments, cash available after purchase and full holding costs. Bank approval alone is not enough; the plan must survive vacancy and higher costs.";
   }
   if (/\b(?:rent|rental|yield|return|cash flow|cashflow)\b/i.test(query)) {
-    if (!property) return "I would separate achieved rent, gross yield and actual cash flow. Advertised rent is only a claim, and gross yield leaves out vacancy, costs and financing. Select a sourced candidate first so we can test its numbers.";
+    if (!property) return "I would separate achieved rent, gross yield and actual cash flow. Advertised rent is only a claim, and gross yield leaves out vacancy, costs and financing. Select a candidate or use Review a property so we can test its numbers.";
     const actual = item.outcomes.at(-1);
     if (actual) return `Your recorded ${actual.month} cash flow is RM${actual.cashFlow}: RM${actual.rentReceived} received less RM${actual.totalCosts} in declared outgoings. That is one month's outcome, not proof of annual net return. Have you included vacancy, repairs and every recurring charge?`;
     if (item.working) {
@@ -59,6 +75,10 @@ export function frameworkReply(query, item, data, analysis = null) {
   }
   if (source && !["current", "unverified"].includes(source.status)) return source.note;
   if (property) {
+    if (analysis) {
+      const reason = analysis.recommendationBlockers?.[0] || analysis.missingEvidence?.[0];
+      return `My view: ${analysis.summary}\n\n${reason ? `Still unresolved: ${reason}\n\n` : ""}The counter-case: ${analysis.counterThesis}\n\nNext: ${analysis.nextActions?.[0] || "Review the recorded evidence and unresolved checks before committing."}\n\nThis is framework screening of your saved assumptions, not independent verification or approval to buy.${source?.status === "unverified" ? " This property came from you, not a verified catalogue source." : ""}`;
+    }
     const plan = ownershipPlan(item), row = plan.rows.find(row => row.id === plan.nextId), next = item.tasks.find(task => task.id === row?.id);
     const context = item.evidence.at(-1);
     const nextStep = row?.waitingFor.length ? `Resolve the prerequisites first: ${row.waitingFor.map(value => value.title).join(", ")}.` : next?.status === "blocked" ? `Resolve the recorded blocker: ${next.note}` : next?.prompt || "Review the recorded checks and unresolved risks before committing.";

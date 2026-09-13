@@ -1,7 +1,7 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { assistantState, cleanBrief, briefQuestion, interpretBrief, BRIEF_SCHEMA, validBriefResponse, validateImport, catalogueCoverage, discover, newCase, publicCase, selectedSourceStatus, addEvent, message, stageTasks, STAGES, recordTask, pastDate, publicUrl, text, fail, isoNow } from "./investment-assistant.js";
 import { advanceSearch, resumeSearch, saveCase } from "./assistant-jobs.js";
-import { socialReply, frameworkReply, conciseAssistantReply } from "./assistant-reasoning.js";
+import { socialReply, frameworkReply, conciseAssistantReply, activeDecisionBoundary } from "./assistant-reasoning.js";
 import { effectiveContext, updateWorkingContext, deleteInvestigation } from "./assistant-context.js";
 import { profileView, profileActive, requestsProfile, startProfile, profileAction, answerProfile } from "./assistant-profile.js";
 import { MAX_FILE_BYTES, uploadPrivateFile, reviewPrivateFile, removePrivateFile, readFileWithAi, readPrivateOriginal, cleanupPrivateFiles } from "./assistant-files.js";
@@ -186,10 +186,10 @@ export async function assistantRoutes({ req, res, url, db, actor, send, readBody
       const inquiry = /^(what|why|how|is|are|should|can|does|do)\b/i.test(content) && !/\b(find|look for|search for|budget)\b/i.test(content);
       if (socialReply(content) || inquiry || item.selected || (item.confirmedAt && body.editBrief !== true && !requestedBriefEdit)) {
         const working = effectiveContext(item);
-        const assessment = item.working && analyze ? analyze(working.dealCard, working.financialProfile) : null;
+        const assessment = (item.working || item.selected) && analyze ? analyze(working.dealCard, working.financialProfile) : null;
         const fallback = frameworkReply(content, item, data, assessment);
         let response = { answer: fallback, mode: "framework" };
-        if (body.allowAi === true && llmEnabled() && !socialReply(content)) {
+        if (body.allowAi === true && llmEnabled() && !socialReply(content) && !activeDecisionBoundary(item, data, assessment)) {
           try { response = await reply(content, item, db, actor.user); }
           catch { response = { answer: fallback, mode: "framework" }; }
         }
