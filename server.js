@@ -158,17 +158,22 @@ const BILLING_PLANS = {
     features: ["150 deal reports monthly", "200 saved reports", "Multi-deal workflow", "Priority capacity"]
   }
 };
-const knowledgeService = new KnowledgeService({
-  objectDir: OBJECT_DIR,
-  supabaseUrl: OBJECT_SUPABASE_URL,
-  supabaseServiceRoleKey: OBJECT_SUPABASE_SERVICE_ROLE_KEY,
-  objectBucket: OBJECT_SUPABASE_BUCKET,
-  apiKey: OPENAI_SERVICES_API_KEY,
-  embeddingModel: OPENAI_EMBEDDING_MODEL,
-  transcriptionModel: OPENAI_TRANSCRIPTION_MODEL,
-  speechModel: OPENAI_SPEECH_MODEL,
-  timeoutMs: OPENAI_TIMEOUT_MS
-});
+let knowledgeService;
+function getKnowledgeService() {
+  // Pure assessments must not depend on account or file-storage configuration.
+  knowledgeService ||= new KnowledgeService({
+    objectDir: OBJECT_DIR,
+    supabaseUrl: OBJECT_SUPABASE_URL,
+    supabaseServiceRoleKey: OBJECT_SUPABASE_SERVICE_ROLE_KEY,
+    objectBucket: OBJECT_SUPABASE_BUCKET,
+    apiKey: OPENAI_SERVICES_API_KEY,
+    embeddingModel: OPENAI_EMBEDDING_MODEL,
+    transcriptionModel: OPENAI_TRANSCRIPTION_MODEL,
+    speechModel: OPENAI_SPEECH_MODEL,
+    timeoutMs: OPENAI_TIMEOUT_MS
+  });
+  return knowledgeService;
+}
 const thinkingQuestions = [
   {
     id: "mandate-job",
@@ -358,6 +363,7 @@ function normalizedDbState(db) {
 }
 
 async function initializeStore() {
+  const service = getKnowledgeService();
   const fallback = { properties: [], comps: [], brain: emptyBrain(), knowledge: emptyKnowledge(), jarvis: emptyJarvis(), auth: emptyAuth() };
   const seedPath = existsSync(DB_PATH) ? DB_PATH : BUNDLED_DB_PATH;
   const rawSeed = await readStorageSeed(seedPath, fallback);
@@ -368,7 +374,7 @@ async function initializeStore() {
     filePath: DB_PATH,
     seedState: seed
   });
-  await knowledgeService.init();
+  await service.init();
 }
 
 async function readDb() {
@@ -8009,7 +8015,7 @@ async function buildCompleteDealAnalysis({ database, dealCard, financialProfile,
     marketStage.summary = `${marketStage.summary} ${analysis.researchIntelligence.summary.matched} strictly validated market-research record${analysis.researchIntelligence.summary.matched === 1 ? " matches" : "s match"} this deal.`;
   }
   analysis.developmentIntelligence = buildDevelopmentIntelligence(analysis);
-  const documentEvidenceResult = await knowledgeService.retrieve(learningQuery, database.knowledge.chunks, 8, { allowEmbedding: allowExternalRetrieval });
+  const documentEvidenceResult = await getKnowledgeService().retrieve(learningQuery, database.knowledge.chunks, 8, { allowEmbedding: allowExternalRetrieval });
   analysis.documentIntelligence = buildDocumentIntelligence(analysis, database.knowledge, documentEvidenceResult);
   analysis.portfolioCommand = buildPortfolioCommand(analysis);
   const suppliedEvidenceSources = workspaceEvidenceSources(evidence);
@@ -9355,7 +9361,7 @@ async function retrieveGuidance(query, property, brain, knowledge = emptyKnowled
     .filter((doc) => doc.score > 0)
     .sort((a, b) => b.score - a.score)
     .slice(0, 4);
-  const evidenceResult = await knowledgeService.retrieve(String(query || ""), knowledge.chunks, 4);
+  const evidenceResult = await getKnowledgeService().retrieve(String(query || ""), knowledge.chunks, 4);
   const evidenceHits = evidenceResult.matches.map((chunk) => {
     const document = knowledge.documents.find((item) => item.id === chunk.documentId);
     return { ...chunk, title: document?.title || "Owner evidence", tags: document?.tags || [] };
@@ -9460,7 +9466,7 @@ async function retrieveJarvisAnswer(query, brain, session, context = {}, knowled
   const retrievalText = [query, contextForSearch, continuityContext].filter(Boolean).join(" ");
   const queryTerms = expandedRetrievalTerms(query, `${contextForSearch} ${continuityContext}`);
   const intent = analysisIntent(query);
-  const evidenceResult = await knowledgeService.retrieve(retrievalText, knowledge.chunks, 4);
+  const evidenceResult = await getKnowledgeService().retrieve(retrievalText, knowledge.chunks, 4);
   const ownerEvidence = evidenceResult.matches.map((chunk) => {
     const document = knowledge.documents.find((item) => item.id === chunk.documentId);
     return {
@@ -10103,7 +10109,7 @@ function ownerOpsSnapshot(db) {
   const billingCheckoutReady = Boolean(PRO_CHECKOUT_URL && ADVISOR_CHECKOUT_URL);
   const billingWebhookReady = Boolean(BILLING_WEBHOOK_SECRET);
   const emailWebhookReady = Boolean(EMAIL_WEBHOOK_URL);
-  const objectStorage = knowledgeService.objectStorageStatus();
+  const objectStorage = getKnowledgeService().objectStorageStatus();
   const checks = [
     ownerOpsCheck(
       "owner-token",
@@ -10388,7 +10394,7 @@ async function router(req, res, context = {}) {
         revision: BUILD_REVISION || "development",
         nodeVersion: process.versions.node,
         storage: stateStore.kind,
-        objectStorage: knowledgeService.objectStorageStatus().kind,
+        objectStorage: getKnowledgeService().objectStorageStatus().kind,
         time: new Date().toISOString()
       });
     } catch (error) {
@@ -10486,7 +10492,7 @@ async function router(req, res, context = {}) {
 
   if (await assistantRoutes({ req, res, url, db, actor, send, readBody, readDb, writeDb, analyze: analyzeSevenStageDeal,
     ownerAuthorized: isOwnerRequest(req), normalizeBelief,
-    objectStore: knowledgeService.objectStore,
+    objectStore: getKnowledgeService().objectStore,
     defer: process.env.APEX_ASSISTANT_BACKGROUND === "false" ? undefined : context.defer || (!process.env.VERCEL ? work => { void work; } : undefined),
     llmEnabled, requestLlmText, storeKind: stateStore.kind, ephemeral: Boolean(globalThis.process?.env?.VERCEL), allowRequest,
     reply: (query, item, database, user) => retrieveJarvisAnswer(query, database.brain, { messages: item.messages }, {
@@ -11255,8 +11261,8 @@ async function router(req, res, context = {}) {
         } : null
       },
       audio: {
-        serverStt: knowledgeService.audioEnabled(),
-        serverTts: knowledgeService.audioEnabled()
+        serverStt: getKnowledgeService().audioEnabled(),
+        serverTts: getKnowledgeService().audioEnabled()
       },
       accounts: {
         emailDelivery: Boolean(EMAIL_WEBHOOK_URL),
@@ -11274,23 +11280,23 @@ async function router(req, res, context = {}) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/jarvis/transcribe") {
-    if (!knowledgeService.audioEnabled()) return send(res, 503, { error: "Server voice is not configured." });
+    if (!getKnowledgeService().audioEnabled()) return send(res, 503, { error: "Server voice is not configured." });
     const body = await readBody(req);
     const audio = Buffer.from(String(body.audioBase64 || ""), "base64");
     if (!audio.length || audio.length > MAX_DOCUMENT_BYTES) return send(res, 400, { error: "Voice recording is missing or too large." });
-    const text = await knowledgeService.transcribe(audio, String(body.mimeType || "audio/webm"), String(body.filename || "voice.webm"));
+    const text = await getKnowledgeService().transcribe(audio, String(body.mimeType || "audio/webm"), String(body.filename || "voice.webm"));
     if (!text) return send(res, 422, { error: "No speech could be transcribed." });
     return send(res, 200, { text });
   }
 
   if (req.method === "POST" && url.pathname === "/api/jarvis/speech") {
-    if (!knowledgeService.audioEnabled()) return send(res, 503, { error: "Server voice is not configured." });
+    if (!getKnowledgeService().audioEnabled()) return send(res, 503, { error: "Server voice is not configured." });
     const body = await readBody(req);
     const text = String(body.text || "").trim();
     if (!text || text.length > 4000) return send(res, 400, { error: "Speech text must be between 1 and 4000 characters." });
     const requestedVoice = String(body.voice || "").trim().toLowerCase();
     const voice = /^[a-z]{2,32}$/.test(requestedVoice) ? requestedVoice : OPENAI_SPEECH_VOICE;
-    const audio = await knowledgeService.synthesize(text, voice);
+    const audio = await getKnowledgeService().synthesize(text, voice);
     return send(res, 200, audio, { "Content-Type": "audio/mpeg", "Cache-Control": "no-store" });
   }
 
@@ -11466,7 +11472,7 @@ async function router(req, res, context = {}) {
         documents: db.knowledge.documents.length,
         indexed: db.knowledge.documents.filter((document) => document.status === "indexed").length,
         chunks: db.knowledge.chunks.length,
-        embeddingProvider: knowledgeService.embeddingsEnabled() ? "openai" : null
+        embeddingProvider: getKnowledgeService().embeddingsEnabled() ? "openai" : null
       }
     });
   }
@@ -11491,11 +11497,11 @@ async function router(req, res, context = {}) {
     let storageKey;
     let indexed;
     try {
-      storageKey = await knowledgeService.storeObject(id, filename, content, mimeType);
-      const extracted = knowledgeService.extractText(content, mimeType, filename);
-      indexed = await knowledgeService.indexText(id, extracted);
+      storageKey = await getKnowledgeService().storeObject(id, filename, content, mimeType);
+      const extracted = getKnowledgeService().extractText(content, mimeType, filename);
+      indexed = await getKnowledgeService().indexText(id, extracted);
     } catch (error) {
-      await knowledgeService.removeObject(id, storageKey).catch(() => {});
+      await getKnowledgeService().removeObject(id, storageKey).catch(() => {});
       throw error;
     }
     const now = new Date().toISOString();
@@ -11520,7 +11526,7 @@ async function router(req, res, context = {}) {
     try {
       await writeDb(db);
     } catch (error) {
-      await knowledgeService.removeObject(id, storageKey).catch(() => {});
+      await getKnowledgeService().removeObject(id, storageKey).catch(() => {});
       throw error;
     }
     return send(res, 201, {
@@ -11536,7 +11542,7 @@ async function router(req, res, context = {}) {
     db.knowledge.documents = db.knowledge.documents.filter((item) => item.id !== id);
     db.knowledge.chunks = db.knowledge.chunks.filter((chunk) => chunk.documentId !== id);
     await writeDb(db);
-    await knowledgeService.removeObject(id, document.storageKey).catch((error) => {
+    await getKnowledgeService().removeObject(id, document.storageKey).catch((error) => {
       console.warn(`Apex Analytic object cleanup failed for ${id}: ${error.message}`);
     });
     return send(res, 204, "");

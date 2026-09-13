@@ -132,7 +132,7 @@ test("unified workspace retains feature behavior and backend safeguards", async 
   assert.match(server, /caseIntelligence: normalizeReportCaseIntelligence\(analysis\.caseIntelligence\)/, "Saved private reports must preserve development case intelligence.");
   assert.match(server, /developmentCaseSources\(analysis\.caseIntelligence\)/, "Matched development cases must appear in formal report sources.");
   assert.match(server, /function buildDocumentIntelligence[\s\S]*?V8\.1[\s\S]*?V8\.10/, "V8.1-V8.10 must be derived by the backend document intelligence engine.");
-  assert.match(server, /knowledgeService\.retrieve\(learningQuery,\s*(?:db|database)\.knowledge\.chunks,\s*8,\s*\{\s*allowEmbedding:\s*allowExternalRetrieval\s*\}\)/, "Formal deal reports must retrieve owner documents for V8 evidence matching.");
+  assert.match(server, /getKnowledgeService\(\)\.retrieve\(learningQuery,\s*(?:db|database)\.knowledge\.chunks,\s*8,\s*\{\s*allowEmbedding:\s*allowExternalRetrieval\s*\}\)/, "Formal deal reports must retrieve owner documents for V8 evidence matching.");
   assert.match(server, /analysis\.documentIntelligence = buildDocumentIntelligence\(analysis,\s*(?:db|database)\.knowledge,\s*documentEvidenceResult\)/, "Formal deal reports must attach the V8 document intelligence stack.");
   assert.match(server, /documentIntelligence: normalizeReportDocumentIntelligence\(analysis\.documentIntelligence\)/, "Saved private reports must preserve the V8 stack.");
   assert.match(server, /documentEvidenceSources\(analysis\.documentIntelligence\)/, "Matched owner evidence must appear in formal report sources.");

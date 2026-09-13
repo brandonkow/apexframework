@@ -37,6 +37,8 @@ The public user experience is intentionally simple: users interact with one Apex
 
 ## Run Locally
 
+For an engine-only assessment without a database, web server or model call, use `npm run engine -- --file examples/engine-candidate.json --text`. See [Database-free brain engine](docs/BRAIN_ENGINE.md) for the module interface, structured output and boundaries. The example is synthetic and deliberately incomplete.
+
 ```bash
 npm ci
 npm start

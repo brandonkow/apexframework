@@ -1,0 +1,13 @@
+{
+  "dealCard": {
+    "projectName": "Synthetic demonstration only - not a real listing",
+    "area": "Example micro-area",
+    "propertyType": "Condo",
+    "askingPrice": "400000",
+    "expectedRent": "2500",
+    "estimatedInstallment": "1900",
+    "maintenance": "350"
+  },
+  "financialProfile": {},
+  "evidence": {}
+}

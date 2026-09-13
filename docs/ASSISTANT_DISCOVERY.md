@@ -77,6 +77,7 @@ The draft captures the working-context revision at its start. Concurrent tool ed
 
 ## Current delivery boundaries
 
+- Database setup does not block engine development. `brain-engine.js` and `scripts/run-brain.js` provide a read-only assessment path using the existing rules without storage, model calls or saved memory; see `BRAIN_ENGINE.md`. This does not substitute for the durable multi-user assistant gates below.
 - No permitted live feed was supplied. The owner requested prepared owner-managed imports. Coverage therefore starts empty, not fabricated.
 - Confirmed searches can finish after the page is closed, within the server execution window. Durable storage is required for reliable cross-instance/redeployment recovery. Continuous monitoring and notifications are not implemented.
 - The shared tools and assistant use one versioned working copy, including confirmed conversational financial intake. Private document/photo workflows have storage and consent gates. Existing ownership checks carry responsibilities, dates and dependencies; private thesis/outcome reviews and consented owner-reviewed lesson proposals are documented in `INVESTIGATION_LEARNING.md`.
