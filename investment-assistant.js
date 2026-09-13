@@ -187,6 +187,10 @@ export function publicCase(item) {
 export function selectedSourceStatus(item, data, now = Date.now()) {
   if (!item.selected) return null;
   const selected = item.selected;
+  if (selected.origin === "user_supplied") return {
+    status: "unverified", checkedAt: new Date(now).toISOString(),
+    note: "You supplied this property privately. Apex has not verified its identity, price, availability or reference link, and it is not a published catalogue recommendation."
+  };
   const current = data.listings.find(listing => listing.id === selected.id);
   const source = data.sources.find(source => source.id === selected.sourceId && source.publish);
   const allowed = new Set(data.sources.filter(source => source.publish).map(source => source.id));

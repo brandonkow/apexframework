@@ -2,6 +2,7 @@ import { createContextSync, contextOf } from "./context-sync.js";
 import { createPrivateFilesView } from "./files.js";
 import { createMilestonesView } from "./milestones.js";
 import { createLearningView } from "./learning.js";
+import { createPropertyEntry } from "./property-entry.js";
 
 const $ = selector => document.querySelector(selector);
 const escape = value => String(value ?? "").replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
@@ -25,6 +26,7 @@ export function createAssistant({ openTool, useProperty, notify, onContextSaved,
     <div class="assistant-casebar"><label><span class="sr-only">Your investigations</span><select id="investmentCaseSelect" aria-label="Your investigations"><option>No saved investigation</option></select></label><button id="investmentNew" type="button">New investigation</button><button id="investmentExport" type="button" hidden>Export</button><details class="assistant-more"><summary>More</summary><button id="investmentDelete" type="button">Delete this investigation</button><button id="investmentAccount" type="button">Account &amp; private memory</button></details></div>
     <p id="investmentStorage" class="assistant-storage"></p><button id="investmentAdopt" class="secondary-button" hidden>Import my guest investigations</button>
     <div id="investmentMessages" class="assistant-messages" role="log" aria-label="Investment conversation"></div>
+    <section id="investmentManual" class="assistant-property" aria-label="Private property entry" hidden></section>
     <section id="investmentBrief" class="assistant-brief" aria-label="Search brief" hidden></section>
     <section id="investmentRun" class="assistant-run" aria-label="Search progress" hidden></section>
     <section id="investmentResults" class="assistant-results" aria-label="Property shortlist" hidden></section>
@@ -32,9 +34,18 @@ export function createAssistant({ openTool, useProperty, notify, onContextSaved,
     <section id="investmentFinance" class="assistant-finance" aria-label="Financial conversation" hidden></section>
     <p id="investmentError" class="error-note" role="alert"></p>
     <form id="investmentComposer" class="assistant-composer"><label class="sr-only" for="investmentInput">Talk to Apex</label><textarea id="investmentInput" rows="2" maxlength="2000" placeholder="Find a rental property in Penang that fits my situation..." required></textarea><button type="submit" class="primary-button">Send <span aria-hidden="true">&#8599;</span></button></form>
-    <div class="assistant-composer-meta"><label><input id="investmentAi" type="checkbox"> Use AI reasoning</label><span id="investmentModel">Checking connection</span><button id="investmentProfileStart" type="button">Check my buying power</button><button id="investmentVoice" type="button">Speak</button></div>
+    <div class="assistant-composer-meta"><label><input id="investmentAi" type="checkbox"> Use AI reasoning</label><span id="investmentModel">Checking connection</span><button id="investmentManualStart" type="button">Review a property</button><button id="investmentProfileStart" type="button">Check my buying power</button><button id="investmentVoice" type="button">Speak</button></div>
     <details class="assistant-boundaries"><summary>What happens with my information?</summary><p>Your confirmed brief guides the search; it does not prove affordability. Turning on AI sends submitted messages and relevant case context to the configured provider. Your private observations never update the shared founder framework. Site visits, professional checks and external commitments still need people.</p><p id="investmentCoverage"></p></details>`;
   host.querySelector(".assistant-more").insertAdjacentHTML("beforeend", '<button id="investmentCleanup" type="button" hidden>Retry private file cleanup</button><p id="investmentCleanupNotice" class="assistant-caption" role="status"></p>');
+  const propertyEntry = createPropertyEntry(host, { changed: render, submit: property => void safely(async () => {
+    const epoch = generation;
+    if (!current) await create(true);
+    if (epoch !== generation || !current) return;
+    await action("property", { property });
+    if (epoch !== generation || !current?.selected) return;
+    propertyEntry.reset(); sync.accept(current); useProperty(current); render();
+    host.querySelector('[data-investment-action="numbers"]')?.focus();
+  }) });
   const files = createPrivateFilesView(host, { onResolve: () => { $("#investmentError").textContent = ""; }, run: (route, makeBody) => safely(async () => {
     const id = current?.id, epoch = generation; if (!id) return;
     const body = await makeBody();
@@ -78,6 +89,7 @@ export function createAssistant({ openTool, useProperty, notify, onContextSaved,
     $("#investmentComposer button").disabled = value;
     for (const id of ["investmentCaseSelect", "investmentNew", "investmentDelete"]) $("#" + id).disabled = value;
     host.setAttribute("aria-busy", String(value));
+    propertyEntry.render(current, busy);
   }
   function showError(error) { $("#investmentError").textContent = error.message || String(error); }
   async function refreshList() {
@@ -88,6 +100,7 @@ export function createAssistant({ openTool, useProperty, notify, onContextSaved,
     $("#investmentCaseSelect").innerHTML = cases.length ? cases.map(item => `<option value="${escape(item.id)}" ${current?.id === item.id ? "selected" : ""}>${escape(item.title)} / ${escape(labels[item.stage])}</option>`).join("") : '<option value="">No saved investigation</option>';
   }
   function render() {
+    propertyEntry.render(current, busy);
     $("#investmentExport").hidden = !current;
     $("#investmentDelete").hidden = !current;
     const log = $("#investmentMessages"), wasAtEnd = log.scrollHeight - log.scrollTop - log.clientHeight < 60;
@@ -95,24 +108,28 @@ export function createAssistant({ openTool, useProperty, notify, onContextSaved,
     if (wasAtEnd) log.scrollTop = log.scrollHeight;
     host.classList.toggle("has-conversation", Boolean(current?.messages.length));
     const briefHost = $("#investmentBrief"), brief = current?.brief;
-    briefHost.hidden = !current || Boolean(current.selected || current.profileIntake) || !Boolean(brief?.area || brief?.goal || brief?.budgetMax);
+    briefHost.hidden = !current || propertyEntry.isOpen() || Boolean(current.selected || current.profileIntake) || !Boolean(brief?.area || brief?.goal || brief?.budgetMax);
     if (brief && !briefHost.hidden) briefHost.innerHTML = `<details ${!current.confirmedAt || editing ? "open" : ""}><summary>Your search brief <span>${current.confirmedAt && !editing ? "Confirmed" : "Please review"}</span></summary><form id="investmentBriefForm"><div class="assistant-field-grid"><label>Location<input name="area" required maxlength="120" value="${escape(brief.area)}" placeholder="Town, neighbourhood or state"></label><label>Purpose<select name="goal" required><option value="">Choose your objective</option>${Object.entries(labels).slice(0, 4).map(([key, label]) => `<option value="${key}" ${brief.goal === key ? "selected" : ""}>${label}</option>`).join("")}</select></label><label>Search ceiling (RM)<input name="budgetMax" type="number" min="1" max="1000000000" required value="${brief.budgetMax ?? ""}" inputmode="decimal"></label><label>Property type<select name="propertyType">${[["any", "Open to residential options"], ["condo", "Condominium"], ["serviced_apartment", "Serviced apartment"], ["landed", "Landed"]].map(([key, label]) => `<option value="${key}" ${brief.propertyType === key ? "selected" : ""}>${label}</option>`).join("")}</select></label></div><p class="assistant-caption">Confirm what I understood. This is a search range, not loan approval or a recommendation to spend it.</p><button type="submit" class="primary-button">${current.confirmedAt ? "Search again with this brief" : "Confirm & find candidates"}</button></form></details>`;
     const run = current?.job;
-    $("#investmentRun").hidden = !run;
+    $("#investmentRun").hidden = !run || Boolean(current?.selected || current?.profileIntake) || propertyEntry.isOpen();
     if (run) $("#investmentRun").innerHTML = `<div><span class="live-dot"></span><b>${escape(run.status === "completed" ? "Search complete" : run.status === "cancelled" ? "Search stopped" : run.status === "failed" ? "Search needs attention" : run.labels[Math.min(run.step, 2)])}</b><small>${Math.min(run.step, 3)} / 3</small></div>${["queued", "running"].includes(run.status) ? '<button type="button" data-investment-action="cancel">Stop search</button>' : ""}<p>${escape(run.error || "Uses the published catalogue only. You can use other tools while this runs; return here to see the result.")}</p>`;
     const results = current?.results;
-    $("#investmentResults").hidden = !results || Boolean(current?.selected || current?.profileIntake) || run?.status !== "completed";
+    $("#investmentResults").hidden = !results || propertyEntry.isOpen() || Boolean(current?.selected || current?.profileIntake) || run?.status !== "completed";
     if (results) $("#investmentResults").innerHTML = `<header><p class="eyebrow">${results.coverage.current} CURRENT RECORDS / ${results.coverage.sources.length} PUBLISHED SOURCES</p><h2>${results.candidates.length ? "Worth a closer look" : "No supported match yet"}</h2><p>${escape(results.message)}</p></header><div class="assistant-shortlist">${results.candidates.map(candidate => `<article class="assistant-candidate"><span class="status-pill">INVESTIGATE</span><h3>${escape(candidate.projectName)}</h3><p>${escape(candidate.area)} / ${escape(candidate.propertyType.replaceAll("_", " "))}</p><strong>${cash(candidate.askingPrice)}</strong><small>Asking price / checked ${candidate.observedAt.slice(0, 10)}</small><p>${escape(candidate.reasons[0])}</p><p class="candidate-gap">${escape(candidate.gaps[0])}</p><details><summary>Evidence &amp; contrary case</summary><p>${escape(candidate.counterCase)}</p><ul>${candidate.gaps.map(gap => `<li>${escape(gap)}</li>`).join("")}</ul><a href="${escape(candidate.sourceUrl)}" target="_blank" rel="noopener noreferrer">Original listing</a>${candidate.facts.map(fact => `<p><a href="${escape(fact.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escape(fact.kind.replaceAll("_", " "))}</a> / ${fact.observedAt.slice(0, 10)} / ${escape(fact.verification.replaceAll("_", " "))}<br>${escape(fact.description)}</p>`).join("")}</details><button type="button" class="primary-button" data-investment-select="${escape(candidate.id)}">Investigate this property</button></article>`).join("")}</div><details><summary>Search coverage and exclusions</summary><p>${escape(results.rankingBasis)}</p><p>${Object.entries(results.excluded).map(([key, value]) => `${escape(key)}: ${value}`).join(" / ")}</p><p>${escape(results.coverage.limit)}</p><p>${results.coverage.sources.map(source => `${escape(source.name)}: ${escape(source.coverage || "Coverage not specified")}`).join("<br>")}</p></details>`;
     renderProperty();
     milestones.render(current, status);
     learning.render(current, status);
     renderFinance();
     files.render(current, status);
+    const enteringProperty = propertyEntry.isOpen() && !current?.profileIntake;
+    $("#investmentComposer").hidden = enteringProperty;
+    host.querySelector(".assistant-composer-meta").hidden = enteringProperty;
+    if (enteringProperty) $("#investmentFiles").hidden = true;
   }
   function renderFinance() {
     const pane = $("#investmentFinance"), intake = current?.profileIntake;
     pane.hidden = !intake;
-    $("#investmentProfileStart").hidden = Boolean(intake);
+    $("#investmentProfileStart").hidden = Boolean(intake) || propertyEntry.isOpen();
     $("#investmentProfileStart").textContent = current?.working?.financialProfile && Object.keys(current.working.financialProfile).length ? "Review my buying power" : "Check my buying power";
     $("#investmentInput").placeholder = intake ? "Your answer, or skip..." : "Find a rental property in Penang that fits my situation...";
     if (!intake) return;
@@ -129,8 +146,9 @@ export function createAssistant({ openTool, useProperty, notify, onContextSaved,
     const learningRoot = pane.querySelector("#investmentLearning");
     pane.innerHTML = `<header><p class="eyebrow">ONE PROPERTY / A CONTINUING INVESTIGATION</p><h2>${escape(property.projectName)}</h2><p>${escape(labels[current.stage])} / ${escape(property.area)}</p><button type="button" class="secondary-button" data-investment-action="numbers">Open the valuation tools</button></header>
       <p id="investmentSyncNotice" class="assistant-caption" role="status"></p><div id="investmentSyncActions" hidden><details><summary>Review the differences</summary><div id="investmentSyncDiff"></div></details><button type="button" data-investment-action="retry-sync">Retry saving</button><button type="button" data-investment-action="download-context">Export unsaved inputs</button><button type="button" data-investment-action="keep-context">Keep my tool edits</button><button type="button" data-investment-action="reload-context">Use the saved inputs</button></div>
-      ${current.working ? `<details><summary>Working assumptions / saved ${current.working.updatedAt.slice(0, 10)}</summary><p>Tool edits are private user-declared inputs. They do not change the original listing snapshot or prove the claims.</p><p>Working price: ${escape(current.working.dealCard.askingPrice || "Not provided")} / Working rent: ${escape(current.working.dealCard.expectedRent || "Not provided")} / Income: ${escape(current.working.financialProfile.monthlyIncome || "Not provided")}</p></details>` : ""}
+      ${current.working ? `<details><summary>Working assumptions / saved ${current.working.updatedAt.slice(0, 10)}</summary><p>Tool edits are private user-declared inputs. They do not change the starting property record or prove the claims.</p><p>Working price: ${escape(current.working.dealCard.askingPrice || "Not provided")} / Working rent: ${escape(current.working.dealCard.expectedRent || "Not provided")} / Income: ${escape(current.working.financialProfile.monthlyIncome || "Not provided")}</p></details>` : ""}
       ${current.sourceStatus && current.sourceStatus.status !== "current" ? `<p class="candidate-gap" role="status">${escape(current.sourceStatus.note)}</p>` : ""}
+      ${property.origin === "user_supplied" && property.sourceUrl ? `<p><a href="${escape(property.sourceUrl)}" target="_blank" rel="noopener noreferrer">Your reference link</a> / not opened or verified by Apex</p>` : ""}
       <div id="investmentActions"></div>
       <details><summary>Private observations</summary><form id="investmentEvidenceForm"><label>Add a private observation<textarea name="note" required minlength="12" maxlength="2000"></textarea></label><label>Date<input type="date" name="checkedAt" required max="${date()}" value="${date()}"></label><label>Source (optional)<input type="url" name="sourceUrl" placeholder="https://..."></label><button type="submit">Keep this evidence</button></form>${current.evidence.map(item => `<p>${escape(item.note)}<br><small>${item.checkedAt.slice(0, 10)} / user declared</small></p>`).join("")}</details>
       <details><summary>Move to another ownership stage</summary><form id="investmentStageForm"><label>Current situation<select name="stage">${Object.entries(labels).slice(5).map(([key, value]) => `<option value="${key}" ${key === current.stage ? "selected" : ""}>${value}</option>`).join("")}</select></label><label>What changed, and what remains unresolved?<textarea name="note" required minlength="12" maxlength="1000"></textarea></label><button type="submit">Update my stage</button><p class="assistant-caption">This records your progress, not approval to transact. Apex does not sign, pay, book or contact anyone automatically.</p></form></details>
@@ -151,7 +169,7 @@ export function createAssistant({ openTool, useProperty, notify, onContextSaved,
       $("#investmentSyncDiff").innerHTML = local ? Object.keys(local).flatMap(scope => Array.from(new Set([...Object.keys(local[scope] || {}), ...Object.keys(saved[scope] || {})])).filter(key => JSON.stringify(local[scope]?.[key]) !== JSON.stringify(saved[scope]?.[key])).map(key => `<p><b>${escape(key.replace(/([A-Z])/g, " $1"))}</b><br>Your tool edit: ${escape(typeof local[scope]?.[key] === "object" ? JSON.stringify(local[scope][key]) : local[scope]?.[key] ?? "Not provided")}<br>Saved: ${escape(typeof saved[scope]?.[key] === "object" ? JSON.stringify(saved[scope][key]) : saved[scope]?.[key] ?? "Not provided")}</p>`)).join("") : "No pending tool copy is available.";
     }
   }
-  async function load(id) { const epoch = generation, result = await request(`/api/assistant/cases/${id}`); if (epoch !== generation) return; current = result.case; editing = false; render(); }
+  async function load(id) { const epoch = generation, result = await request(`/api/assistant/cases/${id}`); if (epoch !== generation) return; if (current?.id !== result.case.id) propertyEntry.reset(); current = result.case; editing = false; render(); }
   async function action(name, body = {}) {
     if (!current) return;
     if (sync.hasPending(current.id)) { await sync.flush(current.id); await load(current.id); }
@@ -159,7 +177,7 @@ export function createAssistant({ openTool, useProperty, notify, onContextSaved,
     const response = await request(`/api/assistant/cases/${id}/${name}`, { ...body, revision: current.revision });
     if (epoch !== generation || current?.id !== id) return;
     current = response.case; render();
-    if (name === "message" || name === "profile") $("#investmentMessages").scrollTop = $("#investmentMessages").scrollHeight;
+    if (["message", "profile", "property"].includes(name)) $("#investmentMessages").scrollTop = $("#investmentMessages").scrollHeight;
     if (name === "profile" && body.action === "confirm") { sync.accept(current); if (current.selected) useProperty(current, { replace: true }); }
   }
   async function safely(work) {
@@ -177,9 +195,9 @@ export function createAssistant({ openTool, useProperty, notify, onContextSaved,
       void safely(() => status?.backgroundMode === "server" ? load(current.id) : action("step", { jobId: current.job.id }));
     }, status?.backgroundMode === "server" ? 1800 : 650);
   }
-  async function create() { const epoch = generation, result = await request("/api/assistant/cases", {}); if (epoch !== generation) return; current = result.case; editing = false; render(); }
+  async function create(keepEntry = false) { const epoch = generation, result = await request("/api/assistant/cases", {}); if (epoch !== generation) return; if (!keepEntry) propertyEntry.reset(); current = result.case; editing = false; render(); }
   async function refresh() {
-    generation++; clearTimeout(timer); sync.reset(); syncStates.clear(); for (const controller of requestControllers) controller.abort(); current = null; render();
+    generation++; clearTimeout(timer); sync.reset(); syncStates.clear(); for (const controller of requestControllers) controller.abort(); propertyEntry.reset(); current = null; render();
     const epoch = generation, result = await request("/api/assistant/status");
     if (epoch !== generation) return;
     status = result;
@@ -223,6 +241,7 @@ export function createAssistant({ openTool, useProperty, notify, onContextSaved,
     }
   });
   $("#investmentNew").addEventListener("click", () => void safely(create));
+  $("#investmentManualStart").addEventListener("click", () => { if (busy) return; propertyEntry.open(current); render(); $("#investmentManual input")?.focus(); });
   $("#investmentProfileStart").addEventListener("click", () => void safely(async () => { if (!current) await create(); await action("profile", { action: "start" }); $("#investmentInput").focus(); }));
   $("#investmentCaseSelect").addEventListener("change", event => void safely(() => load(event.target.value)));
   $("#investmentAccount").addEventListener("click", () => void openTool("account"));
@@ -237,7 +256,7 @@ export function createAssistant({ openTool, useProperty, notify, onContextSaved,
   $("#investmentDelete").addEventListener("click", event => {
     if (!current || busy) return;
     if (event.target.dataset.confirm !== current.id) { event.target.dataset.confirm = current.id; event.target.textContent = "Confirm delete private case and drafts; approved shared hypotheses may remain"; return; }
-    void safely(async () => { const id = current.id; const result = await request(`/api/assistant/cases/${id}`, null, "DELETE"); sync.forget(id); onInvestigationDeleted?.(id); current = null; render(); renderCleanup(result.pendingFileDeletes); event.target.textContent = "Delete this investigation"; event.target.dataset.confirm = ""; });
+    void safely(async () => { const id = current.id; const result = await request(`/api/assistant/cases/${id}`, null, "DELETE"); sync.forget(id); onInvestigationDeleted?.(id); propertyEntry.reset(); current = null; render(); renderCleanup(result.pendingFileDeletes); event.target.textContent = "Delete this investigation"; event.target.dataset.confirm = ""; });
   });
   let recognition;
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;

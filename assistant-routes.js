@@ -8,6 +8,7 @@ import { MAX_FILE_BYTES, uploadPrivateFile, reviewPrivateFile, removePrivateFile
 import { changeMilestone, ownershipPlan, RESPONSIBILITIES, ACTION_SUGGESTIONS } from "./assistant-milestones.js";
 import { learningView, learningState, compareThesis, saveLearning, publicProposal, decideProposal } from "./assistant-learning.js";
 import { malaysiaDate } from "./assistant-calendar.js";
+import { startPropertyReview } from "./assistant-property.js";
 
 const COOKIE = "apex_investment_guest";
 function guestScope(req, res, create = false) {
@@ -142,7 +143,7 @@ export async function assistantRoutes({ req, res, url, db, actor, send, readBody
     } else return respond(400, { error: "Choose a file action." });
     return respond(200, { case: publicCase(item) });
   }
-  const match = url.pathname.match(/^\/api\/assistant\/cases\/([\w-]+)(?:\/(message|confirm|step|cancel|select|stage|task|milestone|learning|outcome|evidence|export|context|profile))?$/);
+  const match = url.pathname.match(/^\/api\/assistant\/cases\/([\w-]+)(?:\/(message|confirm|step|cancel|select|property|stage|task|milestone|learning|outcome|evidence|export|context|profile))?$/);
   if (!match) return respond(404, { error: "Assistant endpoint not found." });
   const item = owned().find(item => item.id === match[1]);
   if (!item) return respond(404, { error: "Investigation not found in this account or guest session." });
@@ -163,6 +164,7 @@ export async function assistantRoutes({ req, res, url, db, actor, send, readBody
   }
   if (!Number.isInteger(body.revision) || body.revision !== item.revision) fail("This investigation changed. Reload it before continuing.", 409);
   switch (match[2]) {
+    case "property": startPropertyReview(item, body.property); break;
     case "learning": {
       if (body.action === "preview") {
         const thesis = learningState(item).theses.find(value => value.id === body.thesisId);
@@ -182,7 +184,7 @@ export async function assistantRoutes({ req, res, url, db, actor, send, readBody
       if (requestsProfile(content)) { startProfile(item); break; }
       const requestedBriefEdit = !item.selected && /\b(my budget is|change (?:my |the )?budget|search instead|look in|instead of)\b/i.test(content);
       const inquiry = /^(what|why|how|is|are|should|can|does|do)\b/i.test(content) && !/\b(find|look for|search for|budget)\b/i.test(content);
-      if (socialReply(content) || inquiry || (item.confirmedAt && body.editBrief !== true && !requestedBriefEdit)) {
+      if (socialReply(content) || inquiry || item.selected || (item.confirmedAt && body.editBrief !== true && !requestedBriefEdit)) {
         const working = effectiveContext(item);
         const assessment = item.working && analyze ? analyze(working.dealCard, working.financialProfile) : null;
         const fallback = frameworkReply(content, item, data, assessment);
