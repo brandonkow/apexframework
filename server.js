@@ -1628,6 +1628,12 @@ function normalizeBelief(belief = {}) {
   // derive one from their last review, or from authoring when never reviewed.
   const nextReview = cleanMarketDate(belief.nextReview, "")
     || addDays(lastReviewedAt || createdAt, reviewIntervalDays);
+  const rawSourceIds = Array.isArray(belief.sourceQuestionIds)
+    ? belief.sourceQuestionIds
+    : [belief.sourceQuestionIds, belief.sourceQuestionId];
+  const sourceQuestionIds = [...new Set(rawSourceIds
+    .map((value) => String(value || "").trim().toUpperCase())
+    .filter((value) => /^(S[1-7]|EX)-\d{1,3}$/.test(value)))].slice(0, 12);
   return {
     id: String(belief.id || randomUUID()).slice(0, 100),
     createdAt,
@@ -1638,7 +1644,14 @@ function normalizeBelief(belief = {}) {
     evidenceFor: String(belief.evidenceFor || "").trim().slice(0, 2000),
     evidenceAgainst: String(belief.evidenceAgainst || "").trim().slice(0, 2000),
     falsifier: String(belief.falsifier || "").trim().slice(0, 2000),
-    sourceQuestionId: String(belief.sourceQuestionId || "").trim().slice(0, 120),
+    // A belief usually comes from several interview answers, so the link is a list.
+    // The singular field stays readable for anything written before the record existed.
+    sourceQuestionIds,
+    sourceQuestionId: sourceQuestionIds[0] || "",
+    // A short verbatim excerpt kept inside the belief, so provenance survives even
+    // if the source record is ever lost again.
+    sourceQuote: String(belief.sourceQuote || "").replace(/\s+/g, " ").trim().slice(0, 600),
+    sourceLinkMethod: belief.sourceLinkMethod === "manual" ? "manual" : "auto",
     learningProposalId: String(belief.learningProposalId || "").trim().slice(0, 100),
     lastReviewedAt,
     reviewIntervalDays,
@@ -1690,7 +1703,9 @@ function beliefReviewQueue(brain, { limit = 25, now = Date.now() } = {}) {
       contested: active.filter((belief) => belief.status === "contested").length,
       neverReviewed: active.filter((belief) => belief.neverReviewed).length,
       unverifiedHighConfidence: active.filter((belief) => belief.unverifiedHighConfidence).length,
-      withSourceQuestion: active.filter((belief) => belief.sourceQuestionId).length,
+      withSourceQuestion: active.filter((belief) => belief.sourceQuestionIds.length).length,
+      withSourceQuote: active.filter((belief) => belief.sourceQuote).length,
+      untraced: active.filter((belief) => !belief.sourceQuestionIds.length).length,
       nextDueAt: active.map((belief) => belief.nextReview).sort()[0] || ""
     },
     queue: queue.slice(0, Math.max(1, Math.min(200, limit))).map((belief) => ({
@@ -1700,7 +1715,8 @@ function beliefReviewQueue(brain, { limit = 25, now = Date.now() } = {}) {
       status: belief.status,
       confidence: belief.confidence,
       falsifier: belief.falsifier,
-      sourceQuestionId: belief.sourceQuestionId,
+      sourceQuestionIds: belief.sourceQuestionIds,
+      sourceQuote: belief.sourceQuote,
       reviewState: belief.reviewState,
       dueInDays: belief.dueInDays,
       nextReview: belief.nextReview,
@@ -1712,9 +1728,29 @@ function beliefReviewQueue(brain, { limit = 25, now = Date.now() } = {}) {
   };
 }
 
+function normalizeBrainAnswer(answer = {}) {
+  const text = String(answer.answer || "").trim();
+  if (!text) return null;
+  const questionId = String(answer.questionId || "custom").trim().slice(0, 40);
+  return {
+    id: String(answer.id || randomUUID()).slice(0, 100),
+    createdAt: cleanMarketDate(answer.createdAt, new Date().toISOString()),
+    questionId,
+    category: String(answer.category || "Reflection").trim().slice(0, 120),
+    section: String(answer.section || "").trim().slice(0, 120),
+    question: String(answer.question || "Investor reflection").trim().slice(0, 600),
+    answer: text.slice(0, 4000),
+    source: String(answer.source || "app").trim().slice(0, 60),
+    ruleFile: String(answer.ruleFile || "").trim().slice(0, 120),
+    deferred: Boolean(answer.deferred)
+  };
+}
+
 function normalizeBrain(brain) {
   return {
-    answers: Array.isArray(brain?.answers) ? brain.answers : [],
+    answers: Array.isArray(brain?.answers)
+      ? brain.answers.map(normalizeBrainAnswer).filter(Boolean).slice(-2000)
+      : [],
     beliefs: Array.isArray(brain?.beliefs) ? brain.beliefs.map(normalizeBelief).filter(Boolean) : [],
     decisions: Array.isArray(brain?.decisions) ? brain.decisions : []
   };
@@ -11872,9 +11908,14 @@ async function router(req, res, context = {}) {
     if (body.confidence !== undefined) {
       belief.confidence = Math.max(0, Math.min(100, Math.round(Number(body.confidence) || 0)));
     }
-    if (body.sourceQuestionId !== undefined) {
-      belief.sourceQuestionId = String(body.sourceQuestionId).trim().slice(0, 120);
+    if (body.sourceQuestionIds !== undefined || body.sourceQuestionId !== undefined) {
+      belief.sourceQuestionIds = body.sourceQuestionIds !== undefined
+        ? body.sourceQuestionIds
+        : [body.sourceQuestionId];
+      // A person confirmed this link, so the matcher must never overwrite it.
+      belief.sourceLinkMethod = "manual";
     }
+    if (body.sourceQuote !== undefined) belief.sourceQuote = String(body.sourceQuote).slice(0, 600);
     const requestedInterval = Math.round(Number(body.reviewIntervalDays || 0));
     belief.reviewIntervalDays = requestedInterval > 0
       ? Math.max(7, Math.min(1825, requestedInterval))

@@ -444,7 +444,7 @@ var Yx=Object.defineProperty;var Kx=(n,e)=>()=>(n&&(e=n(n=0)),e);var Jx=(n,e)=>{
         <b>${m(e.overdue||0)} overdue / ${m(e.dueSoon||0)} due soon</b>
         <em>${m(e.neverReviewed||0)} of ${m(e.active||0)} never verified against a real case</em>
       </span>
-      <em>${m(e.unverifiedHighConfidence||0)} high-confidence unverified</em>
+      <em>${m(e.unverifiedHighConfidence||0)} high-confidence unverified / ${m(e.withSourceQuestion||0)} traced to the interview</em>
     </header>
     ${t.length?t.map(i=>`
       <article>
@@ -452,12 +452,13 @@ var Yx=Object.defineProperty;var Kx=(n,e)=>()=>(n&&(e=n(n=0)),e);var Jx=(n,e)=>{
           <small>${m(xR(i))} / ${m(i.confidence)}% / ${m(i.scope||"General")}</small>
           <b>${m(i.claim)}</b>
           <em>Falsifier: ${m(i.falsifier||"Not recorded")}</em>
+          ${i.sourceQuestionIds?.length?`<em class="beliefSource">You said (${m(i.sourceQuestionIds.join(", "))}): &ldquo;${m(i.sourceQuote)}&rdquo;</em>`:'<em class="beliefSource">Not yet traced to an interview answer.</em>'}
         </span>
         <button type="button" data-belief-review="confirm" data-belief-id="${m(i.id)}">HELD UP</button>
         <button type="button" data-belief-review="contest" data-belief-id="${m(i.id)}">COUNTEREXAMPLE</button>
       </article>
     `).join(""):'<p class="ownerIntelEmpty">No belief is due for review. Every active belief has a scheduled re-test date.</p>'}
-    ${e.withSourceQuestion===0&&e.active?'<p class="ownerIntelEmpty">No belief records the source question it came from yet.</p>':""}
+    ${e.untraced?`<p class="ownerIntelEmpty">${m(e.untraced)} belief${e.untraced===1?"":"s"} still need a source answer confirmed by hand.</p>`:""}
   `}async function tx(){if(!Oi())return mi.focus();Ge("Loading belief review queue...");let n=await Et("/api/owner/beliefs/review?limit=25");_R(n);let e=n.summary||{};Ge(`Belief review: ${e.overdue||0} overdue, ${e.dueSoon||0} due soon, ${e.neverReviewed||0} never verified.`,e.overdue||e.contested?"warning":"")}async function SR(n){let e=n.getAttribute("data-belief-id"),t=n.getAttribute("data-belief-review");if(!e||!t)return;let i=t==="confirm"?"What evidence or real case did you check that kept this belief standing?":"What counterexample or case challenges this belief?",s=window.prompt(i,"");if(s!==null){if(s.trim().length<8)return Ge("Record what you actually checked before closing a belief review.","warning");n.disabled=!0;try{await Et(`/api/brain/beliefs/${encodeURIComponent(e)}`,{method:"PATCH",body:JSON.stringify({action:t,note:s.trim()})}),await tx(),Ge(t==="confirm"?"Belief confirmed and re-scheduled.":"Belief marked contested for a 90-day re-test.",t==="confirm"?"":"warning")}finally{n.disabled=!1}}}async function wR(n){if(!n)return;let e=Nt.value.trim();if(e!=="ROLLBACK OWNER KNOWLEDGE")return Nt.hidden=!1,Nt.placeholder="Type ROLLBACK OWNER KNOWLEDGE",Nt.focus(),Ge("Type ROLLBACK OWNER KNOWLEDGE before rolling back to this snapshot.","warning");Ge("Rolling owner knowledge back to selected snapshot...");let t=await Et("/api/owner/restore/rollback",{method:"POST",body:JSON.stringify({snapshotId:n,dryRun:!1,confirmRollback:e})});Nt.value="",await Us(),fm(t.history||{}),Ge(`Owner knowledge rolled back: ${t.counts?.projects||0} projects, ${t.counts?.observations||0} observations, ${t.counts?.developmentCases||0} cases, ${t.counts?.researchStudies||0} research studies.`,"warning")}function ER(n){let e=[{id:"free",name:"Free"},{id:"pro",name:"Pro"},{id:"advisor",name:"Advisor"}];return(qd.length?qd:e).map(i=>`<option value="${m(i.id)}"${i.id===n?" selected":""}>${m(i.name||i.id)}</option>`).join("")}function MR(n){return`
     <article class="ownerAdminUser ${n.disabled?"disabled":""}" data-owner-admin-user="${m(n.id)}">
       <header>

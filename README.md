@@ -32,6 +32,8 @@ The public user experience is intentionally simple: users interact with one Apex
 - Node.js backend with lightweight production dependencies for PostgreSQL (`pg`) and audited Excel ZIP generation (`fflate`).
 - Public assistant endpoints for chat, session creation, and knowledge status.
 - Owner-protected APIs for property analysis, RAG querying, beliefs, decisions, and comparable data.
+- Founder source traceability: the 407-question interview record is committed and hash-protected in `docs/FOUNDER_407_QA.md`, imported into `brain.answers`, and linked to the beliefs it produced, so a rule can be traced back to what was actually said. See `docs/FOUNDER_SOURCE_TRACEABILITY.md`.
+- Belief review scheduling: every belief carries a re-test date weighted by confidence, and `GET /api/owner/beliefs/review` surfaces overdue, contested, and never-verified beliefs in Owner Studio.
 - Seeded Apex Analytic knowledge base in `data/db.json` and `rag/corpus.json`.
 - Deployment-ready health check at `/api/health`.
 

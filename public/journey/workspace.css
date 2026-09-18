@@ -101,6 +101,22 @@
 #workbench .ownerIntelLanes > article, #workbench .ownerIntelOps > article { padding: 18px; border: 1px solid var(--line); border-radius: 12px; margin-bottom: 12px; }
 #workbench .ownerIntelLanes > article small, #workbench .ownerIntelLanes > article b, #workbench .ownerIntelOps > article small, #workbench .ownerIntelOps > article b { display: block; margin-bottom: 8px; }
 #workbench .ownerIntelLanes > article p { color: var(--muted); font-size: 12px; margin-bottom: 0; }
+/* Restore log and belief review share this shell; without it both render as a
+   run-on block of text instead of readable rows. */
+#workbench .ownerIntelRestoreLog { margin: 24px 0; border-top: 1px solid var(--line); padding-top: 20px; }
+#workbench .ownerIntelRestoreLog > header { display: flex; gap: 12px; flex-wrap: wrap; align-items: baseline; justify-content: space-between; margin-bottom: 16px; }
+#workbench .ownerIntelRestoreLog > header > span { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+#workbench .ownerIntelRestoreLog > header small { color: var(--muted); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; }
+#workbench .ownerIntelRestoreLog > header b { font-size: 15px; }
+#workbench .ownerIntelRestoreLog > header em { color: var(--muted); font-size: 12px; font-style: normal; }
+#workbench .ownerIntelRestoreLog > article { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; padding: 16px; border: 1px solid var(--line); border-radius: 12px; margin-bottom: 12px; }
+#workbench .ownerIntelRestoreLog > article > span { display: flex; flex-direction: column; gap: 8px; flex: 1 1 320px; min-width: 0; }
+#workbench .ownerIntelRestoreLog > article small { color: var(--muted); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; }
+#workbench .ownerIntelRestoreLog > article b { font-size: 13px; line-height: 1.5; }
+#workbench .ownerIntelRestoreLog > article em { color: var(--muted); font-size: 12px; font-style: normal; line-height: 1.5; }
+#workbench .ownerIntelRestoreLog .beliefSource { padding-left: 10px; border-left: 2px solid var(--line); }
+#workbench .ownerIntelRestoreLog > article button { flex: 0 0 auto; align-self: center; }
+#workbench .ownerIntelRestoreLog > p { color: var(--muted); font-size: 12px; }
 #workbench .ownerIntelWorkspace > section { margin: 24px 0; border-top: 1px solid var(--line); padding-top: 24px; }
 #workbench .ownerIntelWorkspace header, #workbench .ownerMarketForm header, #workbench .ownerCaseForm header, #workbench .ownerEvidenceForm header { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin: 20px 0; }
 #workbench .ownerIntelWorkspace header > span { display: flex; flex-direction: column; gap: 8px; }

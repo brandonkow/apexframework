@@ -3533,7 +3533,7 @@ function renderOwnerBeliefReview(payload = {}) {
         <b>${escapeHtml(summary.overdue || 0)} overdue / ${escapeHtml(summary.dueSoon || 0)} due soon</b>
         <em>${escapeHtml(summary.neverReviewed || 0)} of ${escapeHtml(summary.active || 0)} never verified against a real case</em>
       </span>
-      <em>${escapeHtml(summary.unverifiedHighConfidence || 0)} high-confidence unverified</em>
+      <em>${escapeHtml(summary.unverifiedHighConfidence || 0)} high-confidence unverified / ${escapeHtml(summary.withSourceQuestion || 0)} traced to the interview</em>
     </header>
     ${queue.length ? queue.map((belief) => `
       <article>
@@ -3541,12 +3541,15 @@ function renderOwnerBeliefReview(payload = {}) {
           <small>${escapeHtml(beliefReviewStateLabel(belief))} / ${escapeHtml(belief.confidence)}% / ${escapeHtml(belief.scope || "General")}</small>
           <b>${escapeHtml(belief.claim)}</b>
           <em>Falsifier: ${escapeHtml(belief.falsifier || "Not recorded")}</em>
+          ${belief.sourceQuestionIds?.length
+            ? `<em class="beliefSource">You said (${escapeHtml(belief.sourceQuestionIds.join(", "))}): &ldquo;${escapeHtml(belief.sourceQuote)}&rdquo;</em>`
+            : '<em class="beliefSource">Not yet traced to an interview answer.</em>'}
         </span>
         <button type="button" data-belief-review="confirm" data-belief-id="${escapeHtml(belief.id)}">HELD UP</button>
         <button type="button" data-belief-review="contest" data-belief-id="${escapeHtml(belief.id)}">COUNTEREXAMPLE</button>
       </article>
     `).join("") : '<p class="ownerIntelEmpty">No belief is due for review. Every active belief has a scheduled re-test date.</p>'}
-    ${summary.withSourceQuestion === 0 && summary.active ? '<p class="ownerIntelEmpty">No belief records the source question it came from yet.</p>' : ""}
+    ${summary.untraced ? `<p class="ownerIntelEmpty">${escapeHtml(summary.untraced)} belief${summary.untraced === 1 ? "" : "s"} still need a source answer confirmed by hand.</p>` : ""}
   `;
 }
 
