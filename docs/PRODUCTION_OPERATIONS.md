@@ -84,7 +84,30 @@ The badge belongs to the individual message and remains visible after refresh or
 
 ## Deployment Checks
 
-After a Render deployment:
+### Read-only readiness
+
+For the current Vercel deployment, run this from the repository in PowerShell:
+
+```powershell
+npm run smoke -- https://apex-jarvis-engine.vercel.app --require-durable --framework-only
+```
+
+This deliberately exits with a failure while production still uses temporary JSON storage. A running page is not proof that private investigations survive a redeployment. The command only reads status endpoints; it does not create accounts, cases, listings, documents, model requests or payments. No credentials are required. Optional owner checks use a privately configured `APEX_SMOKE_OWNER_TOKEN`; never put that token in the command or URL.
+
+Options:
+
+- `--require-durable`: fail unless both health and assistant status report PostgreSQL and assistant status reports durability.
+- `--framework-only`: fail if a reasoning provider is configured. Keep this while model integration is deferred.
+- `--expect-revision COMMIT`: check the deployed full commit ID against the supplied 7-40 character ID. Run it after the intended deployment finishes.
+- `--require-private-files`: additionally require private uploads to be enabled with durable database storage. Use only after configuring private object storage.
+
+Without the required-storage flags, temporary storage produces a warning so local development remains usable. Empty discovery coverage is always disclosed but does not block review of a privately supplied property. Published records do not prove permission, source accuracy or sufficient coverage. Each request has a ten-second timeout; redirects are rejected, including for owner checks. Use the canonical deployment origin.
+
+A passing check is only a configuration/status observation. Complete the hosted table-access, cross-account isolation, save/redeploy/reopen, export/delete and backup/restore checks in [POSTGRESQL.md](POSTGRESQL.md) before relying on long-term records. Test private originals separately after storage is enabled. No live provider quality is claimed or required for framework-only operation.
+
+### Authorized end-to-end acceptance
+
+On the intended deployment, using explicitly designated test records:
 
 1. Run `npm run smoke -- https://your-apex-service.onrender.com` from a trusted local terminal.
 2. Paste the owner token into the Owner console and run `OPS CHECK`.

@@ -70,6 +70,7 @@ This addresses a real distinction between table grants and row policies, especia
 These checks do not verify the hosted project's credentials, TLS, pooler, network rules, backups or Data API endpoint. After securely configuring the separate project's connection on the deployment host:
 
 1. Deploy and verify `/api/health` reports `storage: postgres` and `/api/assistant/status` reports durable storage.
+   The read-only command `npm run smoke -- https://apex-jarvis-engine.vercel.app --require-durable --framework-only` fails if these storage signals are missing or a reasoning provider is enabled. It does not write a test case or establish actual cross-redeployment durability.
 2. Check the hosted project's table policies/grants and confirm direct public Data API access is disabled or denied. Keep tests scoped to Apex's project.
 3. With an explicitly designated test account, verify a private case and its memory survive a new server instance/deployment, cannot be read by another account, and can be exported/deleted normally.
 4. Verify backup and restore before relying on long-term records. Private file bytes need their separate durable-object configuration; PostgreSQL alone does not enable uploads.
