@@ -78,7 +78,7 @@ test("the seeded database carries the founder answers with their rule files", as
   assert.ok(deferred.length >= 20 && deferred.length <= 40, `unexpected deferral count ${deferred.length}`);
 });
 
-test("beliefs are traceable back to the answers that produced them", async () => {
+test("suggested belief sources cite existing answers and preserve their actual excerpts", async () => {
   const db = await loadDb();
   const traced = db.brain.beliefs.filter((item) => item.sourceQuestionIds?.length);
   assert.ok(traced.length >= 45, `expected most beliefs traced, got ${traced.length}`);
@@ -89,6 +89,9 @@ test("beliefs are traceable back to the answers that produced them", async () =>
     for (const questionId of belief.sourceQuestionIds) {
       assert.ok(answerIds.has(questionId), `${belief.id} cites missing question ${questionId}`);
     }
+    const excerpt = belief.sourceQuote.replace(/\s+/g, " ").replace(/\.\.\.$/, "").trim();
+    assert.ok(db.brain.answers.some(answer => belief.sourceQuestionIds.includes(answer.questionId)
+      && answer.answer.replace(/\s+/g, " ").trim().startsWith(excerpt)), `${belief.id} quote must come from a proposed source, not be invented`);
   }
 
   const priceBand = db.brain.beliefs.find((item) => item.id === "stage-1c-price-band-liquidity");

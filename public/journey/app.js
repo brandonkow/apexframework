@@ -444,7 +444,7 @@ var e0=Object.defineProperty;var Dm=(n,e)=>()=>(n&&(e=n(n=0)),e);var t0=(n,e)=>{
         <b>${g(e.overdue||0)} overdue / ${g(e.dueSoon||0)} due soon</b>
         <em>${g(e.neverReviewed||0)} of ${g(e.active||0)} never verified against a real case</em>
       </span>
-      <em>${g(e.unverifiedHighConfidence||0)} high-confidence unverified / ${g(e.withSourceQuestion||0)} traced to the interview</em>
+      <em>${g(e.unverifiedHighConfidence||0)} high-confidence unverified / ${g(e.proposedSourceLinks||0)} suggested source links / ${g(e.confirmedSourceLinks||0)} owner-confirmed links</em>
     </header>
     ${t.length?t.map(i=>`
       <article>
@@ -452,7 +452,7 @@ var e0=Object.defineProperty;var Dm=(n,e)=>()=>(n&&(e=n(n=0)),e);var t0=(n,e)=>{
           <small>${g(MR(i))} / ${g(i.confidence)}% / ${g(i.scope||"General")}</small>
           <b>${g(i.claim)}</b>
           <em>Falsifier: ${g(i.falsifier||"Not recorded")}</em>
-          ${i.sourceQuestionIds?.length?`<em class="beliefSource">You said (${g(i.sourceQuestionIds.join(", "))}): &ldquo;${g(i.sourceQuote)}&rdquo;</em>`:'<em class="beliefSource">Not yet traced to an interview answer.</em>'}
+          ${i.sourceQuestionIds?.length?`<em class="beliefSource">${i.sourceLinkMethod==="manual"?"Owner-confirmed source link":"Suggested source link / needs review"} (${g(i.sourceQuestionIds.join(", "))}). Interview excerpt: &ldquo;${g(i.sourceQuote)}&rdquo;</em>`:'<em class="beliefSource">Not yet traced to an interview answer.</em>'}
         </span>
         <button type="button" data-belief-review="confirm" data-belief-id="${g(i.id)}">HELD UP</button>
         <button type="button" data-belief-review="contest" data-belief-id="${g(i.id)}">COUNTEREXAMPLE</button>

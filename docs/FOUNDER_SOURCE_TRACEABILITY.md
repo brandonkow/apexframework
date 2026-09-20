@@ -67,17 +67,20 @@ Three guards enforce that.
 - **At least three matching terms.** One shared rare word can outscore everything on
   its own, which is coincidence rather than provenance.
 
-Where several close rivals sit in the same interview section, the belief genuinely
-draws on all of them and every one is recorded. Where close rivals are scattered
-across sections, the belief is left unlinked for manual confirmation.
+Where several close rivals sit in the same interview section, the matcher proposes
+up to four of them as possible sources. Text similarity does not establish that
+the belief genuinely came from those answers. Where close rivals are scattered,
+the belief is left unlinked for manual confirmation.
 
 The script is idempotent: re-running it reproduces the same database exactly. It
 clears auto-links it can no longer stand behind, and never touches a link a person
 confirmed by hand (`sourceLinkMethod: "manual"`, set whenever a link arrives through
 `PATCH /api/brain/beliefs/:id`).
 
-Current state: **56 of 76 beliefs traced**, 18 of them to several answers. The
-remaining 20 need a person to confirm the source, and the owner console names them.
+Seed state: **56 of 76 beliefs have suggested source links**, 18 of them to several
+answers. None of these seed links is owner-confirmed. The other 20 have no proposed
+link. Owner Studio distinguishes suggested links from owner-confirmed attribution;
+neither is proof that an investment rule has been validated against real outcomes.
 
 ## The review loop
 
@@ -104,9 +107,10 @@ change what gets bought:
   shrink the exit pool. S1-107 sets 90 years as acceptable; the cliff below that is
   unrecorded.
 - **`building-age-at-exit`** - S1-2 rejects high-rise older than 10 years and S1-5
-  sets a 3-7 year hold, so a property bought at age 5 is sold at 12-15: into the
-  segment the framework itself rejects. Nothing in the repository reconciles those
-  two rules.
+  sets a 3-7 year hold, so a property bought at age 5 is sold at age 8-12. The longer
+  end of that range crosses the founder's entry-age preference. An entry filter is
+  not automatically an exit rule; the acceptable exit-age conditions still need
+  clarification.
 
 A further twelve questions were drafted and deliberately excluded. They covered
 personal-shock risk, estate and succession planning, asset-class opportunity cost,

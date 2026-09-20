@@ -1705,6 +1705,8 @@ function beliefReviewQueue(brain, { limit = 25, now = Date.now() } = {}) {
       unverifiedHighConfidence: active.filter((belief) => belief.unverifiedHighConfidence).length,
       withSourceQuestion: active.filter((belief) => belief.sourceQuestionIds.length).length,
       withSourceQuote: active.filter((belief) => belief.sourceQuote).length,
+      proposedSourceLinks: active.filter((belief) => belief.sourceQuestionIds.length && belief.sourceLinkMethod !== "manual").length,
+      confirmedSourceLinks: active.filter((belief) => belief.sourceQuestionIds.length && belief.sourceLinkMethod === "manual").length,
       untraced: active.filter((belief) => !belief.sourceQuestionIds.length).length,
       nextDueAt: active.map((belief) => belief.nextReview).sort()[0] || ""
     },
@@ -1717,6 +1719,7 @@ function beliefReviewQueue(brain, { limit = 25, now = Date.now() } = {}) {
       falsifier: belief.falsifier,
       sourceQuestionIds: belief.sourceQuestionIds,
       sourceQuote: belief.sourceQuote,
+      sourceLinkMethod: belief.sourceLinkMethod,
       reviewState: belief.reviewState,
       dueInDays: belief.dueInDays,
       nextReview: belief.nextReview,

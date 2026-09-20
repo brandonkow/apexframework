@@ -3534,7 +3534,7 @@ function renderOwnerBeliefReview(payload = {}) {
         <b>${escapeHtml(summary.overdue || 0)} overdue / ${escapeHtml(summary.dueSoon || 0)} due soon</b>
         <em>${escapeHtml(summary.neverReviewed || 0)} of ${escapeHtml(summary.active || 0)} never verified against a real case</em>
       </span>
-      <em>${escapeHtml(summary.unverifiedHighConfidence || 0)} high-confidence unverified / ${escapeHtml(summary.withSourceQuestion || 0)} traced to the interview</em>
+      <em>${escapeHtml(summary.unverifiedHighConfidence || 0)} high-confidence unverified / ${escapeHtml(summary.proposedSourceLinks || 0)} suggested source links / ${escapeHtml(summary.confirmedSourceLinks || 0)} owner-confirmed links</em>
     </header>
     ${queue.length ? queue.map((belief) => `
       <article>
@@ -3543,7 +3543,7 @@ function renderOwnerBeliefReview(payload = {}) {
           <b>${escapeHtml(belief.claim)}</b>
           <em>Falsifier: ${escapeHtml(belief.falsifier || "Not recorded")}</em>
           ${belief.sourceQuestionIds?.length
-            ? `<em class="beliefSource">You said (${escapeHtml(belief.sourceQuestionIds.join(", "))}): &ldquo;${escapeHtml(belief.sourceQuote)}&rdquo;</em>`
+            ? `<em class="beliefSource">${belief.sourceLinkMethod === "manual" ? "Owner-confirmed source link" : "Suggested source link / needs review"} (${escapeHtml(belief.sourceQuestionIds.join(", "))}). Interview excerpt: &ldquo;${escapeHtml(belief.sourceQuote)}&rdquo;</em>`
             : '<em class="beliefSource">Not yet traced to an interview answer.</em>'}
         </span>
         <button type="button" data-belief-review="confirm" data-belief-id="${escapeHtml(belief.id)}">HELD UP</button>

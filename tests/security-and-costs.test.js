@@ -154,6 +154,30 @@ test("security hardening and Malaysian deal-cost engine", async (t) => {
     assert.equal(ops.billing.enforcement, false);
   });
 
+  await t.test("owner review distinguishes suggested source links from manual attribution", async () => {
+    const route = `${baseUrl}/api/owner/beliefs/review?limit=200`;
+    assert.equal((await fetch(route)).status, 403);
+    const headers = { "x-estatelab-owner-token": OWNER_TOKEN };
+    const before = await (await fetch(route, { headers })).json();
+    assert.ok(before.summary.proposedSourceLinks > 0);
+    assert.equal(before.summary.confirmedSourceLinks, 0);
+    const belief = before.queue.find(item => item.sourceQuestionIds.length);
+    assert.equal(belief.sourceLinkMethod, "auto");
+    const response = await fetch(`${baseUrl}/api/brain/beliefs/${belief.id}`, {
+      method: "PATCH", headers: { ...headers, "content-type": "application/json" },
+      body: JSON.stringify({ action: "schedule", sourceQuestionIds: belief.sourceQuestionIds })
+    });
+    assert.equal(response.status, 200);
+    const saved = await response.json();
+    assert.equal(saved.belief.claim, belief.claim);
+    assert.equal(saved.belief.sourceLinkMethod, "manual");
+    assert.equal(saved.belief.neverReviewed, true, "source attribution cannot validate the investment rule");
+    const after = await (await fetch(route, { headers })).json();
+    assert.equal(after.summary.confirmedSourceLinks, 1);
+    assert.equal(after.summary.proposedSourceLinks, before.summary.proposedSourceLinks - 1);
+    assert.equal(after.queue.find(item => item.id === belief.id).sourceLinkMethod, "manual");
+  });
+
   await t.test("deal-cost calculator returns tiered Malaysian estimates", async () => {
     const { response, payload } = await post(baseUrl, "/api/tools/deal-costs", {
       price: 500000,

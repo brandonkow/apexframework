@@ -112,8 +112,8 @@ export function proposeLinks(beliefs, answers, { minScore = 1.6, minRatio = 1.45
     const best = ranked[0];
     const runnerUp = ranked[1];
     // Close rivals mean one of two things. If they sit in the same interview
-    // section, the belief genuinely draws on several adjacent answers and all of
-    // them are its source. If they are scattered, the match is ambiguous and the
+    // section, several adjacent answers are plausible source candidates, not
+    // confirmed provenance. If they are scattered, the match is ambiguous and the
     // belief is better left unlinked than wrongly attributed.
     const rivals = ranked.filter((entry) => entry.score >= minScore && entry.score >= best.score * 0.8);
     const sameSection = rivals.length > 1
