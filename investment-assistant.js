@@ -97,9 +97,9 @@ export function validateImport(body, now = Date.now()) {
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) fail(`Listing ${index + 1} must be an object.`);
     const sourceUrl = publicUrl(raw.sourceUrl), observedAt = pastDate(raw.observedAt, now);
     if (!text(raw.id) || !text(raw.projectName) || !text(raw.area) || !text(raw.state) || !TYPES.slice(0, -1).includes(raw.propertyType) || !sourceUrl || !observedAt || !amount(raw.askingPrice)) fail(`Listing ${index + 1}: provide ID, project, area, state, residential type, positive asking price, HTTPS source and a valid past date.`);
-    if (seen.has(raw.id)) fail(`Listing ${index + 1}: duplicate source listing ID.`);
-    seen.add(raw.id);
     const id = `${source.id}:${text(raw.id, 100)}`;
+    if (seen.has(id)) fail(`Listing ${index + 1}: duplicate source listing ID after normalization.`);
+    seen.add(id);
     if (raw.facts !== undefined && !Array.isArray(raw.facts)) fail(`Listing ${index + 1}: facts must be an array.`);
     const facts = (raw.facts || []).slice(0, 40).map(fact => {
       if (!fact || typeof fact !== "object") fail(`Listing ${index + 1}: invalid fact.`);

@@ -1,4 +1,5 @@
 // Feature behavior is mounted into the unified studio, never a separate legacy page.
+import { dcfPercent, dcfDscr } from "./dcf-format.js";
 let activeCandidateId = "";
 function publishContext(extra = {}) {
   if (!activeCandidateId) return;
@@ -5224,11 +5225,6 @@ function dealSnapshotMarkup(analysis = {}) {
   `;
 }
 
-function dcfPercent(value, digits = 1) {
-  const numeric = Number(value);
-  return Number.isFinite(numeric) ? `${(numeric * 100).toFixed(digits)}%` : "Not available";
-}
-
 function dcfValuationText(result = {}) {
   if (!result || result.status === "incomplete") {
     return ["Residential DCF", ...(result?.issues || ["Minimum DCF inputs are incomplete."]).map((item) => `- ${item}`)];
@@ -5242,7 +5238,7 @@ function dcfValuationText(result = {}) {
     `Comparison indication: ${result.comparisonApproach?.value ? ringgitAmount(result.comparisonApproach.value) : "Need 3 recent verified sales"}`,
     `Purchase price: ${ringgitAmount(result.purchasePrice)}`,
     `Price variance: ${dcfPercent(result.priceVariance)}`,
-    `Year 1 DSCR: ${Number.isFinite(Number(result.buyerReturns?.year1Dscr)) ? `${Number(result.buyerReturns.year1Dscr).toFixed(2)}x` : "Not available"}`,
+    `Year 1 DSCR: ${dcfDscr(result.buyerReturns?.year1Dscr)}`,
     `Levered equity IRR: ${dcfPercent(result.buyerReturns?.leveredEquityIrr)}`,
     `Evidence: ${result.evidence?.score || 0}/100`,
     ...(result.evidence?.missing || []).map((item) => `- Missing: ${item}`),
@@ -5277,7 +5273,7 @@ function dcfValuationMarkup(result = {}) {
         <span><small>Income DCF</small><b>${escapeHtml(ringgitAmount(result.incomeApproach?.dcfValue))}</b></span>
         <span><small>Completed-sale comparison</small><b>${result.comparisonApproach?.value ? escapeHtml(ringgitAmount(result.comparisonApproach.value)) : "Need 3 verified sales"}</b></span>
         <span><small>Terminal concentration</small><b>${escapeHtml(dcfPercent(result.incomeApproach?.terminalConcentration))}</b></span>
-        <span><small>Year 1 DSCR</small><b>${Number.isFinite(Number(result.buyerReturns?.year1Dscr)) ? `${Number(result.buyerReturns.year1Dscr).toFixed(2)}x` : "N/A"}</b></span>
+        <span><small>Year 1 DSCR</small><b>${dcfDscr(result.buyerReturns?.year1Dscr)}</b></span>
         <span><small>Levered equity IRR</small><b>${escapeHtml(dcfPercent(result.buyerReturns?.leveredEquityIrr))}</b></span>
         <span><small>Evidence strength</small><b>${escapeHtml(result.evidence?.score || 0)}/100</b></span>
       </div>

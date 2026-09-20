@@ -10,7 +10,7 @@
 
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const repoDir = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const RECORD_PATH = path.join(repoDir, "docs", "FOUNDER_407_QA.md");
@@ -125,6 +125,6 @@ async function main() {
   console.log(`\nSeeded data/db.json: ${answers.length} founder answers, ${kept.length} other answers retained.`);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   await main();
 }

@@ -2622,7 +2622,7 @@ function rpgtRateForHoldingYears(years) {
 function estimateMalaysianDealCosts({ price, loanMarginPercent = 90, holdingYears = null } = {}) {
   const cleanPrice = Math.max(0, Number(price) || 0);
   if (!cleanPrice) return null;
-  const margin = Math.max(0, Math.min(100, Number(loanMarginPercent) || 0)) || 90;
+  const margin = Math.max(0, Math.min(100, Number(loanMarginPercent)));
   const loanAmount = money(cleanPrice * (margin / 100));
   const downPayment = money(cleanPrice - loanAmount);
   const motStampDuty = money(tieredCharge(cleanPrice, MYS_MOT_STAMP_TIERS));
@@ -2638,7 +2638,7 @@ function estimateMalaysianDealCosts({ price, loanMarginPercent = 90, holdingYear
     { label: "Disbursements, searches, and registration allowance", amount: disbursementAllowance, basis: "Fixed planning allowance; actual invoices vary" }
   ].filter((item) => item.amount > 0);
   const totalTransactionCosts = money(items.reduce((sum, item) => sum + item.amount, 0));
-  const holding = holdingYears === null || holdingYears === undefined || holdingYears === 0 ? null : Math.max(0, Number(holdingYears) || 0);
+  const holding = holdingYears === null || holdingYears === undefined ? null : Math.max(0, Number(holdingYears) || 0);
   return {
     currency: "RM",
     price: cleanPrice,
@@ -2671,11 +2671,22 @@ function loanFromInstallment(installment, annualRate, years) {
   return payment * ((1 + rate) ** months - 1) / (rate * (1 + rate) ** months);
 }
 
+function calculatorNumber(value, name, { fallback, min = 0, max = 1e9, integer = false } = {}) {
+  if (value === undefined || value === null || (typeof value === "string" && !value.trim())) {
+    if (fallback !== undefined) return fallback;
+  }
+  const number = typeof value === "number" || (typeof value === "string" && /^\d+(?:\.\d+)?$/.test(value.trim())) ? Number(value) : NaN;
+  if (!Number.isFinite(number) || number < min || number > max || (integer && !Number.isInteger(number))) {
+    throw Object.assign(new Error(`${name} must be a ${integer ? "whole " : ""}number between ${min} and ${max}.`), { statusCode: 400 });
+  }
+  return number;
+}
+
 function estimateAffordability({ monthlyIncome, monthlyCommitments = 0, interestRate = 4.3, tenureYears = 30, dsrLimit = 70 } = {}) {
   const income = Math.max(0, Number(monthlyIncome) || 0);
   if (!income) return null;
   const commitments = Math.max(0, Number(monthlyCommitments) || 0);
-  const rate = Math.max(0.1, Math.min(15, Number(interestRate) || 4.3));
+  const rate = Math.max(0, Math.min(15, Number(interestRate)));
   const tenure = Math.max(5, Math.min(35, Number(tenureYears) || 30));
   const dsr = Math.max(10, Math.min(90, Number(dsrLimit) || 70));
   const currentDsr = money((commitments / income) * 100);
@@ -5095,7 +5106,7 @@ function analyzeSevenStageDeal(rawDealCard = {}, rawFinancialProfile = {}) {
   const holdingCashFlow = rent && installment ? rent - installment - maintenance : null;
   const postDealDsr = income && installment ? ((currentDebt + installment) / income) * 100 : null;
   const cashAfterPurchase = cashAvailableProvided && cashOutlayProvided ? cashAvailable - cashOutlay : null;
-  const loanMarginMatch = String(dealCard.loanMarginPlan || "").match(/(\d{2,3})\s*%/);
+  const loanMarginMatch = String(dealCard.loanMarginPlan || "").match(/\b(\d{1,3}(?:\.\d+)?)\s*%/);
   const plannedLoanMarginPercent = loanMarginMatch ? Math.max(0, Math.min(100, Number(loanMarginMatch[1]))) : 90;
   const acquisitionCostEstimate = estimateMalaysianDealCosts({
     price,
@@ -7889,9 +7900,9 @@ function analyzeSevenStageDeal(rawDealCard = {}, rawFinancialProfile = {}) {
 }
 
 function loanToValueFromContext(value) {
-  const clean = String(value || "").toLowerCase();
+  const clean = String(value ?? "").toLowerCase();
   const stated = parsePlainNumber(clean);
-  if (stated > 0) return stated > 1 ? stated / 100 : stated;
+  if (stated >= 0 && /\d/.test(clean)) return stated > 1 || clean.includes("%") ? stated / 100 : stated;
   if (/above 90|cash.?out/.test(clean)) return 0.95;
   if (/90/.test(clean)) return 0.9;
   if (/80/.test(clean)) return 0.8;
@@ -7908,7 +7919,8 @@ function residentialDcfPayload(body = {}, dealCard = {}, financialProfile = {}) 
   const valuation = body.valuation && typeof body.valuation === "object" && !Array.isArray(body.valuation)
     ? body.valuation
     : body;
-  const purchasePrice = parseAmount(valuation.purchasePrice || dealCard.askingPrice);
+  const provided = (value, fallback) => value === undefined || value === null || value === "" ? fallback : value;
+  const purchasePrice = parseAmount(provided(valuation.purchasePrice, dealCard.askingPrice));
   const holdingPeriodYears = parsePlainNumber(valuation.holdingPeriodYears || financialProfile.holdingPeriod) || 5;
   const loanToValue = valuation.loanToValue === undefined || valuation.loanToValue === ""
     ? loanToValueFromContext(dealCard.loanMarginPlan)
@@ -7930,19 +7942,19 @@ function residentialDcfPayload(body = {}, dealCard = {}, financialProfile = {}) 
     propertyType: valuation.propertyType || dealCard.propertyType,
     tenure: valuation.tenure || dealCard.tenure,
     purchasePrice,
-    floorArea: valuation.floorArea || dealCard.floorArea,
-    monthlyMarketRent: valuation.monthlyMarketRent || dealCard.expectedRent,
-    monthlyMaintenance: valuation.monthlyMaintenance || dealCard.maintenance,
+    floorArea: provided(valuation.floorArea, dealCard.floorArea),
+    monthlyMarketRent: provided(valuation.monthlyMarketRent, dealCard.expectedRent),
+    monthlyMaintenance: provided(valuation.monthlyMaintenance, dealCard.maintenance),
     holdingPeriodYears,
     loanToValue,
     marketRentEvidence: valuation.marketRentEvidence || [dealCard.rentEvidence, dealCard.rentalSource].filter(Boolean).join("; "),
     operatingCostEvidence: valuation.operatingCostEvidence || dealCard.siteManagementNotes,
-    annualAssessment: valuation.annualAssessment || dealCard.annualAssessmentQuitRent,
-    annualInsurance: valuation.annualInsurance || dealCard.annualInsuranceTax,
-    initialRenovation: valuation.initialRenovation || dealCard.furnishingBudget,
-    transferStampDuty: valuation.transferStampDuty || transferStampDuty,
-    legalDueDiligence: valuation.legalDueDiligence || legalDueDiligence,
-    loanValuationFees: valuation.loanValuationFees || loanValuationFees,
+    annualAssessment: provided(valuation.annualAssessment, dealCard.annualAssessmentQuitRent),
+    annualInsurance: provided(valuation.annualInsurance, dealCard.annualInsuranceTax),
+    initialRenovation: provided(valuation.initialRenovation, dealCard.furnishingBudget),
+    transferStampDuty: provided(valuation.transferStampDuty, transferStampDuty),
+    legalDueDiligence: provided(valuation.legalDueDiligence, legalDueDiligence),
+    loanValuationFees: provided(valuation.loanValuationFees, loanValuationFees),
     exitRpgtRate: valuation.exitRpgtRate === undefined || valuation.exitRpgtRate === ""
       ? Number(costs?.rpgt?.applicableRate || 0) / 100
       : valuation.exitRpgtRate,
@@ -10456,14 +10468,11 @@ async function router(req, res, context = {}) {
       return send(res, 429, { error: "Too many calculator requests. Pause briefly and try again." }, { ...jsonHeaders, "Retry-After": "600" });
     }
     const body = await readBody(req);
-    const price = Number(body.price || 0);
-    if (!Number.isFinite(price) || price <= 0 || price > 1000000000) {
-      return send(res, 400, { error: "Provide a purchase price above zero to estimate Malaysian entry costs." });
-    }
+    const price = calculatorNumber(body.price, "Purchase price", { min: 0.01 });
     const estimate = estimateMalaysianDealCosts({
       price,
-      loanMarginPercent: Number(body.loanMarginPercent || 90),
-      holdingYears: body.holdingYears === undefined || body.holdingYears === null || body.holdingYears === "" ? null : Number(body.holdingYears)
+      loanMarginPercent: calculatorNumber(body.loanMarginPercent, "Loan margin", { fallback: 90, max: 100 }),
+      holdingYears: calculatorNumber(body.holdingYears, "Holding years", { fallback: null, max: 100 })
     });
     return send(res, 200, { estimate });
   }
@@ -10474,11 +10483,11 @@ async function router(req, res, context = {}) {
     }
     const body = await readBody(req);
     const estimate = estimateAffordability({
-      monthlyIncome: Number(body.monthlyIncome || 0),
-      monthlyCommitments: Number(body.monthlyCommitments || 0),
-      interestRate: Number(body.interestRate || 4.3),
-      tenureYears: Number(body.tenureYears || 30),
-      dsrLimit: Number(body.dsrLimit || 70)
+      monthlyIncome: calculatorNumber(body.monthlyIncome, "Monthly income", { min: 0.01 }),
+      monthlyCommitments: calculatorNumber(body.monthlyCommitments, "Monthly commitments", { fallback: 0 }),
+      interestRate: calculatorNumber(body.interestRate, "Interest rate", { fallback: 4.3, max: 15 }),
+      tenureYears: calculatorNumber(body.tenureYears, "Loan tenure", { fallback: 30, min: 5, max: 35, integer: true }),
+      dsrLimit: calculatorNumber(body.dsrLimit, "DSR limit", { fallback: 70, min: 10, max: 90 })
     });
     if (!estimate) return send(res, 400, { error: "Provide a monthly income above zero to estimate affordability." });
     return send(res, 200, { estimate });
@@ -12194,8 +12203,12 @@ function handleError(res, error) {
 }
 
 async function handler(req, res, context = {}) {
-  await ready();
-  return router(req, res, context);
+  try {
+    await ready();
+    return await router(req, res, context);
+  } catch (error) {
+    handleError(res, error);
+  }
 }
 
 function isMainModule() {
@@ -12234,7 +12247,7 @@ if (isMainModule()) {
   await ready();
   logStartupSecurityWarnings();
   server = http.createServer((req, res) => {
-    handler(req, res).catch((error) => handleError(res, error));
+    void handler(req, res);
   });
 
   server.listen(PORT, HOST, () => {

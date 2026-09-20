@@ -123,3 +123,58 @@ test("downloaded template rejects a horizon it cannot display", async () => {
     (error) => error.code === "DCF_WORKBOOK_HORIZON" && /five-year/i.test(error.message)
   );
 });
+
+test("explicit percentages below or equal to one retain their units", () => {
+  const result = calculateResidentialDcf({
+    ...templateCase, annualRentGrowth: "0.5%", mortgageInterestRate: "1%", repairsRate: "0.5%",
+    comparables: ["-1%", "1%"].map(totalAdjustment => ({ salePrice: 450000, floorArea: 1000, totalAdjustment }))
+  });
+  assert.equal(result.assumptions.annualRentGrowth, 0.005);
+  assert.equal(result.assumptions.mortgageInterestRate, 0.01);
+  assert.equal(result.assumptions.repairsRate, 0.005);
+  assert.deepEqual(result.comparisonApproach.comparables.map(item => item.adjustment), [-0.01, 0.01]);
+  assert.equal(calculateResidentialDcf({ ...templateCase, year1Occupancy: 1 }).assumptions.year1Occupancy, 1);
+});
+
+test("future, impossible and stale comparable dates cannot support current value", () => {
+  const dates = ["2099-01-01", "2026-07-18", "2026-02-30", "2024-07-16", "2024-07-17", "2026-07-17"];
+  const result = calculateResidentialDcf({
+    ...templateCase,
+    comparables: dates.map(transactionDate => ({ transactionDate, salePrice: 450000, floorArea: 1000, source: "Completed sale record", verified: true }))
+  });
+  assert.equal(result.comparisonApproach.eligibleCount, 2);
+  assert.deepEqual(result.comparisonApproach.comparables.map(item => item.current), [false, false, false, false, true, true]);
+  assert.match(result.comparisonApproach.comparables[0].exclusionReason, /after the valuation date/);
+  assert.match(result.comparisonApproach.comparables[2].exclusionReason, /valid completed/);
+  assert.equal(result.marketValue, null);
+  for (const asOf of ["2026-02-30", "invalid", "2026-13-01"]) {
+    assert.throws(() => calculateResidentialDcf({ ...templateCase, asOf }), error => error.statusCode === 400 && error.code === "INVALID_DCF_INPUT");
+  }
+});
+
+test("DCF stops repayments after the loan ends and the fixed template rejects unsupported schedules", async () => {
+  const input = { ...templateCase, loanTermYears: 1, mortgageInterestRate: 0 };
+  const result = calculateResidentialDcf(input);
+  assert.equal(result.buyerReturns.financingSchedule[0].endingBalance, 0);
+  assert.equal(result.buyerReturns.financingSchedule[1].debtService, 0);
+  assert.equal(result.buyerReturns.financingSchedule[1].equityCashFlow, result.years[1].noi);
+  await assert.rejects(() => generateResidentialDcfWorkbook(input, result), error => error.code === "DCF_WORKBOOK_LOAN_TERM");
+});
+
+test("workbook never leaves an old DSCR cache for an all-cash purchase or silently drops comparables", async () => {
+  const input = { ...templateCase, loanToValue: 0 };
+  const archive = unzipSync(new Uint8Array(await generateResidentialDcfWorkbook(input)));
+  const dcf = strFromU8(archive["xl/worksheets/sheet2.xml"]);
+  assert.match(dcf, /<c\b[^>]*r="B86"[^>]*>[\s\S]*?<\/f><v><\/v><\/c>/);
+  const many = { ...templateCase, comparables: Array.from({ length: 5 }, (_, index) => ({ projectName: `Project ${index}`, salePrice: 450000, floorArea: 1000, transactionDate: "2026-07-01", source: `Sale record ${index}`, verified: true })) };
+  await assert.rejects(() => generateResidentialDcfWorkbook(many), error => error.code === "DCF_WORKBOOK_COMPARABLE_LIMIT");
+});
+
+test("duplicate sales and zero-weight rows cannot inflate comparable evidence", () => {
+  const sale = { projectName: "A", salePrice: 450000, floorArea: 1000, transactionDate: "2026-07-01", source: "Record A", verified: true };
+  const result = calculateResidentialDcf({ ...templateCase, comparables: [sale, { ...sale, id: "copied-row" }, { ...sale, source: "Record B", weight: 0 }] });
+  assert.equal(result.comparisonApproach.eligibleCount, 1);
+  assert.equal(result.marketValue, null);
+  assert.match(result.comparisonApproach.comparables[1].exclusionReason, /Duplicate/);
+  assert.match(result.comparisonApproach.comparables[2].exclusionReason, /Zero-weight/);
+});

@@ -247,6 +247,47 @@ test("security hardening and Malaysian deal-cost engine", async (t) => {
     assert.equal(invalid.response.status, 400);
   });
 
+  await t.test("calculator APIs retain all-cash and zero-interest scenarios and reject invalid inputs", async () => {
+    const cash = await post(baseUrl, "/api/tools/deal-costs", { price: 500000, loanMarginPercent: 0, holdingYears: 0 });
+    assert.equal(cash.response.status, 200);
+    assert.equal(cash.payload.estimate.loanAmount, 0);
+    assert.equal(cash.payload.estimate.downPayment, 500000);
+    assert.equal(cash.payload.estimate.loanMarginPercent, 0);
+    assert.equal(cash.payload.estimate.rpgt.holdingYears, 0);
+    assert.ok(!cash.payload.estimate.items.some(item => /loan/i.test(item.label)));
+    const defaults = await post(baseUrl, "/api/tools/deal-costs", { price: "500000" });
+    assert.equal(defaults.payload.estimate.loanAmount, 450000);
+    for (const body of [{ price: true }, { price: [500000] }, { price: 500000, loanMarginPercent: -10 }, { price: 500000, loanMarginPercent: "invalid" }, { price: 500000, holdingYears: "later" }]) {
+      assert.equal((await post(baseUrl, "/api/tools/deal-costs", body)).response.status, 400);
+    }
+    const zeroRate = await post(baseUrl, "/api/tools/affordability", { monthlyIncome: 10000, interestRate: 0 });
+    assert.equal(zeroRate.response.status, 200);
+    assert.equal(zeroRate.payload.estimate.assumptions.interestRate, 0);
+    assert.equal(zeroRate.payload.estimate.maxLoan, 7000 * 30 * 12);
+    for (const body of [{ monthlyIncome: true }, { monthlyIncome: 10000, monthlyCommitments: -1 }, { monthlyIncome: 10000, tenureYears: 30.5 }, { monthlyIncome: 10000, interestRate: "invalid" }, { monthlyIncome: 10000, dsrLimit: 100 }]) {
+      assert.equal((await post(baseUrl, "/api/tools/affordability", body)).response.status, 400);
+    }
+  });
+
+  await t.test("DCF API honors explicit zero overrides and all-cash loan choices", async () => {
+    const body = {
+      dealCard: { askingPrice: "450000", expectedRent: "3000", maintenance: "385", annualAssessmentQuitRent: "700", annualInsuranceTax: "600", furnishingBudget: "25000" },
+      valuation: { floorArea: 1000, loanToValue: 0, monthlyMaintenance: 0, annualAssessment: 0, annualInsurance: 0, initialRenovation: 0, transferStampDuty: 0, legalDueDiligence: 0 }
+    };
+    const result = await post(baseUrl, "/api/tools/residential-dcf", body);
+    assert.equal(result.response.status, 200);
+    const { assumptions, buyerReturns } = result.payload.valuation;
+    assert.equal(buyerReturns.loanAmount, 0);
+    assert.equal(buyerReturns.monthlyDebtService, 0);
+    for (const key of ["loanToValue", "monthlyMaintenance", "annualAssessment", "annualInsurance", "initialRenovation", "transferStampDuty", "legalDueDiligence", "loanValuationFees"]) assert.equal(assumptions[key], 0, key);
+    assert.equal(buyerReturns.totalAcquisitionCost, 450000);
+    body.valuation.monthlyMarketRent = 0;
+    assert.equal((await post(baseUrl, "/api/tools/residential-dcf", body)).response.status, 400, "An explicit missing rent must not silently use an older card value");
+    const analysis = await post(baseUrl, "/api/jarvis/analyze-deal", { dealCard: { area: "Penang", askingPrice: "450000", loanMarginPlan: "0%" } }, { "x-estatelab-client-id": "cost-analysis-device" });
+    assert.equal(analysis.response.status, 200, JSON.stringify(analysis.payload));
+    assert.equal(analysis.payload.analysis.acquisitionCostEstimate.loanAmount, 0);
+  });
+
   await t.test("residential DCF API distinguishes screening value from supported market value and exports Excel", async () => {
     const request = {
       dealCard: {

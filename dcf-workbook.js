@@ -74,7 +74,7 @@ function setCell(xml, reference, value) {
 }
 
 function setFormulaCache(xml, reference, value) {
-  if (value === undefined || value === null) return xml;
+  if (value === undefined) return xml;
   const numericValue = typeof value === "number" && Number.isFinite(value);
   if (typeof value === "number" && !numericValue) return xml;
   const pattern = cellPattern(reference);
@@ -82,7 +82,7 @@ function setFormulaCache(xml, reference, value) {
   return xml.replace(pattern, (match, attributes) => {
     const formula = match.match(/<f\b[^>]*(?:\/>|>[\s\S]*?<\/f>)/)?.[0];
     if (!formula) return match;
-    const cache = numericValue ? String(value) : xmlEscape(value);
+    const cache = value === null ? "" : numericValue ? String(value) : xmlEscape(value);
     return `${cellOpening(attributes, numericValue ? "" : "str")}${formula}<v>${cache}</v></c>`;
   });
 }
@@ -237,6 +237,12 @@ export async function generateResidentialDcfWorkbook(raw = {}, calculated = null
     error.statusCode = 400;
     error.code = "DCF_WORKBOOK_HORIZON";
     throw error;
+  }
+  if (a.loanToValue > 0 && a.loanTermYears < a.holdingPeriodYears) {
+    throw Object.assign(new Error("The attached template assumes debt service throughout the hold. Use the on-screen DCF for a loan repaid before exit."), { statusCode: 400, code: "DCF_WORKBOOK_LOAN_TERM" });
+  }
+  if (result.comparisonApproach.eligibleCount > 4) {
+    throw Object.assign(new Error("The attached template displays at most four eligible comparables. Select up to four before downloading; the on-screen DCF supports up to eight."), { statusCode: 400, code: "DCF_WORKBOOK_COMPARABLE_LIMIT" });
   }
   const source = await readFile(TEMPLATE_PATH);
   const archive = unzipSync(new Uint8Array(source));

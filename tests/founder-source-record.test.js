@@ -2,11 +2,38 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 import { parseFounderRecord } from "../scripts/import-founder-answers.js";
-import { proposeLinks } from "../scripts/link-belief-sources.js";
+import { applyProposedLinks, proposeLinks } from "../scripts/link-belief-sources.js";
 
 const repoDir = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+const exec = promisify(execFile);
+
+test("founder maintenance CLIs execute on Windows paths and dry runs leave the source and seed untouched", async () => {
+  const databasePath = path.join(repoDir, "data", "db.json"), sourcePath = path.join(repoDir, "docs", "FOUNDER_407_QA.md");
+  const before = await readFile(databasePath), source = await readFile(sourcePath);
+  const imported = await exec(process.execPath, [path.join(repoDir, "scripts", "import-founder-answers.js")], { cwd: repoDir });
+  assert.match(imported.stdout, /Parsed 407 answers/); assert.match(imported.stdout, /Dry run/);
+  const linked = await exec(process.execPath, [path.join(repoDir, "scripts", "link-belief-sources.js")], { cwd: repoDir });
+  assert.match(linked.stdout, /Founder answers: 407/); assert.match(linked.stdout, /Dry run/);
+  assert.deepEqual(await readFile(databasePath), before); assert.deepEqual(await readFile(sourcePath), source);
+});
+
+test("automatic source linking never replaces manual decisions and cannot revive stale singular links", () => {
+  const manual = { id: "manual", sourceQuestionIds: ["S1-17"], sourceQuestionId: "S1-17", sourceQuote: "Confirmed by owner", sourceLinkMethod: "manual" };
+  const stale = { id: "stale", sourceQuestionIds: ["S1-10"], sourceQuestionId: "S1-10", sourceQuote: "Old", sourceLinkMethod: "auto" };
+  const automatic = { id: "automatic", sourceQuestionId: "S1-11", claim: "Do not change the claim" };
+  const input = [manual, stale, automatic], original = structuredClone(input);
+  const result = applyProposedLinks(input, [{ beliefId: "manual", confident: true, questionIds: ["S1-99"], quote: "Wrong auto overwrite" }, { beliefId: "automatic", confident: true, questionIds: ["S1-12"], quote: "Proposed excerpt" }]);
+  assert.deepEqual(result.beliefs[0], manual);
+  assert.deepEqual(result.beliefs[1], { id: "stale" });
+  assert.equal(result.beliefs[2].sourceQuestionId, "S1-12");
+  assert.equal(result.beliefs[2].claim, automatic.claim);
+  assert.equal(result.applied, 1); assert.equal(result.cleared, 1);
+  assert.deepEqual(input, original);
+});
 
 async function loadDb() {
   return JSON.parse(await readFile(path.join(repoDir, "data", "db.json"), "utf8"));

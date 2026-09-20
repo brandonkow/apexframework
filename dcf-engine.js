@@ -20,7 +20,7 @@ function bounded(value, fallback, min, max) {
 
 function rate(value, fallback, max = 1) {
   let result = numeric(value, fallback);
-  if (Math.abs(result) > 1 && Math.abs(result) <= 100) result /= 100;
+  if ((typeof value === "string" && value.trim().endsWith("%")) || (Math.abs(result) > 1 && Math.abs(result) <= 100)) result /= 100;
   return Math.min(max, Math.max(0, result));
 }
 
@@ -80,11 +80,19 @@ function irr(cashFlows) {
   return (low + high) / 2;
 }
 
+function dateTimestamp(value) {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z)?$/.test(value)) return NaN;
+  const parsed = new Date(value);
+  if (!Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value.slice(0, 10)) return NaN;
+  return Date.parse(value.slice(0, 10));
+}
+
 function monthsOld(dateValue, asOf) {
-  const observed = new Date(dateValue);
-  const cutoff = new Date(asOf);
-  if (!Number.isFinite(observed.getTime()) || !Number.isFinite(cutoff.getTime())) return Infinity;
-  return Math.max(0, (cutoff.getUTCFullYear() - observed.getUTCFullYear()) * 12 + cutoff.getUTCMonth() - observed.getUTCMonth());
+  const observedTime = dateTimestamp(dateValue), cutoffTime = dateTimestamp(asOf);
+  if (!Number.isFinite(observedTime) || !Number.isFinite(cutoffTime) || observedTime > cutoffTime) return Infinity;
+  const observed = new Date(observedTime), cutoff = new Date(cutoffTime);
+  const months = (cutoff.getUTCFullYear() - observed.getUTCFullYear()) * 12 + cutoff.getUTCMonth() - observed.getUTCMonth();
+  return months + (cutoff.getUTCDate() > observed.getUTCDate() ? 1 : 0);
 }
 
 function comparableAdjustment(comparable) {
@@ -99,7 +107,7 @@ function comparableAdjustment(comparable) {
 
 function rateWithSign(value) {
   let result = numeric(value, 0);
-  if (Math.abs(result) > 1 && Math.abs(result) <= 100) result /= 100;
+  if ((typeof value === "string" && value.trim().endsWith("%")) || (Math.abs(result) > 1 && Math.abs(result) <= 100)) result /= 100;
   return Number.isFinite(result) ? result : 0;
 }
 
@@ -112,7 +120,10 @@ function normalizeComparable(raw, index, asOf) {
   const armsLength = raw?.armsLength !== false;
   const verified = raw?.verified === true && Boolean(source) && Boolean(transactionDate) && salePrice > 0 && floorArea > 0 && !listing && armsLength;
   const ageMonths = monthsOld(transactionDate, asOf);
-  const current = verified && ageMonths <= CURRENT_COMPARABLE_MONTHS;
+  const weight = Math.max(0, numeric(raw?.weight, 1));
+  const current = verified && weight > 0 && ageMonths <= CURRENT_COMPARABLE_MONTHS;
+  const invalidDate = !Number.isFinite(dateTimestamp(transactionDate));
+  const futureDate = !invalidDate && dateTimestamp(transactionDate) > dateTimestamp(asOf);
   const adjustment = comparableAdjustment(raw || {});
   const rawPricePerSf = floorArea ? salePrice / floorArea : 0;
   return {
@@ -125,11 +136,14 @@ function normalizeComparable(raw, index, asOf) {
     rawPricePerSf: round(rawPricePerSf),
     adjustment: round(adjustment, 4),
     adjustedPricePerSf: round(rawPricePerSf * (1 + adjustment)),
-    weight: Math.max(0, numeric(raw?.weight, 1)),
+    weight,
     verified,
     current,
     ageMonths: Number.isFinite(ageMonths) ? ageMonths : null,
-    exclusionReason: verified
+    exclusionReason: invalidDate ? "A valid completed-transaction date is required."
+      : futureDate ? "Transaction date is after the valuation date; it is not completed-sale evidence as of this valuation."
+      : weight === 0 ? "Zero-weight entries do not contribute comparable evidence."
+      : verified
       ? current ? "" : "Verified transaction is older than 24 months."
       : listing ? "Asking-price listings are not completed transaction evidence."
         : !armsLength ? "Transaction is not confirmed as arm's length."
@@ -139,6 +153,16 @@ function normalizeComparable(raw, index, asOf) {
 
 export function normalizeResidentialDcfInput(raw = {}) {
   const asOf = text(raw.asOf || new Date().toISOString().slice(0, 10), 40);
+  const seenComparables = new Set();
+  const comparables = (Array.isArray(raw.comparables) ? raw.comparables : []).slice(0, 8).map((rawComparable, index) => {
+    const item = normalizeComparable(rawComparable, index, asOf);
+    const identity = JSON.stringify([item.source.toLowerCase(), item.projectName.toLowerCase(), item.transactionDate.slice(0, 10), item.salePrice, item.floorArea]);
+    if (item.current) {
+      if (seenComparables.has(identity)) return { ...item, current: false, exclusionReason: "Duplicate sale details; provide a distinct transaction reference before counting another comparable." };
+      seenComparables.add(identity);
+    }
+    return item;
+  });
   const assumptions = {
     purchasePrice: Math.max(0, numeric(raw.purchasePrice || raw.askingPrice)),
     floorArea: Math.max(0, numeric(raw.floorArea || raw.size)),
@@ -200,7 +224,7 @@ export function normalizeResidentialDcfInput(raw = {}) {
       discountRate: text(raw.discountRateBasis, 200),
       terminalCapRate: text(raw.terminalCapRateBasis, 200)
     },
-    comparables: (Array.isArray(raw.comparables) ? raw.comparables : []).slice(0, 8).map((item, index) => normalizeComparable(item, index, asOf))
+    comparables
   };
 }
 
@@ -233,6 +257,7 @@ export function calculateResidentialDcf(raw = {}) {
   const input = normalizeResidentialDcfInput(raw);
   const a = input.assumptions;
   const errors = [];
+  if (!Number.isFinite(dateTimestamp(input.asOf))) errors.push("Provide a valid valuation date in YYYY-MM-DD format.");
   if (!a.purchasePrice) errors.push("Purchase price is required.");
   if (!a.floorArea) errors.push("Floor area is required.");
   if (!a.monthlyMarketRent) errors.push("Monthly market rent is required.");
@@ -339,7 +364,8 @@ export function calculateResidentialDcf(raw = {}) {
     const interestEstimate = openingBalance * a.mortgageInterestRate;
     const incomeTax = Math.max(0, yearNoi - interestEstimate) * a.buyerIncomeTaxRate;
     const endingBalance = mortgageBalance(loanAmount, a.mortgageInterestRate, a.loanTermYears, year, monthlyDebtService);
-    let cashFlow = yearNoi - annualDebtService - incomeTax;
+    const yearDebtService = year <= a.loanTermYears ? annualDebtService : 0;
+    let cashFlow = yearNoi - yearDebtService - incomeTax;
     let exitRpgt = 0;
     if (year === a.holdingPeriodYears) {
       exitRpgt = Math.max(0, netTerminalValue - a.purchasePrice - a.transferStampDuty - a.legalDueDiligence) * a.exitRpgtRate;
@@ -350,6 +376,7 @@ export function calculateResidentialDcf(raw = {}) {
       year,
       openingBalance: round(openingBalance),
       endingBalance: round(endingBalance),
+      debtService: round(yearDebtService),
       interestEstimate: round(interestEstimate),
       incomeTax: round(incomeTax),
       exitRpgt: round(exitRpgt),
@@ -372,7 +399,7 @@ export function calculateResidentialDcf(raw = {}) {
   if (terminalConcentration > 0.8) warnings.push("More than 80% of DCF value comes from the terminal value; the result is highly sensitive to the exit cap rate.");
   if (year1Dscr !== null && year1Dscr < a.minimumDscr) warnings.push("Year 1 NOI does not meet the selected debt-service coverage target.");
   if (!marketSupported) warnings.push("Do not present this result as a formal market valuation. It remains decision-support screening until the missing market evidence is verified.");
-  if (input.comparables.some((item) => item.exclusionReason)) warnings.push("One or more comparable entries were excluded because they were stale, incomplete, non-arm's-length, or asking-price evidence.");
+  if (input.comparables.some((item) => item.exclusionReason)) warnings.push("One or more comparables were excluded. Check each entry's date, evidence, duplicate and weighting details before relying on the comparison.");
 
   return {
     format: "apex-residential-dcf.v1",

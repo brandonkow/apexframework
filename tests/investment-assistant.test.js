@@ -83,6 +83,14 @@ test("basic brief helper retains known context without inventing finances", () =
   assert.deepEqual(Object.keys(parsed).sort(), ["area", "bedroomsMin", "budgetMax", "goal", "notes", "propertyType"].sort());
 });
 
+test("catalogue import rejects IDs that collide after trimming or truncation", () => {
+  for (const ids of [["unit-1", " unit-1 "], ["x".repeat(100) + "a", "x".repeat(100) + "b"]]) {
+    const raw = bundle();
+    raw.listings = ids.map(id => ({ ...structuredClone(raw.listings[0]), id }));
+    assert.throws(() => validateImport(raw), error => error.statusCode === 400 && /duplicate/.test(error.message));
+  }
+});
+
 test("site checks need dated evidence and remain user-declared progress", () => {
   const item = newCase("test"); item.tasks = stageTasks("site_visit");
   assert.throws(() => recordTask(item, item.tasks[0].id, { status: "done" }));

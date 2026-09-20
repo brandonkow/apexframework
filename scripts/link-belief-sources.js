@@ -12,7 +12,7 @@
 
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const repoDir = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const DB_PATH = path.join(repoDir, "data", "db.json");
@@ -137,6 +137,26 @@ export function proposeLinks(beliefs, answers, { minScore = 1.6, minRatio = 1.45
   });
 }
 
+export function applyProposedLinks(beliefs, proposals) {
+  const byId = new Map(proposals.filter(item => item.confident).map(item => [item.beliefId, item]));
+  let applied = 0, cleared = 0;
+  const linkedBeliefs = beliefs.map(belief => {
+    if (belief.sourceLinkMethod === "manual") return belief;
+    const link = byId.get(belief.id);
+    if (link) {
+      applied++;
+      return { ...belief, sourceQuestionIds: link.questionIds, sourceQuestionId: link.questionIds[0] || "", sourceQuote: link.quote, sourceLinkMethod: "auto" };
+    }
+    if (belief.sourceQuestionIds?.length || belief.sourceQuestionId) {
+      cleared++;
+      const { sourceQuestionIds, sourceQuestionId, sourceQuote, sourceLinkMethod, ...rest } = belief;
+      return rest;
+    }
+    return belief;
+  });
+  return { beliefs: linkedBeliefs, applied, cleared };
+}
+
 async function main() {
   const db = JSON.parse(await readFile(DB_PATH, "utf8"));
   const answers = (db.brain?.answers || []).filter((item) => item.source === "founder-interview-2026");
@@ -166,35 +186,13 @@ async function main() {
     return;
   }
 
-  const byId = new Map(confident.map((item) => [item.beliefId, item]));
-  let applied = 0;
-  let cleared = 0;
-  db.brain.beliefs = beliefs.map((belief) => {
-    const link = byId.get(belief.id);
-    if (link) {
-      applied += 1;
-      return {
-        ...belief,
-        sourceQuestionIds: link.questionIds,
-        sourceQuote: link.quote,
-        sourceLinkMethod: "auto"
-      };
-    }
-    // Drop links this matcher can no longer stand behind, so the database always
-    // reflects the current rules rather than an accumulation of past runs. Links a
-    // person confirmed by hand are never touched.
-    if (belief.sourceQuestionIds?.length && belief.sourceLinkMethod !== "manual") {
-      cleared += 1;
-      const { sourceQuestionIds, sourceQuote, sourceLinkMethod, ...rest } = belief;
-      return rest;
-    }
-    return belief;
-  });
+  const { beliefs: linkedBeliefs, applied, cleared } = applyProposedLinks(beliefs, proposals);
+  db.brain.beliefs = linkedBeliefs;
   await writeFile(DB_PATH, `${JSON.stringify(db, null, 2)}\n`);
   console.log(`\nApplied ${applied} source links to data/db.json.`);
   if (cleared) console.log(`Cleared ${cleared} stale auto-link(s) no longer proposed.`);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   await main();
 }
