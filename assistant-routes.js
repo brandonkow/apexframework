@@ -1,5 +1,5 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { assistantState, cleanBrief, briefQuestion, interpretBrief, BRIEF_SCHEMA, validBriefResponse, validateImport, catalogueCoverage, discover, newCase, publicCase, selectedSourceStatus, addEvent, message, stageTasks, STAGES, recordTask, pastDate, publicUrl, text, fail, isoNow } from "./investment-assistant.js";
+import { assistantState, cleanBrief, briefQuestion, interpretBrief, BRIEF_SCHEMA, validBriefResponse, catalogueCoverage, discover, newCase, publicCase, selectedSourceStatus, addEvent, message, stageTasks, STAGES, recordTask, pastDate, publicUrl, text, fail, isoNow } from "./investment-assistant.js";
 import { advanceSearch, resumeSearch, saveCase } from "./assistant-jobs.js";
 import { socialReply, frameworkReply, conciseAssistantReply, activeDecisionBoundary } from "./assistant-reasoning.js";
 import { effectiveContext, updateWorkingContext, deleteInvestigation } from "./assistant-context.js";
@@ -9,6 +9,8 @@ import { changeMilestone, ownershipPlan, RESPONSIBILITIES, ACTION_SUGGESTIONS } 
 import { learningView, learningState, compareThesis, saveLearning, publicProposal, decideProposal } from "./assistant-learning.js";
 import { malaysiaDate } from "./assistant-calendar.js";
 import { startPropertyReview } from "./assistant-property.js";
+import { previewCatalogue, publishCatalogue } from "./assistant-catalogue.js";
+import { MAX_BACKUP_BYTES, previewRecovery, restoreInvestigation } from "./assistant-recovery.js";
 
 const COOKIE = "apex_investment_guest";
 function guestScope(req, res, create = false) {
@@ -51,15 +53,13 @@ export async function assistantRoutes({ req, res, url, db, actor, send, readBody
     return respond(200, { proposal: await decideProposal(body, { readDb, writeDb, normalizeBelief }) });
   }
   if (owner) {
+    if (ownerAuthorized !== true) fail("Only the owner may manage discovery sources.", 403);
     if (req.method === "GET") return respond(200, { sources: data.sources, listings: data.listings, coverage: catalogueCoverage(data) });
     if (req.method === "POST") {
-      const payload = validateImport(await readBody(req, 4 * 1024 * 1024));
-      if (data.sources.length >= 50 && !data.sources.some(source => source.id === payload.source.id)) fail("Keep the initial catalogue within 50 sources.");
-      data.sources = [...data.sources.filter(source => source.id !== payload.source.id), payload.source];
-      data.listings = [...data.listings.filter(item => item.sourceId !== payload.source.id), ...payload.listings];
-      if (data.listings.length > 10000) fail("The catalogue is limited to 10,000 records. Narrow the coverage before importing.");
-      await writeDb(db);
-      return respond(200, { imported: payload.listings.length, source: payload.source, coverage: catalogueCoverage(data) });
+      const body = await readBody(req, 4 * 1024 * 1024);
+      if (body?.action === "preview") return respond(200, { preview: previewCatalogue(body.catalogue, data).preview });
+      if (body?.action !== undefined && (body.action !== "publish" || typeof body.previewToken !== "string")) fail("Preview the catalogue before confirming publication.");
+      return respond(200, await publishCatalogue(body?.action === "publish" ? body.catalogue : body, body?.previewToken, { readDb, writeDb }));
     }
     if (req.method === "DELETE") {
       const body = await readBody(req);
@@ -110,6 +110,14 @@ export async function assistantRoutes({ req, res, url, db, actor, send, readBody
       await writeDb(db);
       return respond(201, { case: publicCase(item) });
     }
+  }
+  if (req.method === "POST" && url.pathname === "/api/assistant/restore") {
+    const body = await readBody(req, MAX_BACKUP_BYTES + 1024);
+    if (body?.action === "preview") return respond(200, { preview: previewRecovery(body.backup).preview });
+    if (body?.action !== "restore") fail("Choose preview or restore for the investigation backup.");
+    const saved = await restoreInvestigation(body.backup, body.previewToken, scope, actor.user ? 20 : 3, { readDb, writeDb });
+    data = saved.data;
+    return respond(saved.alreadyRestored ? 200 : 201, { case: publicCase(saved.item), alreadyRestored: saved.alreadyRestored });
   }
   const fileMatch = url.pathname.match(/^\/api\/assistant\/cases\/([\w-]+)\/files(?:\/([\w-]+)(?:\/(review|read))?)?$/);
   if (fileMatch) {

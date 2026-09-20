@@ -3,6 +3,7 @@ import { createPrivateFilesView } from "./files.js";
 import { createMilestonesView } from "./milestones.js";
 import { createLearningView } from "./learning.js";
 import { createPropertyEntry } from "./property-entry.js";
+import { createRecoveryView } from "./recovery.js";
 
 const $ = selector => document.querySelector(selector);
 const escape = value => String(value ?? "").replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
@@ -13,8 +14,10 @@ const date = () => new Date().toISOString().slice(0, 10);
 export function createAssistant({ openTool, useProperty, notify, onContextSaved, onContextState, onInvestigationDeleted }) {
   const host = $("#investmentAssistant");
   let current = null, status = null, busy = false, generation = 0, timer, cases = [], editing = false;
+  let backupUrl = "", backupCaseId = "";
   const requestControllers = new Set(), syncStates = new Map();
   const sync = createContextSync({ request, onSaved(id, item) {
+    if (backupCaseId === id) clearBackupDownload();
     onContextSaved?.(id, item);
     if (current?.id === id) current = item;
   }, onState(id, value, error) {
@@ -34,9 +37,27 @@ export function createAssistant({ openTool, useProperty, notify, onContextSaved,
     <section id="investmentFinance" class="assistant-finance" aria-label="Financial conversation" hidden></section>
     <p id="investmentError" class="error-note" role="alert"></p>
     <form id="investmentComposer" class="assistant-composer"><label class="sr-only" for="investmentInput">Talk to Apex</label><textarea id="investmentInput" rows="2" maxlength="2000" placeholder="Find a rental property in Penang that fits my situation..." required></textarea><button type="submit" class="primary-button">Send <span aria-hidden="true">&#8599;</span></button></form>
-    <div class="assistant-composer-meta"><label><input id="investmentAi" type="checkbox"> Use AI reasoning</label><span id="investmentModel">Checking connection</span><button id="investmentManualStart" type="button">Review a property</button><button id="investmentProfileStart" type="button">Check my buying power</button><button id="investmentVoice" type="button">Speak</button></div>
+    <div class="assistant-composer-meta"><label hidden><input id="investmentAi" type="checkbox"> Use AI reasoning</label><span id="investmentModel">Framework mode</span><button id="investmentManualStart" type="button">Review a property</button><button id="investmentProfileStart" type="button">Check my buying power</button><button id="investmentVoice" type="button">Speak</button></div>
     <details class="assistant-boundaries"><summary>What happens with my information?</summary><p>Your confirmed brief guides the search; it does not prove affordability. Turning on AI sends submitted messages and relevant case context to the configured provider. Your private observations never update the shared founder framework. Site visits, professional checks and external commitments still need people.</p><p id="investmentCoverage"></p></details>`;
   host.querySelector(".assistant-more").insertAdjacentHTML("beforeend", '<button id="investmentCleanup" type="button" hidden>Retry private file cleanup</button><p id="investmentCleanupNotice" class="assistant-caption" role="status"></p>');
+  host.querySelector(".assistant-casebar").insertAdjacentHTML("afterend", '<p id="investmentBackupReady" class="assistant-caption" role="status" hidden></p>');
+  function clearBackupDownload() {
+    if (backupUrl) URL.revokeObjectURL(backupUrl);
+    backupUrl = ""; backupCaseId = "";
+    const ready = $("#investmentBackupReady");
+    if (ready) { ready.hidden = true; ready.replaceChildren(); }
+  }
+  const recovery = createRecoveryView(host, { request, run: work => safely(async () => {
+    if (propertyEntry.isOpen()) throw new Error("Finish or cancel your private property entry before restoring another investigation.");
+    if (current) await sync.flush(current.id);
+    await work();
+  }), accept(result) {
+    propertyEntry.reset(); current = result.case; editing = false; sync.accept(current); render();
+    host.querySelector(".assistant-more").open = false;
+    if (current.selected) useProperty(current);
+    notify(result.alreadyRestored ? "This backup was already restored. Opened the existing private copy." : "Backup restored privately. Review assumptions and reopened checks before proceeding.");
+    $("#investmentInput").focus();
+  } });
   const propertyEntry = createPropertyEntry(host, { changed: render, submit: property => void safely(async () => {
     const epoch = generation;
     if (!current) await create(true);
@@ -87,7 +108,8 @@ export function createAssistant({ openTool, useProperty, notify, onContextSaved,
   function lock(value) {
     busy = value;
     $("#investmentComposer button").disabled = value;
-    for (const id of ["investmentCaseSelect", "investmentNew", "investmentDelete"]) $("#" + id).disabled = value;
+    for (const id of ["investmentCaseSelect", "investmentNew", "investmentDelete", "investmentExport", "investmentRestoreOpen"]) $("#" + id).disabled = value;
+    host.querySelectorAll("#investmentRecovery input, #investmentRecovery button").forEach(control => control.disabled = value);
     host.setAttribute("aria-busy", String(value));
     propertyEntry.render(current, busy);
   }
@@ -100,6 +122,8 @@ export function createAssistant({ openTool, useProperty, notify, onContextSaved,
     $("#investmentCaseSelect").innerHTML = cases.length ? cases.map(item => `<option value="${escape(item.id)}" ${current?.id === item.id ? "selected" : ""}>${escape(item.title)} / ${escape(labels[item.stage])}</option>`).join("") : '<option value="">No saved investigation</option>';
   }
   function render() {
+    if (backupCaseId && backupCaseId !== current?.id) clearBackupDownload();
+    recovery.render(current);
     propertyEntry.render(current, busy);
     $("#investmentExport").hidden = !current;
     $("#investmentDelete").hidden = !current;
@@ -197,14 +221,15 @@ export function createAssistant({ openTool, useProperty, notify, onContextSaved,
   }
   async function create(keepEntry = false) { const epoch = generation, result = await request("/api/assistant/cases", {}); if (epoch !== generation) return; if (!keepEntry) propertyEntry.reset(); current = result.case; editing = false; render(); }
   async function refresh() {
-    generation++; clearTimeout(timer); sync.reset(); syncStates.clear(); for (const controller of requestControllers) controller.abort(); propertyEntry.reset(); current = null; render();
+    generation++; clearTimeout(timer); sync.reset(); syncStates.clear(); for (const controller of requestControllers) controller.abort(); propertyEntry.reset(); recovery.reset(); current = null; render();
     const epoch = generation, result = await request("/api/assistant/status");
     if (epoch !== generation) return;
     status = result;
     renderCleanup(status.files?.pendingDeletes || 0);
     $("#investmentStorage").textContent = status.storageNotice;
-    $("#investmentModel").textContent = status.llm ? "AI available / opt in to use" : "Framework mode / AI not configured";
+    $("#investmentModel").textContent = status.llm ? "AI available / opt in to use" : "Framework mode";
     $("#investmentAi").checked = false; $("#investmentAi").disabled = !status.llm;
+    $("#investmentAi").closest("label").hidden = !status.llm;
     $("#investmentCoverage").textContent = `${status.coverage.current} current records from ${status.coverage.sources.length} published sources. ${status.coverage.limit} ${status.background}`;
     $("#investmentAdopt").hidden = !status.guestDraftAvailable;
     await refreshList();
@@ -247,12 +272,21 @@ export function createAssistant({ openTool, useProperty, notify, onContextSaved,
   $("#investmentAccount").addEventListener("click", () => void openTool("account"));
   $("#investmentCleanup").addEventListener("click", () => void safely(async () => { const result = await request("/api/assistant/cleanup", {}); renderCleanup(result.pendingFileDeletes); }));
   $("#investmentAdopt").addEventListener("click", () => void safely(async () => { await request("/api/assistant/adopt", {}); await refresh(); }));
-  $("#investmentExport").addEventListener("click", () => {
+  $("#investmentExport").addEventListener("click", () => void safely(async () => {
     if (!current) return;
-    const url = URL.createObjectURL(new Blob([JSON.stringify({ format: "apex-investigation.v1", exportedAt: new Date().toISOString(), case: current }, null, 2)], { type: "application/json" }));
-    const link = document.createElement("a"); link.href = url; link.download = `apex-investigation-${date()}.json`; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
-    if (current.attachments?.length) notify("JSON export includes file notes and extraction, not the original bytes. Download originals individually from Private evidence.");
-  });
+    clearBackupDownload();
+    const id = current.id, epoch = generation;
+    await sync.flush(id);
+    const backup = await request(`/api/assistant/cases/${id}/export`);
+    if (epoch !== generation) return;
+    backupUrl = URL.createObjectURL(new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" }));
+    backupCaseId = id;
+    const link = document.createElement("a"); link.href = backupUrl; link.download = `apex-investigation-${date()}.json`; link.textContent = "Download private backup";
+    const ready = $("#investmentBackupReady");
+    ready.replaceChildren("Backup ready. If the download did not start, ", link, ". Keep this financial record private."); ready.hidden = false;
+    link.click();
+    if (backup.case.attachments?.length) notify("JSON export includes file notes and extraction, not the original bytes. Download originals individually from Private evidence.");
+  }));
   $("#investmentDelete").addEventListener("click", event => {
     if (!current || busy) return;
     if (event.target.dataset.confirm !== current.id) { event.target.dataset.confirm = current.id; event.target.textContent = "Confirm delete private case and drafts; approved shared hypotheses may remain"; return; }
@@ -306,25 +340,59 @@ export function createAssistant({ openTool, useProperty, notify, onContextSaved,
 }
 
 export function installCataloguePanel(host) {
-  host.querySelector("#workspacePanels").insertAdjacentHTML("beforeend", `<section data-surface="catalogue" class="studio-surface" hidden><header><span><small>OWNER ONLY</small><b>Published discovery sources</b></span></header><p>Publish only records you are permitted to redistribute. This catalogue is separate from private evidence and the founder's 407 answers.</p><form id="catalogueForm"><label>Owner token<input id="catalogueToken" type="password" autocomplete="off"></label><label>Permitted source export (JSON)<input id="catalogueFile" type="file" accept=".json,application/json"></label><p>A complete import replaces that source's earlier records, so withdrawn listings do not remain active.</p><button type="submit" class="primary-button">Validate &amp; publish source</button><button type="button" id="catalogueRefresh">Refresh coverage</button><a href="/assistant/catalogue-template.json" download>Download an empty import template</a></form><p id="catalogueMessage" role="status"></p><div id="catalogueSources"></div></section>`);
+  host.querySelector("#workspacePanels").insertAdjacentHTML("beforeend", `<section data-surface="catalogue" class="studio-surface" hidden><header><span><small>OWNER ONLY</small><b>Published discovery sources</b></span></header><p>Publish only records you are permitted to redistribute. This catalogue is separate from private evidence and the founder's 407 answers.</p><form id="catalogueForm"><label>Owner token<input id="catalogueToken" type="password" autocomplete="off"></label><label>Permitted source export (JSON)<input id="catalogueFile" type="file" accept=".json,application/json"></label><p>A complete import replaces that source's earlier records. Preview additions, changes and removals before publishing.</p><button type="submit" class="primary-button">Preview import</button><button type="button" id="catalogueRefresh">Refresh coverage</button><a href="/assistant/catalogue-template.json" download>Download an empty import template</a></form><p id="catalogueMessage" role="status"></p><section id="cataloguePreview" hidden aria-label="Catalogue import preview"></section><button type="button" id="cataloguePublish" class="primary-button" hidden>Confirm publication</button><div id="catalogueSources"></div></section>`);
+  let staged = null, previewToken = "", epoch = 0, busy = false;
+  function resetPreview() { epoch++; staged = null; previewToken = ""; $("#cataloguePreview").hidden = true; $("#cataloguePublish").hidden = true; }
+  async function run(work) {
+    if (busy) return;
+    busy = true;
+    const controls = [...$("#catalogueForm").querySelectorAll("input,button"), $("#cataloguePublish"), ...$("#catalogueSources").querySelectorAll("button")];
+    controls.forEach(control => control.disabled = true);
+    try { await work(); } catch (error) { $("#catalogueMessage").textContent = error.message; } finally { busy = false; controls.forEach(control => control.disabled = false); }
+  }
+  $("#catalogueFile").addEventListener("change", resetPreview);
+  $("#catalogueToken").addEventListener("input", resetPreview);
+  document.addEventListener("apex:auth", () => { resetPreview(); $("#catalogueToken").value = ""; $("#catalogueSources").textContent = ""; });
   async function request(method = "GET", body) {
+    const active = epoch;
     const response = await fetch("/api/owner/discovery", { method, headers: { "content-type": "application/json", "x-estatelab-owner-token": $("#catalogueToken").value || $("#ownerIntelToken")?.value || "" }, body: body ? JSON.stringify(body) : undefined });
-    const result = await response.json(); if (!response.ok) throw new Error(result.error || "Catalogue request failed."); return result;
+    const result = await response.json();
+    if (active !== epoch) throw new Error("The catalogue view changed. Refresh coverage before continuing.");
+    if (!response.ok) throw new Error(result.error || "Catalogue request failed."); return result;
   }
   async function refresh() {
     const result = await request();
     $("#catalogueSources").innerHTML = `<p>${result.coverage.current} current listings / ${result.coverage.records} total records.</p>${result.sources.map(source => `<article><h3>${escape(source.name)}</h3><p>${escape(source.coverage)} / ${escape(source.permission)}</p><p>${escape(source.permissionReference)}</p><button type="button" data-unpublish="${escape(source.id)}">Unpublish this source</button></article>`).join("")}`;
   }
-  $("#catalogueRefresh").addEventListener("click", () => void refresh().catch(error => { $("#catalogueMessage").textContent = error.message; }));
-  $("#catalogueForm").addEventListener("submit", async event => {
-    event.preventDefault(); const file = $("#catalogueFile").files[0], button = event.target.querySelector('[type="submit"]'); button.disabled = true;
-    try { if (!file || file.size > 4 * 1024 * 1024) throw new Error("Choose a JSON source export under 4 MB."); const result = await request("POST", JSON.parse(await file.text())); $("#catalogueMessage").textContent = `Published ${result.imported} records. Import validates structure, not the truth of source claims.`; await refresh(); }
-    catch (error) { $("#catalogueMessage").textContent = error.message; }
-    finally { button.disabled = false; }
+  $("#catalogueRefresh").addEventListener("click", () => void run(refresh));
+  $("#catalogueForm").addEventListener("submit", event => {
+    event.preventDefault();
+    void run(async () => {
+      resetPreview(); const active = epoch, file = $("#catalogueFile").files[0];
+      if (!file || file.size > 4 * 1024 * 1024) throw new Error("Choose a JSON source export under 4 MB.");
+      let catalogue;
+      try { catalogue = JSON.parse(await file.text()); } catch { throw new Error("This file is not valid JSON. Use the catalogue template."); }
+      if (active !== epoch) return;
+      const { preview } = await request("POST", { action: "preview", catalogue });
+      if (active !== epoch) return;
+      staged = catalogue; previewToken = preview.token;
+      $("#cataloguePreview").innerHTML = `<h3>${escape(preview.sourceName)}</h3><p>${preview.added} added / ${preview.changed} changed / ${preview.unchanged} unchanged / <b>${preview.removed} removed</b></p><p>${preview.total} records after publication; ${preview.current} currently available within the 30-day window. ${preview.excluded} excluded from current discovery.</p><p>Permission declaration: ${escape(preview.permission)} / ${escape(preview.permissionReference)}</p>${preview.removedExamples.length ? `<p>Removal examples: ${preview.removedExamples.map(item => escape(item.projectName + " (" + item.id + ")")).join(", ")}</p>` : ""}<p>This replaces only this source. Validation does not establish truth or licensing. Private cases and the founder framework are unchanged.</p>`;
+      $("#cataloguePreview").hidden = false; $("#cataloguePublish").hidden = false;
+      $("#catalogueMessage").textContent = "Preview only. Nothing has been published.";
+    });
   });
-  $("#catalogueSources").addEventListener("click", async event => {
+  $("#cataloguePublish").addEventListener("click", () => void run(async () => {
+    if (!staged || !previewToken) return;
+    const active = epoch;
+    try {
+      const result = await request("POST", { action: "publish", catalogue: staged, previewToken });
+      if (active !== epoch) return;
+      resetPreview(); $("#catalogueMessage").textContent = `Published ${result.imported} records. Source claims still need evidence checks.`; await refresh();
+    } catch (error) { resetPreview(); throw error; }
+  }));
+  $("#catalogueSources").addEventListener("click", event => {
     const button = event.target.closest("[data-unpublish]"); if (!button) return;
     if (button.dataset.confirm !== "true") { button.dataset.confirm = "true"; button.textContent = "Confirm unpublish"; return; }
-    try { await request("DELETE", { sourceId: button.dataset.unpublish }); await refresh(); } catch (error) { $("#catalogueMessage").textContent = error.message; }
+    void run(async () => { await request("DELETE", { sourceId: button.dataset.unpublish }); resetPreview(); await refresh(); });
   });
 }

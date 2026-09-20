@@ -124,7 +124,11 @@ test("private discovery lifecycle persists, resumes and rejects cross-user edits
     return { status: response.status, cookie: response.headers.get("set-cookie")?.split(";")[0], data: await response.json() };
   }
   assert.equal((await request("/api/owner/discovery", bundle())).status, 403);
-  assert.equal((await request("/api/owner/discovery", bundle(), { owner: true })).status, 200);
+  assert.equal((await request("/api/owner/discovery", { action: "preview", catalogue: bundle() })).status, 403);
+  const cataloguePreview = await request("/api/owner/discovery", { action: "preview", catalogue: bundle() }, { owner: true });
+  assert.equal(cataloguePreview.status, 200);
+  assert.equal((await request("/api/assistant/status")).data.coverage.current, 0);
+  assert.equal((await request("/api/owner/discovery", { action: "publish", catalogue: bundle(), previewToken: cataloguePreview.data.preview.token }, { owner: true })).status, 200);
   const created = await request("/api/assistant/cases", {}), guest = created.cookie;
   assert.match(guest, /^apex_investment_guest=/);
   let item = created.data.case;
@@ -190,6 +194,25 @@ test("private discovery lifecycle persists, resumes and rejects cross-user edits
   assert.equal(exported.data.investigations[0].scope, undefined);
   assert.equal(exported.data.investigations[0].working.financialProfile.monthlyIncome, "8000");
   assert.equal(exported.data.investigations[0].tasks.find(task => task.id === "site_visit:management").plan.contactLabel, "Private building contact");
+  const caseExport = (await request(`/api/assistant/cases/${id}/export`, null, { cookie: accountCookie })).data;
+  const restorePreview = await request("/api/assistant/restore", { action: "preview", backup: caseExport });
+  assert.equal(restorePreview.status, 200);
+  const recoveryGuest = restorePreview.cookie;
+  assert.equal((await request("/api/assistant/cases", null, { cookie: recoveryGuest })).data.cases.length, 0);
+  const restoreBody = { action: "restore", backup: caseExport, previewToken: restorePreview.data.preview.token };
+  const restored = await request("/api/assistant/restore", restoreBody, { cookie: recoveryGuest });
+  assert.equal(restored.status, 201); assert.notEqual(restored.data.case.id, id);
+  assert.equal(restored.data.case.stage, "rental");
+  assert.equal(restored.data.case.toolContext.financialProfile.monthlyIncome, "8000");
+  assert.deepEqual(restored.data.case.outcomes, []);
+  assert.equal(restored.data.case.recovery.history.outcomes[0].cashFlow, 300);
+  assert.ok(restored.data.case.tasks.every(task => task.status === "open"));
+  assert.equal((await request(`/api/assistant/cases/${restored.data.case.id}`, null, { cookie: accountCookie })).status, 404);
+  await stop(); await start();
+  const retryRestore = await request("/api/assistant/restore", restoreBody, { cookie: recoveryGuest });
+  assert.equal(retryRestore.status, 200); assert.equal(retryRestore.data.alreadyRestored, true);
+  assert.equal(retryRestore.data.case.id, restored.data.case.id);
+  assert.equal((await request(`/api/assistant/cases/${restored.data.case.id}`, null, { method: "DELETE", cookie: recoveryGuest })).status, 200);
   assert.equal((await request(`/api/assistant/cases/${id}`, null, { method: "DELETE", cookie: accountCookie })).status, 200);
   assert.equal((await request(`/api/assistant/cases/${id}`, null, { cookie: accountCookie })).status, 404);
 });
