@@ -100,16 +100,42 @@ The 407 answers are not a questionnaire every end user must complete. Not every 
 
 ```mermaid
 flowchart TD
-  SOURCE["B0. Original 407 answers\nImmutable founder source"] --> RULES["Derived rules and beliefs\nTraceable, reviewable interpretations"]
-  RULES --> B1["B1. Property selection\nIs the asset worth considering?"]
-  B1 --> B2["B2. Investor suitability\nDoes it fit this person's capacity and goals?"]
-  B2 --> B3["B3. Financing and deal structure\nIs the genuine transaction survivable?"]
-  B3 --> B4["B4. Holding and management\nCan the owner carry and operate it?"]
-  B4 --> B5["B5. Portfolio and scaling\nDoes it improve the overall exposure?"]
-  B5 --> B6["B6. Market and timing\nWhat does the local cycle change?"]
-  B6 --> B7["B7. Decision and learning\nWhat prediction will be tested later?"]
-  B8["B8. Execution calibration\nPractical checks across stages"] -.-> RULES
-  B7 --> OUTPUT["Decision support, not purchase approval\nHard stops override attractive scores"]
+  SOURCE["B0. Original founder interview\n407 answered questions"] --> RULES["Rules and interpretations\nDerived from the source"]
+  RULES --> S1["B1. Property selection\nDoes the property deserve consideration?"]
+  S1 --> S2["B2. Investor suitability\nDoes it fit this user's finances and goals?"]
+  S2 --> S3["B3. Financing and deal structure\nCan the genuine transaction be funded safely?"]
+  S3 --> S4["B4. Holding power and asset management\nCan the owner hold and operate the property?"]
+  S4 --> S5["B5. Portfolio strategy and scaling\nDoes another property improve the portfolio?"]
+  S5 --> S6["B6. Market intelligence and timing\nWhat do local demand and supply change?"]
+  S6 --> S7["B7. Decision journal and learning\nWhat thesis will later be tested against outcomes?"]
+  S7 --> RESULT["Evidence-led decision support\nHard stops outrank the weighted score"]
+  EXEC["B8. Execution calibration\nSections A-M below"] -.-> S1
+  EXEC -.-> S3
+  EXEC -.-> S4
+  EXEC -.-> S7
+```
+
+#### B1 in detail: property selection
+
+All twelve sections below make up Stage 1. They take the reader from the investment thesis and local demand through price, quality, evidence, rental, supply and title to the decision standard.
+
+```mermaid
+flowchart TD
+  A["B1A. Selection philosophy"] --> B["B1B. Area selection"] --> C["B1C. Price segment"] --> D["B1D. Future buyer pool"]
+  D --> E["B1E. Own-stay appeal"] --> F["B1F. Project and unit quality"] --> G["B1G. Evidence and data"] --> H["B1H. Rejection rules"]
+  H --> I["B1I. Rental demand and cash flow"] --> J["B1J. Supply, competition and density"] --> K["B1K. Legal, title and transactionability"] --> L["B1L. Scoring and decision standard"]
+```
+
+#### B8 in detail: cross-stage execution calibration
+
+These thirteen sections inform relevant decisions throughout the seven stages. They are a cross-stage layer, not another investment stage.
+
+```mermaid
+flowchart TD
+  A["B8A. Deal sourcing"] --> B["B8B. Seller motivation and negotiation"] --> C["B8C. Agent, banker and lawyer filtering"]
+  C --> D["B8D. Site visit and inspection"] --> E["B8E. Management and JMB reality"] --> F["B8F. Resident demographic and project culture"]
+  F --> G["B8G. Renovation and furnishing"] --> H["B8H. Tenant screening and rental management"] --> I["B8I. Exit strategy and buyer psychology"]
+  I --> J["B8J. Micro-area culture"] --> K["B8K. Market behavior and ground sentiment"] --> L["B8L. Compliance and deal boundaries"] --> M["B8M. Apex challenge mode"]
 ```
 
 | ID | Stage | Founder answers | Rule document |
