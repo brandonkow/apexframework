@@ -2,6 +2,8 @@
 
 Apex Analytic is a minimal full-stack app for a Malaysia-focused real estate investment second brain.
 
+New to the repository? Start with the [visual user map and section-by-section amendment guide](docs/REPOSITORY_MAP.md). Its companion file index covers the tracked source without changing the founder framework.
+
 The public user experience is intentionally simple: users interact with one Apex Analytic interface. The knowledge base stays controlled by the owner; public users can query guidance and create chat sessions, but they cannot add to or change the underlying knowledge base.
 
 ## What Is Included
